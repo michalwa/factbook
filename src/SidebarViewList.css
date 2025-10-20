@@ -1,0 +1,21 @@
+.sidebar-view-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-view-list-item-link {
+  text-decoration: none;
+  color: inherit;
+  padding: 0.3rem 1rem;
+  display: block;
+}
+
+.sidebar-view-list-item.selected .sidebar-view-list-item-link,
+.sidebar-view-list-item-link:hover {
+  background: var(--bg-0);
+}
+
+.sidebar-view-list-item.selected .sidebar-view-list-item-link {
+  color: var(--text-active);
+}

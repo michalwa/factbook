@@ -1,0 +1,36 @@
+:root {
+  --bg-0: #090c13;
+  --bg-1: #101521;
+  --bg-selection: #324677;
+  --text-dim: #222e49;
+  --text-normal: #c5d1e2;
+  --text-active: #7696ff;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter Variable", sans-serif;
+  background: var(--bg-0);
+  color: var(--text-normal);
+}
+
+[data-corvu-resizable-panel] {
+  overflow: hidden;
+}
+
+[data-corvu-resizable-handle] {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 0.3rem;
+  margin-inline: -0.15rem;
+}
+
+.icon-button {
+  display: flex;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
