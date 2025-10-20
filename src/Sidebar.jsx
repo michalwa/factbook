@@ -28,10 +28,10 @@ export default function Sidebar() {
       </div>
       <SidebarViewList
         views={[
-          { id: 1, name: "All" },
-          { id: 2, name: "To do" },
-          { id: 3, name: "Work" },
-          { id: 4, name: "Recommendations" },
+          { id: 1, name: "All", entryCount: 53 },
+          { id: 2, name: "To do", entryCount: 3 },
+          { id: 3, name: "Work", entryCount: 12 },
+          { id: 4, name: "Recommendations", entryCount: 12 },
         ]}
         selectedId={selectedViewId()}
         setSelectedId={setSelectedViewId}

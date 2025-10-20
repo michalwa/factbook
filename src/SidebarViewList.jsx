@@ -15,6 +15,7 @@ export default function SidebarViewList(props) {
               onClick={() => props.setSelectedId(view.id)}
             >
               {view.name}
+              <span class="badge">{view.entryCount}</span>
             </a>
           </li>
         )}

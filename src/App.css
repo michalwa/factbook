@@ -1,8 +1,10 @@
 :root {
   --bg-0: #090c13;
   --bg-1: #101521;
+  --bg-2: #182238;
   --bg-selection: #324677;
   --text-dim: #222e49;
+  --text-badge: #6478a7;
   --text-normal: #c5d1e2;
   --text-active: #7696ff;
 }
@@ -33,4 +35,15 @@ body {
   border: none;
   color: inherit;
   cursor: pointer;
+}
+
+.badge {
+  background: var(--bg-2);
+  color: var(--text-badge);
+  font-size: 0.7em;
+  display: flex;
+  align-items: center;
+  height: 1.5em;
+  padding: 0 0.3em;
+  border-radius: 0.75em;
 }
