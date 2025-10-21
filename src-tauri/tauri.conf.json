@@ -31,5 +31,19 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "cli": {
+      "description": "factbook",
+      "args": [
+        {
+          "short": "f",
+          "name": "file",
+          "description": "Journal file",
+          "takesValue": true,
+          "required": true
+        }
+      ]
+    }
   }
 }

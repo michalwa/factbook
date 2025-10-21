@@ -1,6 +1,7 @@
 import { createCodeMirror } from "solid-codemirror";
 import { EditorView } from "@codemirror/view";
 import "./Entry.css";
+import { formatDate } from "date-fns";
 
 export default function Entry(props) {
   const { ref: editorRef, createExtension: createEditorExtension } =
@@ -29,10 +30,12 @@ export default function Entry(props) {
     ),
   );
 
+  const timestamp = () => formatDate(props.timestamp, "yyyy-MM-dd HH:mm");
+
   return (
     <div class="entry">
-      <time datetime={props.timestamp} class="entry-timestamp">
-        {props.timestamp}
+      <time datetime={timestamp()} class="entry-timestamp">
+        {timestamp()}
       </time>
       <div class="entry-divider"></div>
       <div class="entry-content" ref={editorRef}></div>
