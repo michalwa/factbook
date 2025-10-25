@@ -24,6 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 tauri-plugin-log = "2"
 log = "0.4"
+swipl = { git = "https://github.com/michalwa/swipl-rs" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"

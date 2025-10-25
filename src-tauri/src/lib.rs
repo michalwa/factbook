@@ -1,6 +1,11 @@
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::RwLock;
+use std::ops::Deref;
+use std::sync::{Mutex, RwLock};
+use swipl::prelude::{
+    initialize_swipl_with_state, pred, term, ActivatedEngine as SwiplActivatedEngine,
+    Context as SwiplContext,
+};
 use tauri::Manager;
 use tauri_plugin_cli::CliExt;
 
@@ -10,12 +15,26 @@ mod api;
 mod model;
 mod util;
 
-#[derive(Default)]
-struct AppState {
-    persistent_state: PersistentState,
+const PROLOG_STATE: &[u8] = include_bytes!("../target/state");
+
+struct SendSwiplContext(Mutex<SwiplContext<'static, SwiplActivatedEngine<'static>>>);
+
+// SAFETY: Everything is behind a `Mutex`
+unsafe impl Sync for SendSwiplContext {}
+unsafe impl Send for SendSwiplContext {}
+
+impl Deref for SendSwiplContext {
+    type Target = Mutex<SwiplContext<'static, SwiplActivatedEngine<'static>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-type AppStateRef = RwLock<AppState>;
+struct AppState {
+    persistent_state: RwLock<PersistentState>,
+    swipl_context: SendSwiplContext,
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,7 +45,7 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_cli::init())?;
 
-            app.manage(AppStateRef::default());
+            let mut persistent_state = None;
 
             if let Ok(matches) = app.cli().matches() {
                 if let Some(help) = matches.args.get("help") {
@@ -35,19 +54,36 @@ pub fn run() {
                 }
 
                 if let Some(file) = matches.args.get("file") {
-                    let state = app.state::<AppStateRef>();
                     let file = File::open(file.value.as_str().unwrap())?;
-                    state.write().unwrap().persistent_state =
-                        serde_json::from_reader(BufReader::new(file))?;
+                    persistent_state = Some(serde_json::from_reader(BufReader::new(file))?);
                 }
             }
 
+            let Some(persistent_state) = persistent_state else {
+                panic!("No journal file loaded");
+            };
+
+            let swipl_context: SwiplContext<_> = initialize_swipl_with_state(PROLOG_STATE)
+                .expect("failed to initialize SWI-Prolog")
+                .into();
+
+            swipl_context
+                .call_once(
+                    pred!(assertz / 1),
+                    [&term! {swipl_context: foo(bar)}.unwrap()],
+                )
+                .unwrap();
+
+            let state = AppState {
+                persistent_state: RwLock::new(persistent_state),
+                swipl_context: SendSwiplContext(Mutex::new(swipl_context)),
+            };
+
+            app.manage(state);
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            api::get_views,
-            api::get_entries
-        ])
+        .invoke_handler(tauri::generate_handler![api::get_views, api::get_entries])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
