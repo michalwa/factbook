@@ -1,3 +1,0 @@
-2025-10-17 22:24 | this is a random @thought and it’s a longer entry that wraps around into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet
-2025-10-16 15:12 | @todo walk the dog
-2025-10-16 12:30 | @todo buy milk @due(tomorrow)

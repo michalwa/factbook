@@ -1,48 +1,53 @@
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::RwLock;
-use tauri::{Manager, State};
+use tauri::Manager;
 use tauri_plugin_cli::CliExt;
 
-use crate::{model::Entry, persistence::read_journal_file};
+use crate::model::PersistentState;
 
+mod api;
 mod model;
-mod persistence;
+mod util;
 
 #[derive(Default)]
 struct AppState {
-    entries: Vec<Entry>,
+    persistent_state: PersistentState,
 }
 
-#[tauri::command]
-fn get_all_entries(state: State<'_, RwLock<AppState>>) -> Vec<Entry> {
-    state.read().unwrap().entries.clone()
-}
+type AppStateRef = RwLock<AppState>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_cli::init())?;
 
-            app.manage(RwLock::new(AppState::default()));
+            app.manage(AppStateRef::default());
 
-            match app.cli().matches() {
-                Ok(matches) if matches.args.contains_key("help") => {
-                    println!("{}", matches.args["help"].value.as_str().unwrap());
+            if let Ok(matches) = app.cli().matches() {
+                if let Some(help) = matches.args.get("help") {
+                    println!("{}", help.value.as_str().unwrap());
                     app.handle().exit(0);
                 }
-                Ok(matches) if matches.args.contains_key("file") => {
-                    let state = app.state::<RwLock<AppState>>();
-                    state.write().unwrap().entries =
-                        read_journal_file(matches.args["file"].value.as_str().unwrap())?;
+
+                if let Some(file) = matches.args.get("file") {
+                    let state = app.state::<AppStateRef>();
+                    let file = File::open(file.value.as_str().unwrap())?;
+                    state.write().unwrap().persistent_state =
+                        serde_json::from_reader(BufReader::new(file))?;
                 }
-                _ => {}
             }
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_all_entries])
+        .invoke_handler(tauri::generate_handler![
+            api::get_views,
+            api::get_entries
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

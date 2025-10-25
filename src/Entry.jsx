@@ -30,7 +30,7 @@ export default function Entry(props) {
     ),
   );
 
-  const timestamp = () => formatDate(props.timestamp, "yyyy-MM-dd HH:mm");
+  const timestamp = () => formatDate(props.createdAt, "yyyy-MM-dd HH:mm");
 
   return (
     <div class="entry">
