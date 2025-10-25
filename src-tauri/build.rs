@@ -1,3 +1,4 @@
+use std::env;
 use std::process::Command;
 
 fn main() {
@@ -5,7 +6,7 @@ fn main() {
     Command::new("swipl")
         .args([
             "-o",
-            "target/state",
+            &format!("{}/state", env::var("OUT_DIR").unwrap()),
             "--stand_alone=false",
             "--autoload=false",
             // Provide `true` as an initalization goal to suppress the default banner

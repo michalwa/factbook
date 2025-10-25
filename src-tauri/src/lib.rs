@@ -15,7 +15,7 @@ mod api;
 mod model;
 mod util;
 
-const PROLOG_STATE: &[u8] = include_bytes!("../target/state");
+const PROLOG_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
 struct SendSwiplContext(Mutex<SwiplContext<'static, SwiplActivatedEngine<'static>>>);
 
