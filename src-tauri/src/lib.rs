@@ -3,7 +3,7 @@ use std::io::BufReader;
 use std::ops::Deref;
 use std::sync::{Mutex, RwLock};
 use swipl::prelude::{
-    initialize_swipl_with_state, pred, term, ActivatedEngine as SwiplActivatedEngine,
+    initialize_swipl_with_state, term, ActivatedEngine as SwiplActivatedEngine,
     Context as SwiplContext,
 };
 use tauri::Manager;
@@ -68,9 +68,9 @@ pub fn run() {
                 .into();
 
             swipl_context
-                .call_once(
-                    pred!(assertz / 1),
-                    [&term! {swipl_context: foo(bar)}.unwrap()],
+                .assert(
+                    &term! {swipl_context: foo(bar)}.unwrap(),
+                    Default::default(),
                 )
                 .unwrap();
 
