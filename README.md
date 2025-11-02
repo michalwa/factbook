@@ -25,3 +25,23 @@ Personal knowledge base app based on logic programming
      now(N),
      N #=< D1.
    ```
+
+## Development
+
+### Prerequisites
+
+- Rust v1.88+
+- Node.js with pnpm (install with `npm i -g pnpm`)
+- SWI-Prolog (install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually)
+  - On Mac/Linux/MinGW verify the installation with `pkg-config --mod-version swipl`
+  - On Windows (MSVC) add the following to your `~/.cargo/config.toml`:
+    ```
+    [target.x86_64-pc-windows-msvc]
+    rustflags = [
+        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+    ]
+    ```
+
+### Running in development
+
+Run the entire Tauri project with `pnpm tauri dev -- -- -f ../examples/journal.json`
