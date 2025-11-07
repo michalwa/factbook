@@ -274,9 +274,8 @@ pub enum Assert {
 
 #[macro_export]
 macro_rules! term {
-    ($engine:expr => {$term:expr}) => {
-        $term
-    };
+    ($engine:expr => {$term:expr}) => { $term };
+    ($engine:expr => _) => { $engine.new_term() };
     ($engine:expr => $atom:ident) => {
         $engine.new_term().put_atom_chars(stringify!($atom))
     };
@@ -303,14 +302,14 @@ mod test {
     fn threads() {
         thread::spawn(|| {
             let engine = dbg!(SESSION.engine());
-            let t = term! { engine => foo(bar(baz)) };
+            let t = term! { engine => foo(bar(baz), qux) };
 
             engine.assert(t, Default::default());
         });
 
         let engine = dbg!(SESSION.engine());
         let t = engine.new_term();
-        let q = term! { engine => foo(bar({t})) };
+        let q = term! { engine => foo(bar({t}), _) };
 
         assert!(engine.call(q));
         assert_eq!(t.atom_chars(), "baz");
