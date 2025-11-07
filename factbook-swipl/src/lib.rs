@@ -112,24 +112,36 @@ impl Drop for Engine {
 
 /// A handle/guard which, when held, statically guarantees that the current
 /// thread has an attached engine
+#[derive(Clone, Copy)]
 pub struct EngineHandle {
     _marker: PhantomData<*const ()>,
     id: c_int,
 }
 
 impl EngineHandle {
-    pub fn new_term<'e>(&'e self) -> Term<'e> {
+    pub fn new_term(self) -> Term {
         Term {
-            _engine: Default::default(),
+            _marker: Default::default(),
             ptr: unsafe { pl::PL_new_term_ref() },
         }
     }
 
-    pub fn call(&self, term: Term) -> bool {
+    pub fn atom(self, chars: &str) -> Atom {
+        Atom {
+            _marker: Default::default(),
+            ptr: unsafe { pl::PL_new_atom_nchars(chars.len(), chars.as_ptr() as _) },
+        }
+    }
+
+    pub fn functor<const ARITY: usize>(self, name: &str) -> Functor<ARITY> {
+        self.atom(name).to_functor()
+    }
+
+    pub fn call(self, term: Term) -> bool {
         unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
     }
 
-    pub fn assert(&self, term: Term, mode: Assert) {
+    pub fn assert(self, term: Term, mode: Assert) {
         if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");
         }
@@ -155,14 +167,13 @@ impl fmt::Debug for EngineHandle {
     }
 }
 
-/// A Prolog term reference
 #[derive(Clone, Copy)]
-pub struct Term<'e> {
-    _engine: PhantomData<&'e EngineHandle>,
+pub struct Term {
+    _marker: PhantomData<*const ()>,
     ptr: pl::term_t,
 }
 
-impl Term<'_> {
+impl Term {
     pub fn put_variable(self) -> Self {
         if unsafe { pl::PL_put_variable(self.ptr) } == 0 {
             panic!("PL_put_variable failed");
@@ -187,6 +198,24 @@ impl Term<'_> {
         self
     }
 
+    pub fn put_functor<const ARITY: usize>(
+        self,
+        functor: Functor<ARITY>,
+        args: [Term; ARITY],
+    ) -> Self {
+        if unsafe { pl::PL_put_functor(self.ptr, functor.ptr) } == 0 {
+            panic!("PL_put_functor failed");
+        }
+
+        for (i, arg) in args.into_iter().enumerate() {
+            if unsafe { pl::PL_unify_arg_sz(i + 1, self.ptr, arg.ptr) } == 0 {
+                panic!("PL_unify_arg_sz failed");
+            }
+        }
+
+        self
+    }
+
     pub fn atom_chars(&self) -> &str {
         let mut len = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
@@ -202,12 +231,61 @@ impl Term<'_> {
     }
 }
 
+pub struct Atom {
+    _marker: PhantomData<*const ()>,
+    ptr: pl::atom_t,
+}
+
+impl Clone for Atom {
+    fn clone(&self) -> Self {
+        unsafe { pl::PL_register_atom(self.ptr) };
+        Self { ..*self }
+    }
+}
+
+impl Drop for Atom {
+    fn drop(&mut self) {
+        unsafe { pl::PL_unregister_atom(self.ptr) };
+    }
+}
+
+impl Atom {
+    pub fn to_functor<const ARITY: usize>(&self) -> Functor<ARITY> {
+        Functor {
+            _marker: Default::default(),
+            ptr: unsafe { pl::PL_new_functor_sz(self.ptr, ARITY) },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Functor<const ARITY: usize> {
+    _marker: PhantomData<*const ()>,
+    ptr: pl::functor_t,
+}
+
 #[derive(Default, Clone, Copy)]
 #[repr(u32)]
 pub enum Assert {
     #[default]
     Last = PL_ASSERTZ,
     First = PL_ASSERTA,
+}
+
+#[macro_export]
+macro_rules! term {
+    ($engine:expr => {$term:expr}) => {
+        $term
+    };
+    ($engine:expr => $atom:ident) => {
+        $engine.new_term().put_atom_chars(stringify!($atom))
+    };
+    ($engine:expr => $functor:ident($($arg:tt $($args:tt)?),+)) => {
+        $engine.new_term().put_functor(
+            $engine.functor(stringify!($functor)),
+            [$(term!($engine => $arg $($args)?)),+]
+        )
+    };
 }
 
 #[cfg(test)]
@@ -225,16 +303,16 @@ mod test {
     fn threads() {
         thread::spawn(|| {
             let engine = dbg!(SESSION.engine());
-            let t = engine.new_term().put_atom_chars("foo");
+            let t = term! { engine => foo(bar(baz)) };
 
             engine.assert(t, Default::default());
-        })
-        .join()
-        .unwrap();
+        });
 
         let engine = dbg!(SESSION.engine());
-        let t = engine.new_term().put_atom_chars("foo");
+        let t = engine.new_term();
+        let q = term! { engine => foo(bar({t})) };
 
-        assert!(engine.call(t));
+        assert!(engine.call(q));
+        assert_eq!(t.atom_chars(), "baz");
     }
 }
