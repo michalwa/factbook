@@ -1,0 +1,10 @@
+[package]
+name = "factbook-swipl"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+factbook-swipl-state = { path = "../factbook-swipl-state" }
+
+[dependencies]
+swipl-fli = "0.3.6"

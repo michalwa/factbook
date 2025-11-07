@@ -1,6 +1,5 @@
-use std::cell::Cell;
-
 use serde::{Serialize, Serializer};
+use std::cell::Cell;
 
 pub struct SerializeIterOnce<I>(Cell<Option<I>>);
 

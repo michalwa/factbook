@@ -1,3 +1,4 @@
+use crate::model::PersistentState;
 use std::fs::File;
 use std::io::BufReader;
 use std::ops::Deref;
@@ -8,8 +9,6 @@ use swipl::prelude::{
 };
 use tauri::Manager;
 use tauri_plugin_cli::CliExt;
-
-use crate::model::PersistentState;
 
 mod api;
 mod model;

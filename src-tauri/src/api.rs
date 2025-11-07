@@ -1,10 +1,9 @@
-use chrono::{DateTime, Local};
-use serde::Serialize;
-use tauri::{ipc, State};
-
 use crate::model::{EntryId, ViewId};
 use crate::util::SerializeIterOnce;
 use crate::AppState;
+use chrono::{DateTime, Local};
+use serde::Serialize;
+use tauri::{ipc, State};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,7 +44,8 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let swipl_context = state.swipl_context.lock().unwrap();
     let var = swipl_context.new_term_ref();
     swipl_context.call_once(pred!(foo / 1), [&var]).unwrap();
-    var.get_atom_name(|result| log::debug!("{}", result.unwrap())).unwrap();
+    var.get_atom_name(|result| log::debug!("{}", result.unwrap()))
+        .unwrap();
 
     let state = state.persistent_state.read().unwrap();
     let entries = state.entries.iter().map(|(&id, entry)| Entry {
