@@ -1,13 +1,16 @@
 use std::cell::RefCell;
+use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{fmt, slice};
 use swipl_fli::{self as pl, PL_ASSERTA, PL_ASSERTZ};
+pub use term::Term;
+
+mod term;
 
 /// Global session handle which, when held, statically guarantees that the
 /// Prolog runtime has been initialized. Parameterized by the lifetime of the
-/// state passed to `get_or_init`
+/// state passed to `init`.
 pub struct Session<'s> {
     _state: PhantomData<&'s [u8]>,
 }
@@ -98,6 +101,7 @@ impl Drop for Session<'_> {
 /// give out references to this, since we're storing it as a thread-local, so
 /// `EngineHandle` is used instead.
 struct Engine {
+    // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     id: c_int,
 }
@@ -111,19 +115,19 @@ impl Drop for Engine {
 }
 
 /// A handle/guard which, when held, statically guarantees that the current
-/// thread has an attached engine
+/// thread has an attached engine. It has a static lifetime, but is not `Send`,
+/// because engines are managed as thread-locals and are destroyed at the end of
+/// the thread.
 #[derive(Clone, Copy)]
 pub struct EngineHandle {
+    // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     id: c_int,
 }
 
 impl EngineHandle {
     pub fn new_term(self) -> Term {
-        Term {
-            _marker: Default::default(),
-            ptr: unsafe { pl::PL_new_term_ref() },
-        }
+        Term::from_ptr(unsafe { pl::PL_new_term_ref() })
     }
 
     pub fn atom(self, chars: &str) -> Atom {
@@ -138,11 +142,11 @@ impl EngineHandle {
     }
 
     pub fn call(self, term: Term) -> bool {
-        unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
+        unsafe { pl::PL_call(term.ptr(), std::ptr::null_mut()) != 0 }
     }
 
     pub fn assert(self, term: Term, mode: Assert) {
-        if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
+        if unsafe { pl::PL_assert(term.ptr(), std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");
         }
     }
@@ -167,71 +171,8 @@ impl fmt::Debug for EngineHandle {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Term {
-    _marker: PhantomData<*const ()>,
-    ptr: pl::term_t,
-}
-
-impl Term {
-    pub fn put_variable(self) -> Self {
-        if unsafe { pl::PL_put_variable(self.ptr) } == 0 {
-            panic!("PL_put_variable failed");
-        }
-
-        self
-    }
-
-    pub fn put_bool(self, value: bool) -> Self {
-        if unsafe { pl::PL_put_bool(self.ptr, value as _) } == 0 {
-            panic!("PL_put_bool failed");
-        }
-
-        self
-    }
-
-    pub fn put_atom_chars(self, chars: &str) -> Self {
-        if unsafe { pl::PL_put_atom_nchars(self.ptr, chars.len(), chars.as_ptr() as _) } == 0 {
-            panic!("PL_put_atom_nchars failed");
-        }
-
-        self
-    }
-
-    pub fn put_functor<const ARITY: usize>(
-        self,
-        functor: Functor<ARITY>,
-        args: [Term; ARITY],
-    ) -> Self {
-        if unsafe { pl::PL_put_functor(self.ptr, functor.ptr) } == 0 {
-            panic!("PL_put_functor failed");
-        }
-
-        for (i, arg) in args.into_iter().enumerate() {
-            if unsafe { pl::PL_unify_arg_sz(i + 1, self.ptr, arg.ptr) } == 0 {
-                panic!("PL_unify_arg_sz failed");
-            }
-        }
-
-        self
-    }
-
-    pub fn atom_chars(&self) -> &str {
-        let mut len = 0;
-        let mut chars: *mut u8 = std::ptr::null_mut();
-
-        if unsafe { pl::PL_get_atom_nchars(self.ptr, &mut len as _, &mut chars as *mut _ as _) }
-            == 0
-        {
-            panic!("PL_get_atom_nchars failed");
-        }
-
-        str::from_utf8(unsafe { slice::from_raw_parts(chars, len) })
-            .expect("PL_get_atom_nchars returned invalid UTF-8")
-    }
-}
-
 pub struct Atom {
+    // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     ptr: pl::atom_t,
 }
@@ -260,6 +201,7 @@ impl Atom {
 
 #[derive(Clone, Copy)]
 pub struct Functor<const ARITY: usize> {
+    // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     ptr: pl::functor_t,
 }
@@ -313,5 +255,14 @@ mod test {
 
         assert!(engine.call(q));
         assert_eq!(t.atom_chars(), "baz");
+    }
+
+    #[test]
+    fn term_put() {
+        let engine = dbg!(SESSION.engine());
+        let t1 = term! { engine => foo(bar(foo), _) };
+        let t2 = engine.new_term().put("foo(bar(_), foo)");
+
+        assert!(t1.unify_with(t2));
     }
 }
