@@ -1,7 +1,7 @@
-use crate::Functor;
+use crate::{Functor, Record};
 use std::marker::PhantomData;
 use std::slice;
-use swipl_fli::{self as pl, REP_UTF8};
+use swipl_fli as pl;
 
 /// Shared reference to a Prolog term
 #[derive(Clone, Copy)]
@@ -23,6 +23,8 @@ impl Term {
         self.ptr
     }
 
+    /// Resets this term reference to a variable
+    /// https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_variable%27)
     pub fn put_variable(self) -> Self {
         if unsafe { pl::PL_put_variable(self.ptr) } == 0 {
             panic!("PL_put_variable failed");
@@ -31,6 +33,8 @@ impl Term {
         self
     }
 
+    /// Puts one of the atoms `true` or `false` in the term reference
+    /// https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_bool%27)
     pub fn put_bool(self, value: bool) -> Self {
         if unsafe { pl::PL_put_bool(self.ptr, value as _) } == 0 {
             panic!("PL_put_bool failed");
@@ -39,6 +43,8 @@ impl Term {
         self
     }
 
+    /// Puts an atom with the given name in the term reference
+    /// https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_atom_chars%27)
     pub fn put_atom_chars(self, chars: &str) -> Self {
         if unsafe { pl::PL_put_atom_nchars(self.ptr, chars.len(), chars.as_ptr() as _) } == 0 {
             panic!("PL_put_atom_nchars failed");
@@ -47,6 +53,9 @@ impl Term {
         self
     }
 
+    /// Puts a compound term with the given functor and arguments in the term
+    /// reference https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_functor%27)
+    /// https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_unify_arg%27)
     pub fn put_functor<const ARITY: usize>(
         self,
         functor: Functor<ARITY>,
@@ -65,9 +74,31 @@ impl Term {
         self
     }
 
+    pub fn put_recorded(self, record: &Record) -> Self {
+        if unsafe { pl::PL_recorded(record.ptr, self.ptr) } == 0 {
+            panic!("PL_recorded failed");
+        }
+
+        self
+    }
+
+    /// Puts a term parsed from the given string in the term reference
+    /// https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_term_from_chars%27)
+    ///
+    /// ```
+    /// use factbook_swipl::*;
+    ///
+    /// let session = Session::init(None).unwrap();
+    /// let engine = session.engine();
+    ///
+    /// let t1 = term! { engine => foo(bar(foo), _) };
+    /// let t2 = engine.new_term().put("foo(bar(_), foo)");
+    ///
+    /// assert!(t1.unify_with(t2));
+    /// ```
     pub fn put(self, repr: &str) -> Self {
         if unsafe {
-            pl::PL_put_term_from_chars(self.ptr, REP_UTF8 as _, repr.len(), repr.as_ptr() as _)
+            pl::PL_put_term_from_chars(self.ptr, pl::REP_UTF8 as _, repr.len(), repr.as_ptr() as _)
         } == 0
         {
             // TODO: Return exception on failure
@@ -93,5 +124,11 @@ impl Term {
 
     pub fn unify_with(self, other: Term) -> bool {
         unsafe { pl::PL_unify(self.ptr, other.ptr) != 0 }
+    }
+
+    pub fn record(self) -> Record {
+        Record {
+            ptr: unsafe { pl::PL_record(self.ptr) },
+        }
     }
 }

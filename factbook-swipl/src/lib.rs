@@ -3,7 +3,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
-use swipl_fli::{self as pl, PL_ASSERTA, PL_ASSERTZ};
+use swipl_fli as pl;
 pub use term::Term;
 
 mod term;
@@ -108,8 +108,13 @@ struct Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        if unsafe { pl::PL_thread_destroy_engine() } == 0 {
-            eprintln!("warning: PL_thread_destroy_engine failed");
+        // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
+        // called, otherwise it will hang. This can be the case if `Session` is dropped
+        // before the `Engine`, e.g. when the thread holding the `Session` exits.
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
+            if unsafe { pl::PL_thread_destroy_engine() } == 0 {
+                eprintln!("warning: PL_thread_destroy_engine failed");
+            }
         }
     }
 }
@@ -206,12 +211,30 @@ pub struct Functor<const ARITY: usize> {
     ptr: pl::functor_t,
 }
 
+pub struct Record {
+    ptr: pl::record_t,
+}
+
+impl Clone for Record {
+    fn clone(&self) -> Self {
+        Self {
+            ptr: unsafe { pl::PL_duplicate_record(self.ptr) },
+        }
+    }
+}
+
+impl Drop for Record {
+    fn drop(&mut self) {
+        unsafe { pl::PL_erase(self.ptr) };
+    }
+}
+
 #[derive(Default, Clone, Copy)]
 #[repr(u32)]
 pub enum Assert {
     #[default]
-    Last = PL_ASSERTZ,
-    First = PL_ASSERTA,
+    Last = pl::PL_ASSERTZ,
+    First = pl::PL_ASSERTA,
 }
 
 #[macro_export]
@@ -255,14 +278,5 @@ mod test {
 
         assert!(engine.call(q));
         assert_eq!(t.atom_chars(), "baz");
-    }
-
-    #[test]
-    fn term_put() {
-        let engine = dbg!(SESSION.engine());
-        let t1 = term! { engine => foo(bar(foo), _) };
-        let t2 = engine.new_term().put("foo(bar(_), foo)");
-
-        assert!(t1.unify_with(t2));
     }
 }
