@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
-pub use term::Term;
+pub use term::{Term, ToTerm};
 
 mod term;
 
@@ -243,7 +243,8 @@ pub enum Assert {
 ///
 /// Supported terms:
 /// * `{term}` will include the expression `term` verbatim in the term
-///   construction - useful for nesting variables within compound terms.
+///   construction - useful for nesting variables within compound terms. It
+///   supports `Term` as well as other types implementing `ToTerm`.
 /// * `term` will construct an atom `term`.
 /// * `f(a, b, ...)` will construct a compound term with the given functor `f`
 ///   and args.
@@ -257,14 +258,16 @@ pub enum Assert {
 ///
 /// let t1 = term! { engine => foo };
 /// let t2 = term! { engine => foo(bar({t1}), {t1}) };
+/// let t3 = term! { engine => foo({1}, {"hello"}) };
 ///
 /// assert_eq!(t1.to_string(), "foo");
 /// assert_eq!(t2.to_string(), "foo(bar(foo),foo)");
+/// assert_eq!(t3.to_string(), "foo(1,\"hello\")");
 /// ```
 #[macro_export]
 macro_rules! term {
     ($engine:expr => {$term:expr}) => {
-        $term
+        $crate::ToTerm::to_term($term, $engine)
     };
     ($engine:expr => $atom:ident) => {
         $engine.new_term().put_atom_chars(stringify!($atom))

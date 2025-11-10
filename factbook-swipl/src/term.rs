@@ -1,4 +1,4 @@
-use crate::{Atom, Functor, Record};
+use crate::{Atom, EngineHandle, Functor, Record};
 use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
@@ -221,8 +221,25 @@ impl fmt::Display for Canonical<'_> {
 }
 
 /// Implemented by types that can be converted to Prolog values and put in a term reference
-pub trait ToTerm {
+pub trait ToTerm: Sized {
+    fn to_term(self, engine: EngineHandle) -> Term {
+        engine.new_term().put(self)
+    }
+
+    /// Puts the value in the term reference
     fn put_in(self, term: &Term);
+}
+
+impl ToTerm for Term {
+    fn to_term(self, _: EngineHandle) -> Term {
+        self
+    }
+
+    fn put_in(self, term: &Term) {
+        if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
+            panic!("PL_put_term failed");
+        }
+    }
 }
 
 macro_rules! impl_ToTerm {
