@@ -242,18 +242,18 @@ pub enum Assert {
 /// Constructs a Prolog term using Prolog-like syntax
 ///
 /// Supported terms:
-/// * `#term` will include the expression `term` verbatim in the term
+/// * `{term}` will include the expression `term` verbatim in the term
 ///   construction - useful for nesting variables within compound terms.
 /// * `term` will construct an atom `term`.
 /// * `f(a, b, ...)` will construct a compound term with the given functor `f`
-///   and args
+///   and args.
 /// * `_` will construct an empty term (variable).
 ///
 /// ```
-/// use factbook_swipl::*;
-///
-/// let session = Session::init(None).unwrap();
-/// let engine = session.engine();
+/// # use factbook_swipl::*;
+/// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+/// # let session = Session::init(STATE).unwrap();
+/// # let engine = session.engine();
 ///
 /// let t1 = term! { engine => foo };
 /// let t2 = term! { engine => foo(bar({t1}), {t1}) };
@@ -310,11 +310,13 @@ mod test {
     use std::sync::LazyLock;
     use std::thread;
 
+    const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+
     // Normally you would store the session somewhere in the state of your program.
     // The reason why the library doesn't provide a `LazyLock` out of the box
     // is to allow initializing the session with a non-static state memory area.
     pub(crate) static SESSION: LazyLock<Session<'static>> =
-        LazyLock::new(|| Session::init(None).unwrap());
+        LazyLock::new(|| Session::init(STATE).unwrap());
 
     #[test]
     fn threads() {
@@ -330,7 +332,7 @@ mod test {
         let q = term! { engine => foo(bar({t}), _) };
 
         assert!(engine.call(q));
-        assert_eq!(t.atom_chars(), "baz");
+        assert_eq!(t.atom_chars(), Some("baz"));
     }
 
     #[test]
