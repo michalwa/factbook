@@ -215,6 +215,8 @@ pub struct Record {
     ptr: pl::record_t,
 }
 
+unsafe impl Send for Record {}
+
 impl Clone for Record {
     fn clone(&self) -> Self {
         Self {
@@ -237,18 +239,68 @@ pub enum Assert {
     First = pl::PL_ASSERTA,
 }
 
+/// Constructs a Prolog term using Prolog-like syntax
+///
+/// Supported terms:
+/// * `#term` will include the expression `term` verbatim in the term
+///   construction - useful for nesting variables within compound terms.
+/// * `term` will construct an atom `term`.
+/// * `f(a, b, ...)` will construct a compound term with the given functor `f`
+///   and args
+/// * `_` will construct an empty term (variable).
+///
+/// ```
+/// use factbook_swipl::*;
+///
+/// let session = Session::init(None).unwrap();
+/// let engine = session.engine();
+///
+/// let t1 = term! { engine => foo };
+/// let t2 = term! { engine => foo(bar, {t1}) };
+///
+/// assert_eq!(t1.to_string(), "foo");
+/// assert_eq!(t2.to_string(), "foo(bar,foo)");
+/// ```
 #[macro_export]
 macro_rules! term {
-    ($engine:expr => {$term:expr}) => { $term };
-    ($engine:expr => _) => { $engine.new_term() };
+    ($engine:expr => {$term:expr}) => {
+        $term
+    };
     ($engine:expr => $atom:ident) => {
         $engine.new_term().put_atom_chars(stringify!($atom))
     };
-    ($engine:expr => $functor:ident($($arg:tt $($args:tt)?),+)) => {
-        $engine.new_term().put_functor(
-            $engine.functor(stringify!($functor)),
-            [$(term!($engine => $arg $($args)?)),+]
+    ($engine:expr => _) => {
+        $engine.new_term()
+    };
+    ($engine:expr => $functor:ident ( $($args:tt)+ )) => {{
+        let engine = $engine;
+        engine.new_term().put_functor(
+            engine.functor(stringify!($functor)),
+            term!(@args () engine => $($args)+),
         )
+    }};
+    // Recursively builds nested terms. The base case without arguments wraps
+    // the resulting expressions in an array, because macro invocations cannot
+    // yield bare comma-separated expressions. The `$($out:tt)*` group is used
+    // as an accumulator for the constructed expressions.
+    //
+    // term!(@args ()           engine => arg0, arg1, arg2)
+    // term!(@args (out0)       engine => arg1, arg2)
+    // term!(@args (out0, out1) engine => arg2)
+    // term!(@args (out0, out1, out2))
+    //
+    (@args ($($out:tt)*)) => {
+        [$($out)*]
+    };
+    (@args ($($($out:tt)+)?) $engine:expr => $term:tt $(, $($rest:tt)+)?) => {
+        term!(@args
+            ($($($out)* ,)? term!($engine => $term))
+            $($engine => $($rest)+)?)
+    };
+    (@args ($($($out:tt)+)?) $engine:expr => $functor:ident ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
+        term!(@args
+            ($($($out)* ,)? term!($engine => $functor ( $($args)+ )))
+            $($engine => $($rest)+)?)
     };
 }
 
@@ -261,7 +313,8 @@ mod test {
     // Normally you would store the session somewhere in the state of your program.
     // The reason why the library doesn't provide a `LazyLock` out of the box
     // is to allow initializing the session with a non-static state memory area.
-    static SESSION: LazyLock<Session<'static>> = LazyLock::new(|| Session::init(None).unwrap());
+    pub(crate) static SESSION: LazyLock<Session<'static>> =
+        LazyLock::new(|| Session::init(None).unwrap());
 
     #[test]
     fn threads() {
@@ -278,5 +331,19 @@ mod test {
 
         assert!(engine.call(q));
         assert_eq!(t.atom_chars(), "baz");
+    }
+
+    #[test]
+    fn record() {
+        let engine = dbg!(SESSION.engine());
+        let t = term! { engine => foo(bar) };
+        let record = t.record();
+
+        thread::spawn(move || {
+            let engine = dbg!(SESSION.engine());
+            let t = engine.new_term().put_recorded(&record);
+
+            assert_eq!(t.to_string(), "foo(bar)");
+        });
     }
 }

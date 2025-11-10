@@ -1,6 +1,6 @@
 use crate::{Functor, Record};
 use std::marker::PhantomData;
-use std::slice;
+use std::{fmt, slice};
 use swipl_fli as pl;
 
 /// Shared reference to a Prolog term
@@ -130,5 +130,67 @@ impl Term {
         Record {
             ptr: unsafe { pl::PL_record(self.ptr) },
         }
+    }
+
+    /// Used with [`std::fmt::Display`] to obtain a canonical string
+    /// representation of the term https://www.swi-prolog.org/pldoc/man?predicate=write_canonical/1
+    ///
+    /// ```
+    /// use factbook_swipl::*;
+    ///
+    /// let session = Session::init(None).unwrap();
+    /// let engine = session.engine();
+    ///
+    /// let t = engine.new_term().put("(1, 2)");
+    /// assert_eq!(t.canonical().to_string(), "','(1,2)");
+    /// ```
+    pub fn canonical<'t>(&'t self) -> Canonical<'t> {
+        Canonical(self)
+    }
+
+    fn write(&self, f: &mut fmt::Formatter, flags: u32) -> fmt::Result {
+        let mut len = 0;
+        let mut chars: *mut u8 = std::ptr::null_mut();
+
+        if unsafe {
+            pl::PL_get_nchars(
+                self.ptr,
+                &mut len as _,
+                &mut chars as *mut _ as _,
+                flags | pl::REP_UTF8 | pl::BUF_DISCARDABLE,
+            )
+        } == 0
+        {
+            panic!("PL_get_nchars failed");
+        }
+
+        let chars = str::from_utf8(unsafe { slice::from_raw_parts(chars, len) })
+            .expect("PL_get_nchars returned invalid UTF-8");
+
+        f.write_str(chars)
+    }
+}
+
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.write(f, pl::CVT_WRITEQ)
+    }
+}
+
+pub struct Canonical<'t>(&'t Term);
+
+impl fmt::Display for Canonical<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.write(f, pl::CVT_WRITE_CANONICAL)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn fmt() {
+        let engine = crate::test::SESSION.engine();
+        let t = engine.new_term().put("foo(bar, (1, 2), \"hello\")");
+        assert_eq!(t.to_string(), "foo(bar,(1,2),\"hello\")");
     }
 }
