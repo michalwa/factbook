@@ -256,10 +256,10 @@ pub enum Assert {
 /// let engine = session.engine();
 ///
 /// let t1 = term! { engine => foo };
-/// let t2 = term! { engine => foo(bar, {t1}) };
+/// let t2 = term! { engine => foo(bar({t1}), {t1}) };
 ///
 /// assert_eq!(t1.to_string(), "foo");
-/// assert_eq!(t2.to_string(), "foo(bar,foo)");
+/// assert_eq!(t2.to_string(), "foo(bar(foo),foo)");
 /// ```
 #[macro_export]
 macro_rules! term {
