@@ -1,39 +1,20 @@
+use crate::model::PersistentState;
+use factbook_swipl::term;
 use std::fs::File;
 use std::io::BufReader;
-use std::ops::Deref;
-use std::sync::{Mutex, RwLock};
-use swipl::prelude::{
-    initialize_swipl_with_state, term, ActivatedEngine as SwiplActivatedEngine,
-    Context as SwiplContext,
-};
+use std::sync::RwLock;
 use tauri::Manager;
 use tauri_plugin_cli::CliExt;
-
-use crate::model::PersistentState;
 
 mod api;
 mod model;
 mod util;
 
-const PROLOG_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
-
-struct SendSwiplContext(Mutex<SwiplContext<'static, SwiplActivatedEngine<'static>>>);
-
-// SAFETY: Everything is behind a `Mutex`
-unsafe impl Sync for SendSwiplContext {}
-unsafe impl Send for SendSwiplContext {}
-
-impl Deref for SendSwiplContext {
-    type Target = Mutex<SwiplContext<'static, SwiplActivatedEngine<'static>>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
 struct AppState {
     persistent_state: RwLock<PersistentState>,
-    swipl_context: SendSwiplContext,
+    swipl_session: factbook_swipl::Session<'static>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -63,20 +44,13 @@ pub fn run() {
                 panic!("No journal file loaded");
             };
 
-            let swipl_context: SwiplContext<_> = initialize_swipl_with_state(PROLOG_STATE)
-                .expect("failed to initialize SWI-Prolog")
-                .into();
-
-            swipl_context
-                .assert(
-                    &term! {swipl_context: foo(bar)}.unwrap(),
-                    Default::default(),
-                )
-                .unwrap();
+            let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
+            let pl = swipl_session.engine();
+            pl.assert(term! { pl => foo(bar) }, Default::default());
 
             let state = AppState {
                 persistent_state: RwLock::new(persistent_state),
-                swipl_context: SendSwiplContext(Mutex::new(swipl_context)),
+                swipl_session,
             };
 
             app.manage(state);

@@ -1,7 +1,6 @@
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

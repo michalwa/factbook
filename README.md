@@ -35,7 +35,13 @@ Personal knowledge base app based on logic programming
 - SWI-Prolog (install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually)
   - On Mac/Linux/MinGW verify the installation with `pkg-config --mod-version swipl`
   - On Windows (MSVC) add the following to your `~/.cargo/config.toml`:
-    ```
+    ```toml
+    # `rustdocflags` is only needed for running some doc tests
+    [build]
+    rustdocflags = [
+        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+    ]
+
     [target.x86_64-pc-windows-msvc]
     rustflags = [
         "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
