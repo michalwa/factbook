@@ -75,8 +75,43 @@ impl Term {
         self
     }
 
-    /// Records the term into the Prolog database and returns a handle to it. The returned handle
-    /// may be shared across threads.
+    /// Constructs a list from the given terms and puts the top-most cell of the
+    /// list in the term reference
+    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_cons_list%27)
+    ///
+    /// ```
+    /// # use factbook_swipl::*;
+    /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+    /// # let session = Session::init(STATE).unwrap();
+    /// # let engine = session.engine();
+    ///
+    /// let l = engine.new_term().put_list([
+    ///     engine.new_term().put_atom_chars("foo"),
+    ///     engine.new_term().put_atom_chars("bar"),
+    /// ]);
+    ///
+    /// assert_eq!(l.to_string(), "[foo,bar]");
+    /// ```
+    pub fn put_list<M, I>(self, members: M) -> Self
+    where
+        M: IntoIterator<IntoIter = I>,
+        I: DoubleEndedIterator<Item = Term>,
+    {
+        if unsafe { pl::PL_put_nil(self.ptr) } == 0 {
+            panic!("PL_put_nil failed");
+        }
+
+        for member in members.into_iter().rev() {
+            if unsafe { pl::PL_cons_list(self.ptr, member.ptr, self.ptr) } == 0 {
+                panic!("PL_cons_list failed");
+            }
+        }
+
+        self
+    }
+
+    /// Records the term into the Prolog database and returns a handle to it.
+    /// The returned handle may be shared across threads.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record%27)
     pub fn record(self) -> Record {
         Record {
@@ -141,8 +176,8 @@ impl Term {
         self
     }
 
-    /// Returns the string representation of the atom stored in the term reference,
-    /// or `None` if it's not an atom.
+    /// Returns the string representation of the atom stored in the term
+    /// reference, or `None` if it's not an atom.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_get_atom_nchars%27)
     pub fn atom_chars(&self) -> Option<&str> {
         let mut len = 0;
@@ -160,7 +195,8 @@ impl Term {
         )
     }
 
-    /// Unifies the two terms and returns `true` on success or `false` on failure.
+    /// Unifies the two terms and returns `true` on success or `false` on
+    /// failure.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_unify%27)
     pub fn unify_with(self, other: Term) -> bool {
         unsafe { pl::PL_unify(self.ptr, other.ptr) != 0 }
@@ -220,7 +256,8 @@ impl fmt::Display for Canonical<'_> {
     }
 }
 
-/// Implemented by types that can be converted to Prolog values and put in a term reference
+/// Implemented by types that can be converted to Prolog values and put in a
+/// term reference
 pub trait ToTerm: Sized {
     fn to_term(self, engine: EngineHandle) -> Term {
         engine.new_term().put(self)

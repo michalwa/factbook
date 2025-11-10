@@ -246,9 +246,15 @@ pub enum Assert {
 ///   construction - useful for nesting variables within compound terms. It
 ///   supports `Term` as well as other types implementing `ToTerm`.
 /// * `term` will construct an atom `term`.
+/// * `_` will construct an empty term (variable).
 /// * `f(a, b, ...)` will construct a compound term with the given functor `f`
 ///   and args.
-/// * `_` will construct an empty term (variable).
+/// * `[a, b, ...]` will construct a list with the given members.
+/// * literals like `42` or `"hello"` will also be converted to Prolog values
+///   using `ToTerm`.
+///
+/// Not supported:
+/// * Variables based on casing, i.e. `X` will still produce an atom.
 ///
 /// ```
 /// # use factbook_swipl::*;
@@ -258,16 +264,19 @@ pub enum Assert {
 ///
 /// let t1 = term! { engine => foo };
 /// let t2 = term! { engine => foo(bar({t1}), {t1}) };
-/// let t3 = term! { engine => foo({1}, {"hello"}) };
+/// let t4 = term! { engine => [{t1}, "bar", [3, 4]] };
 ///
 /// assert_eq!(t1.to_string(), "foo");
 /// assert_eq!(t2.to_string(), "foo(bar(foo),foo)");
-/// assert_eq!(t3.to_string(), "foo(1,\"hello\")");
+/// assert_eq!(t4.to_string(), "[foo,\"bar\",[3,4]]");
 /// ```
 #[macro_export]
 macro_rules! term {
     ($engine:expr => {$term:expr}) => {
         $crate::ToTerm::to_term($term, $engine)
+    };
+    ($engine:expr => $value:literal) => {
+        $crate::ToTerm::to_term($value, $engine)
     };
     ($engine:expr => $atom:ident) => {
         $engine.new_term().put_atom_chars(stringify!($atom))
@@ -281,6 +290,10 @@ macro_rules! term {
             engine.functor(stringify!($functor)),
             term!(@args () engine => $($args)+),
         )
+    }};
+    ($engine:expr => [ $($args:tt)+ ]) => {{
+        let engine = $engine;
+        engine.new_term().put_list(term!(@args () engine => $($args)+))
     }};
     // Recursively builds nested terms. The base case without arguments wraps
     // the resulting expressions in an array, because macro invocations cannot
@@ -303,6 +316,11 @@ macro_rules! term {
     (@args ($($($out:tt)+)?) $engine:expr => $functor:ident ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
         term!(@args
             ($($($out)* ,)? term!($engine => $functor ( $($args)+ )))
+            $($engine => $($rest)+)?)
+    };
+    (@args ($($($out:tt)+)?) $engine:expr => [ $($args:tt)+ ] $(, $($rest:tt)+)?) => {
+        term!(@args
+            ($($($out)* ,)? term!($engine => [ $($args)+ ]))
             $($engine => $($rest)+)?)
     };
 }
