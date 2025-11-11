@@ -123,38 +123,10 @@ impl Drop for Engine {
 /// thread has an attached engine. It has a static lifetime, but is not `Send`,
 /// because engines are managed as thread-locals and are destroyed at the end of
 /// the thread.
-#[derive(Clone, Copy)]
 pub struct EngineHandle {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     id: c_int,
-}
-
-impl EngineHandle {
-    pub fn new_term(self) -> Term {
-        Term::from_ptr(unsafe { pl::PL_new_term_ref() })
-    }
-
-    pub fn atom(self, chars: &str) -> Atom {
-        Atom {
-            _marker: Default::default(),
-            ptr: unsafe { pl::PL_new_atom_nchars(chars.len(), chars.as_ptr() as _) },
-        }
-    }
-
-    pub fn functor<const ARITY: usize>(self, name: &str) -> Functor<ARITY> {
-        self.atom(name).to_functor()
-    }
-
-    pub fn call(self, term: Term) -> bool {
-        unsafe { pl::PL_call(term.ptr(), std::ptr::null_mut()) != 0 }
-    }
-
-    pub fn assert(self, term: Term, mode: Assert) {
-        if unsafe { pl::PL_assert(term.ptr(), std::ptr::null_mut(), mode as _) } == 0 {
-            panic!("PL_assert failed");
-        }
-    }
 }
 
 // SAFETY: If an `Engine` exists then an engine has been attached on the current
@@ -175,6 +147,75 @@ impl fmt::Debug for EngineHandle {
         self.id.fmt(f)
     }
 }
+
+/// A foreign frame - a contained environment for operating on the Prolog
+/// stack
+pub struct Frame<'p> {
+    // Not `Send` because it's only valid in the context of the current thread engine
+    _marker: PhantomData<*const ()>,
+    _parent: PhantomData<&'p ()>,
+    ptr: pl::PL_fid_t,
+}
+
+impl Drop for Frame<'_> {
+    fn drop(&mut self) {
+        unsafe { pl::PL_close_foreign_frame(self.ptr) };
+    }
+}
+
+/// Shared trait for types which allow constructing new terms
+pub trait Context {
+    /// Opens a new foreign frame.
+    ///
+    /// Terms created within the frame are bound to its lifetime. The following
+    /// will fail to compile:
+    ///
+    /// ```compile_fail
+    /// # use factbook_swipl::*;
+    /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+    /// # let session = Session::init(STATE).unwrap();
+    /// let mut engine = session.engine();
+    /// let frame = engine.frame();
+    /// let t = term! { &frame => foo(bar) };
+    /// std::mem::drop(frame);
+    /// println!("{t}");
+    /// ```
+    fn frame<'a>(&'a mut self) -> Frame<'a> {
+        Frame {
+            _marker: Default::default(),
+            _parent: Default::default(),
+            ptr: unsafe { pl::PL_open_foreign_frame() },
+        }
+    }
+
+    fn new_term<'a>(&'a self) -> Term<'a> {
+        Term::from_ptr(unsafe { pl::PL_new_term_ref() })
+    }
+
+    fn atom(&self, chars: &str) -> Atom {
+        Atom {
+            _marker: Default::default(),
+            ptr: unsafe { pl::PL_new_atom_nchars(chars.len(), chars.as_ptr() as _) },
+        }
+    }
+
+    fn functor<const ARITY: usize>(&self, name: &str) -> Functor<ARITY> {
+        self.atom(name).to_functor()
+    }
+
+    fn call(&self, term: Term) -> bool {
+        unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
+    }
+
+    fn assert(&self, term: Term, mode: Assert) {
+        if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
+            panic!("PL_assert failed");
+        }
+    }
+}
+
+impl Context for EngineHandle {}
+impl Context for Frame<'_> {}
 
 pub struct Atom {
     // Not `Send` because it's only valid in the context of the current thread engine
@@ -262,9 +303,9 @@ pub enum Assert {
 /// # let session = Session::init(STATE).unwrap();
 /// # let engine = session.engine();
 ///
-/// let t1 = term! { engine => foo };
-/// let t2 = term! { engine => foo(bar({t1}), {t1}) };
-/// let t4 = term! { engine => [{t1}, "bar", [3, 4]] };
+/// let t1 = term! { &engine => foo };
+/// let t2 = term! { &engine => foo(bar({t1}), {t1}) };
+/// let t4 = term! { &engine => [{t1}, "bar", [3, 4]] };
 ///
 /// assert_eq!(t1.to_string(), "foo");
 /// assert_eq!(t2.to_string(), "foo(bar(foo),foo)");
@@ -272,56 +313,56 @@ pub enum Assert {
 /// ```
 #[macro_export]
 macro_rules! term {
-    ($engine:expr => {$term:expr}) => {
-        $crate::ToTerm::to_term($term, $engine)
+    ($ctx:expr => {$term:expr}) => {
+        $crate::ToTerm::to_term($term, $ctx)
     };
-    ($engine:expr => $value:literal) => {
-        $crate::ToTerm::to_term($value, $engine)
+    ($ctx:expr => $value:literal) => {
+        $crate::ToTerm::to_term($value, $ctx)
     };
-    ($engine:expr => $atom:ident) => {
-        $engine.new_term().put_atom_chars(stringify!($atom))
+    ($ctx:expr => $atom:ident) => {
+        $ctx.new_term().put_atom_chars(stringify!($atom))
     };
-    ($engine:expr => _) => {
-        $engine.new_term()
+    ($ctx:expr => _) => {
+        $ctx.new_term()
     };
-    ($engine:expr => $functor:ident ( $($args:tt)+ )) => {{
-        let engine = $engine;
-        engine.new_term().put_functor(
-            engine.functor(stringify!($functor)),
-            term!(@args () engine => $($args)+),
+    ($ctx:expr => $functor:ident ( $($args:tt)+ )) => {{
+        let ctx = $ctx;
+        ctx.new_term().put_functor(
+            ctx.functor(stringify!($functor)),
+            term!(@args () ctx => $($args)+),
         )
     }};
-    ($engine:expr => [ $($args:tt)+ ]) => {{
-        let engine = $engine;
-        engine.new_term().put_list(term!(@args () engine => $($args)+))
+    ($ctx:expr => [ $($args:tt)+ ]) => {{
+        let ctx = $ctx;
+        ctx.new_term().put_list(term!(@args () ctx => $($args)+))
     }};
     // Recursively builds nested terms. The base case without arguments wraps
     // the resulting expressions in an array, because macro invocations cannot
     // yield bare comma-separated expressions. The `$($out:tt)*` group is used
     // as an accumulator for the constructed expressions.
     //
-    // term!(@args ()           engine => arg0, arg1, arg2)
-    // term!(@args (out0)       engine => arg1, arg2)
-    // term!(@args (out0, out1) engine => arg2)
+    // term!(@args ()           ctx => arg0, arg1, arg2)
+    // term!(@args (out0)       ctx => arg1, arg2)
+    // term!(@args (out0, out1) ctx => arg2)
     // term!(@args (out0, out1, out2))
     //
     (@args ($($out:tt)*)) => {
         [$($out)*]
     };
-    (@args ($($($out:tt)+)?) $engine:expr => $term:tt $(, $($rest:tt)+)?) => {
+    (@args ($($($out:tt)+)?) $ctx:expr => $term:tt $(, $($rest:tt)+)?) => {
         term!(@args
-            ($($($out)* ,)? term!($engine => $term))
-            $($engine => $($rest)+)?)
+            ($($($out)* ,)? term!($ctx => $term))
+            $($ctx => $($rest)+)?)
     };
-    (@args ($($($out:tt)+)?) $engine:expr => $functor:ident ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
+    (@args ($($($out:tt)+)?) $ctx:expr => $functor:ident ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
         term!(@args
-            ($($($out)* ,)? term!($engine => $functor ( $($args)+ )))
-            $($engine => $($rest)+)?)
+            ($($($out)* ,)? term!($ctx => $functor ( $($args)+ )))
+            $($ctx => $($rest)+)?)
     };
-    (@args ($($($out:tt)+)?) $engine:expr => [ $($args:tt)+ ] $(, $($rest:tt)+)?) => {
+    (@args ($($($out:tt)+)?) $ctx:expr => [ $($args:tt)+ ] $(, $($rest:tt)+)?) => {
         term!(@args
-            ($($($out)* ,)? term!($engine => [ $($args)+ ]))
-            $($engine => $($rest)+)?)
+            ($($($out)* ,)? term!($ctx => [ $($args)+ ]))
+            $($ctx => $($rest)+)?)
     };
 }
 
@@ -343,14 +384,14 @@ mod test {
     fn threads() {
         thread::spawn(|| {
             let engine = dbg!(SESSION.engine());
-            let t = term! { engine => foo(bar(baz), qux) };
+            let t = term! { &engine => foo(bar(baz), qux) };
 
             engine.assert(t, Default::default());
         });
 
         let engine = dbg!(SESSION.engine());
         let t = engine.new_term();
-        let q = term! { engine => foo(bar({t}), _) };
+        let q = term! { &engine => foo(bar({t}), _) };
 
         assert!(engine.call(q));
         assert_eq!(t.atom_chars(), Some("baz"));
@@ -359,7 +400,7 @@ mod test {
     #[test]
     fn record() {
         let engine = dbg!(SESSION.engine());
-        let t = term! { engine => foo(bar) };
+        let t = term! { &engine => foo(bar) };
         let record = t.record();
 
         thread::spawn(move || {

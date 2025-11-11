@@ -1,26 +1,24 @@
-use crate::{Atom, EngineHandle, Functor, Record};
+use crate::{Atom, Context, Functor, Record};
 use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
 
-/// Shared reference to a Prolog term
+/// Reference to a Prolog term
 #[derive(Clone, Copy)]
-pub struct Term {
+pub struct Term<'a> {
     // Not `Send` because it's only valid within the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    ptr: pl::term_t,
+    _lifetime: PhantomData<&'a ()>,
+    pub(crate) ptr: pl::term_t,
 }
 
-impl Term {
+impl<'a> Term<'a> {
     pub(crate) fn from_ptr(ptr: pl::term_t) -> Self {
         Self {
             _marker: Default::default(),
+            _lifetime: Default::default(),
             ptr,
         }
-    }
-
-    pub fn ptr(self) -> pl::term_t {
-        self.ptr
     }
 
     /// Resets this term reference to a variable
@@ -60,7 +58,7 @@ impl Term {
     pub fn put_functor<const ARITY: usize>(
         self,
         functor: Functor<ARITY>,
-        args: [Term; ARITY],
+        args: [Self; ARITY],
     ) -> Self {
         if unsafe { pl::PL_put_functor(self.ptr, functor.ptr) } == 0 {
             panic!("PL_put_functor failed");
@@ -84,7 +82,7 @@ impl Term {
     /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
-    ///
+    /// #
     /// let l = engine.new_term().put_list([
     ///     engine.new_term().put_atom_chars("foo"),
     ///     engine.new_term().put_atom_chars("bar"),
@@ -95,7 +93,7 @@ impl Term {
     pub fn put_list<M, I>(self, members: M) -> Self
     where
         M: IntoIterator<IntoIter = I>,
-        I: DoubleEndedIterator<Item = Term>,
+        I: DoubleEndedIterator<Item = Self>,
     {
         if unsafe { pl::PL_put_nil(self.ptr) } == 0 {
             panic!("PL_put_nil failed");
@@ -137,7 +135,7 @@ impl Term {
     /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
-    ///
+    /// #
     /// let t1 = engine.new_term().put(1i32);
     /// let t2 = engine.new_term().put(1i64);
     /// let t3 = engine.new_term().put(1u64);
@@ -146,7 +144,7 @@ impl Term {
     /// assert!(t2.unify_with(t3));
     /// ```
     pub fn put(self, value: impl ToTerm) -> Self {
-        value.put_in(&self);
+        value.put_in(self);
         self
     }
 
@@ -158,8 +156,8 @@ impl Term {
     /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
-    ///
-    /// let t1 = term! { engine => foo(bar(foo), _) };
+    /// #
+    /// let t1 = term! { &engine => foo(bar(foo), _) };
     /// let t2 = engine.new_term().put_parsed("foo(bar(_), foo)");
     ///
     /// assert!(t1.unify_with(t2));
@@ -211,11 +209,11 @@ impl Term {
     /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
-    ///
+    /// #
     /// let t = engine.new_term().put_parsed("(1, 2)");
     /// assert_eq!(t.canonical().to_string(), "','(1,2)");
     /// ```
-    pub fn canonical<'t>(&'t self) -> Canonical<'t> {
+    pub fn canonical(self) -> Canonical<'a> {
         Canonical(self)
     }
 
@@ -242,13 +240,13 @@ impl Term {
     }
 }
 
-impl fmt::Display for Term {
+impl fmt::Display for Term<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.write(f, pl::CVT_WRITEQ)
     }
 }
 
-pub struct Canonical<'t>(&'t Term);
+pub struct Canonical<'t>(Term<'t>);
 
 impl fmt::Display for Canonical<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -259,20 +257,25 @@ impl fmt::Display for Canonical<'_> {
 /// Implemented by types that can be converted to Prolog values and put in a
 /// term reference
 pub trait ToTerm: Sized {
-    fn to_term(self, engine: EngineHandle) -> Term {
-        engine.new_term().put(self)
+    fn to_term<'a>(self, ctx: &'a impl Context) -> Term<'a>
+    where
+        Self: 'a,
+    {
+        ctx.new_term().put(self)
     }
 
-    /// Puts the value in the term reference
-    fn put_in(self, term: &Term);
+    fn put_in(&self, term: Term);
 }
 
-impl ToTerm for Term {
-    fn to_term(self, _: EngineHandle) -> Term {
-        self
+impl ToTerm for Term<'_> {
+    fn to_term<'a>(self, _: &'a impl Context) -> Term<'a>
+    where
+        Self: 'a,
+    {
+        Term::from_ptr(self.ptr)
     }
 
-    fn put_in(self, term: &Term) {
+    fn put_in(&self, term: Term) {
         if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_term failed");
         }
@@ -282,8 +285,8 @@ impl ToTerm for Term {
 macro_rules! impl_ToTerm {
     (|$value:ident: $type:ty, $term:ident| pl::$fn:ident($($args:tt)*)) => {
         impl ToTerm for $type {
-            fn put_in(self, term: &Term) {
-                let $value = self;
+            fn put_in(&self, term: Term) {
+                let $value = *self;
                 let $term = term;
                 if unsafe { pl::$fn($($args)*) } == 0 {
                     panic!(concat!(stringify!($fn), " failed"));
@@ -303,6 +306,8 @@ impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
 
 #[cfg(test)]
 mod test {
+    use crate::Context;
+
     #[test]
     fn fmt() {
         let engine = crate::test::SESSION.engine();
