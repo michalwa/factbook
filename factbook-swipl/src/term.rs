@@ -1,4 +1,4 @@
-use crate::{Atom, Context, Functor, Record};
+use crate::{Atom, Context, ExternalRecord, Functor, Record};
 use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
@@ -26,16 +26,6 @@ impl<'a> Term<'a> {
     pub fn put_variable(self) -> Self {
         if unsafe { pl::PL_put_variable(self.ptr) } == 0 {
             panic!("PL_put_variable failed");
-        }
-
-        self
-    }
-
-    /// Puts an atom in the term reference
-    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_atom%27)
-    pub fn put_atom(self, atom: &Atom) -> Self {
-        if unsafe { pl::PL_put_atom(self.ptr, atom.ptr) } == 0 {
-            panic!("PL_put_atom failed");
         }
 
         self
@@ -117,11 +107,21 @@ impl<'a> Term<'a> {
         }
     }
 
-    /// Copies a recorded term into the term reference
-    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_recorded%27)
-    pub fn put_recorded(self, record: &Record) -> Self {
-        if unsafe { pl::PL_recorded(record.ptr, self.ptr) } == 0 {
-            panic!("PL_recorded failed");
+    /// Serializes the term into a record which can be persisted and shared
+    /// between Prolog sessions
+    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record_external%27)
+    pub fn record_external(self) -> Option<ExternalRecord> {
+        let mut len: usize = 0;
+        let ptr = unsafe { pl::PL_record_external(self.ptr, &mut len as _) };
+
+        std::ptr::NonNull::new(ptr).map(|ptr| ExternalRecord { ptr, len })
+    }
+
+    /// Copies a serialized term into the term reference
+    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_recorded_external%27)
+    pub fn put_recorded_external(self, record: &[u8]) -> Self {
+        if unsafe { pl::PL_recorded_external(record.as_ptr() as _, self.ptr) } == 0 {
+            panic!("PL_recorded_external failed");
         }
 
         self
@@ -136,12 +136,13 @@ impl<'a> Term<'a> {
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
     /// #
-    /// let t1 = engine.new_term().put(1i32);
-    /// let t2 = engine.new_term().put(1i64);
-    /// let t3 = engine.new_term().put(1u64);
+    /// let t1 = engine.new_term().put(1);
+    /// let t2 = engine.new_term().put("foo");
+    /// let t3 = engine.new_term().put(&engine.atom("foo"));
     ///
-    /// assert!(t1.unify_with(t2));
-    /// assert!(t2.unify_with(t3));
+    /// assert_eq!(t1.to_string(), "1");
+    /// assert_eq!(t2.to_string(), "\"foo\"");
+    /// assert_eq!(t3.to_string(), "foo");
     /// ```
     pub fn put(self, value: impl ToTerm) -> Self {
         value.put_in(self);
@@ -178,7 +179,7 @@ impl<'a> Term<'a> {
     /// reference, or `None` if it's not an atom.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_get_atom_nchars%27)
     pub fn atom_chars(&self) -> Option<&str> {
-        let mut len = 0;
+        let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
 
         if unsafe { pl::PL_get_atom_nchars(self.ptr, &mut len as _, &mut chars as *mut _ as _) }
@@ -218,7 +219,7 @@ impl<'a> Term<'a> {
     }
 
     fn write(&self, f: &mut fmt::Formatter, flags: u32) -> fmt::Result {
-        let mut len = 0;
+        let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
 
         if unsafe {
@@ -278,6 +279,22 @@ impl ToTerm for Term<'_> {
     fn put_in(&self, term: Term) {
         if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_term failed");
+        }
+    }
+}
+
+impl ToTerm for &Atom {
+    fn put_in(&self, term: Term) {
+        if unsafe { pl::PL_put_atom(term.ptr, self.ptr) } == 0 {
+            panic!("PL_put_atom failed");
+        }
+    }
+}
+
+impl ToTerm for &Record {
+    fn put_in(&self, term: Term) {
+        if unsafe { pl::PL_recorded(self.ptr, term.ptr) } == 0 {
+            panic!("PL_recorded failed");
         }
     }
 }

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -252,6 +252,7 @@ pub struct Functor<const ARITY: usize> {
     ptr: pl::functor_t,
 }
 
+/// A handle to a recorded term which can be shared between threads
 pub struct Record {
     ptr: pl::record_t,
 }
@@ -269,6 +270,38 @@ impl Clone for Record {
 impl Drop for Record {
     fn drop(&mut self) {
         unsafe { pl::PL_erase(self.ptr) };
+    }
+}
+
+/// A serialized term which can be persisted and shared between Prolog sessions
+pub struct ExternalRecord {
+    ptr: std::ptr::NonNull<i8>,
+    len: usize,
+}
+
+unsafe impl Send for ExternalRecord {}
+
+impl Drop for ExternalRecord {
+    fn drop(&mut self) {
+        if unsafe { pl::PL_erase_external(self.ptr.as_ptr()) } == 0 {
+            panic!("PL_erase_external failed");
+        }
+    }
+}
+
+impl AsRef<[u8]> for ExternalRecord {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr() as _, self.len) }
+    }
+}
+
+impl fmt::Debug for ExternalRecord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("b\"")?;
+        for byte in self.as_ref() {
+            f.write_fmt(format_args!("\\x{byte:02X}"))?;
+        }
+        f.write_char('"')
     }
 }
 
@@ -405,9 +438,33 @@ mod test {
 
         thread::spawn(move || {
             let engine = dbg!(SESSION.engine());
-            let t = engine.new_term().put_recorded(&record);
+            let t = engine.new_term().put(&record);
 
             assert_eq!(t.to_string(), "foo(bar)");
         });
+    }
+
+    #[test]
+    fn external_record() {
+        let engine = dbg!(SESSION.engine());
+        let t1 = term! { &engine => foo(bar(42), ["hello", "world"]) };
+
+        let bytes = {
+            let record = t1.record_external().unwrap();
+            record.as_ref().to_owned()
+        };
+
+        let t2 = engine.new_term().put_recorded_external(&bytes);
+        assert!(t1.unify_with(t2));
+    }
+
+    #[test]
+    fn frames() {
+        let mut engine = dbg!(SESSION.engine());
+        {
+            let frame = engine.frame();
+            frame.assert(frame.new_term().put_atom_chars("foo"), Default::default());
+        }
+        assert!(engine.call(engine.new_term().put_atom_chars("foo")));
     }
 }
