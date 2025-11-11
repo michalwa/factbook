@@ -1,5 +1,5 @@
 use crate::model::PersistentState;
-use factbook_swipl::term;
+use factbook_swipl::{term, Context};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::RwLock;
@@ -46,7 +46,7 @@ pub fn run() {
 
             let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
             let pl = swipl_session.engine();
-            pl.assert(term! { pl => foo(bar) }, Default::default());
+            pl.assert(term! { &pl => foo(bar) }, Default::default());
 
             let state = AppState {
                 persistent_state: RwLock::new(persistent_state),

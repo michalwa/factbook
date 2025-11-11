@@ -2,7 +2,7 @@ use crate::model::{EntryId, ViewId};
 use crate::util::SerializeIterOnce;
 use crate::AppState;
 use chrono::{DateTime, Local};
-use factbook_swipl::term;
+use factbook_swipl::{term, Context};
 use serde::Serialize;
 use tauri::{ipc, State};
 
@@ -42,7 +42,7 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
 
     let pl = state.swipl_session.engine();
     let var = pl.new_term();
-    pl.call(term! { pl => foo({var}) });
+    pl.call(term! { &pl => foo({var}) });
     log::debug!("{}", var.atom_chars().unwrap());
 
     let state = state.persistent_state.read().unwrap();
