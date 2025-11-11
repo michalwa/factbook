@@ -298,10 +298,16 @@ macro_rules! impl_ToTerm {
 
 impl_ToTerm!(|v: bool, t| pl::PL_put_bool(t.ptr, v as _));
 impl_ToTerm!(|v: &str, t| pl::PL_put_string_nchars(t.ptr, v.len(), v.as_ptr() as _));
-// NOT using `PL_put_integer` because the integer type is platform-dependent
-// impl_ToTerm!(|v: i32, t| pl::PL_put_integer(t.ptr, v));
+// Not using `PL_put_integer` because the integer type is platform-dependent
+impl_ToTerm!(|v: i8, t| pl::PL_put_int64(t.ptr, v as _));
+impl_ToTerm!(|v: i16, t| pl::PL_put_int64(t.ptr, v as _));
+impl_ToTerm!(|v: i32, t| pl::PL_put_int64(t.ptr, v as _));
 impl_ToTerm!(|v: i64, t| pl::PL_put_int64(t.ptr, v));
+impl_ToTerm!(|v: u8, t| pl::PL_put_uint64(t.ptr, v as _));
+impl_ToTerm!(|v: u16, t| pl::PL_put_uint64(t.ptr, v as _));
+impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr, v as _));
 impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr, v));
+impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr, v as _));
 impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
 
 #[cfg(test)]
