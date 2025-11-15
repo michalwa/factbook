@@ -1,4 +1,4 @@
-use crate::{Atom, Context, ExternalRecord, Functor, Record};
+use crate::{Atom, Context, ExternalRecord, Functor, Record, term};
 use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
@@ -159,20 +159,34 @@ impl<'a> Term<'a> {
     /// # let engine = session.engine();
     /// #
     /// let t1 = term! { &engine => foo(bar(foo), _) };
-    /// let t2 = engine.new_term().put_parsed("foo(bar(_), foo)");
+    /// let t2 = engine.new_term().put_parsed("foo(bar(_), foo)").unwrap();
     ///
     /// assert!(t1.unify_with(t2));
     /// ```
-    pub fn put_parsed(self, repr: &str) -> Self {
-        if unsafe {
+    ///
+    /// On failure, returns the `ParseError` containing the exception term.
+    ///
+    /// ```
+    /// # use factbook_swipl::*;
+    /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+    /// # let session = Session::init(STATE).unwrap();
+    /// # let engine = session.engine();
+    /// #
+    /// let e = engine.new_term().put_parsed("foo(").unwrap_err();
+    /// assert_eq!(
+    ///     e.formal(&engine).unwrap().to_string(),
+    ///     "syntax_error(end_of_clause)"
+    /// );
+    /// ```
+    pub fn put_parsed(self, repr: &str) -> Result<Self, ParseError<'a>> {
+        match unsafe {
             pl::PL_put_term_from_chars(self.ptr, pl::REP_UTF8 as _, repr.len(), repr.as_ptr() as _)
-        } == 0
-        {
-            // TODO: Return exception on failure
-            panic!("PL_put_term_from_chars failed");
+        } {
+            0 => Err(ParseError {
+                exception: Self::from_ptr(self.ptr),
+            }),
+            _ => Ok(self),
         }
-
-        self
     }
 
     /// Returns the string representation of the atom stored in the term
@@ -211,7 +225,7 @@ impl<'a> Term<'a> {
     /// # let session = Session::init(STATE).unwrap();
     /// # let engine = session.engine();
     /// #
-    /// let t = engine.new_term().put_parsed("(1, 2)");
+    /// let t = engine.new_term().put_parsed("(1, 2)").unwrap();
     /// assert_eq!(t.canonical().to_string(), "','(1,2)");
     /// ```
     pub fn canonical(self) -> Canonical<'a> {
@@ -252,6 +266,38 @@ pub struct Canonical<'t>(Term<'t>);
 impl fmt::Display for Canonical<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.write(f, pl::CVT_WRITE_CANONICAL)
+    }
+}
+
+impl fmt::Debug for Term<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "<term:{:p} {}>",
+            self.ptr as *const (),
+            self.canonical()
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ParseError<'a> {
+    exception: Term<'a>,
+}
+
+impl<'a> ParseError<'a> {
+    pub fn exception(self) -> Term<'a> {
+        self.exception
+    }
+
+    /// The "formal" description of the error, as described in https://www.swi-prolog.org/pldoc/man?section=exceptterm.
+    /// Returns `None` if the exception doesn't unify with `error(_, _)`.
+    pub fn formal(self, ctx: &'a impl Context) -> Option<Term<'a>> {
+        let formal = ctx.new_term();
+        if term! { ctx => error({formal}, _) }.unify_with(self.exception) {
+            Some(formal)
+        } else {
+            None
+        }
     }
 }
 
@@ -334,7 +380,10 @@ mod test {
     #[test]
     fn fmt() {
         let engine = crate::test::SESSION.engine();
-        let t = engine.new_term().put_parsed("foo(bar, (1, 2), \"hello\")");
+        let t = engine
+            .new_term()
+            .put_parsed("foo(bar, (1, 2), \"hello\")")
+            .unwrap();
         assert_eq!(t.to_string(), "foo(bar,(1,2),\"hello\")");
     }
 }

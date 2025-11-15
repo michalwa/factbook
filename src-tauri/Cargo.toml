@@ -3,7 +3,7 @@ name = "factbook"
 version = "0.1.0"
 description = "Personal knowledge base app based on logic programming"
 authors = ["michalwa <michalwa2003@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -29,3 +29,6 @@ factbook-swipl = { path = "../factbook-swipl" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"
+
+[dev-dependencies]
+test-log = "0.2.18"

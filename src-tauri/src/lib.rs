@@ -8,6 +8,7 @@ use tauri_plugin_cli::CliExt;
 
 mod api;
 mod model;
+mod prolog;
 mod util;
 
 const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
