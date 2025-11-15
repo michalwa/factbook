@@ -258,6 +258,7 @@ pub struct Record {
 }
 
 unsafe impl Send for Record {}
+unsafe impl Sync for Record {}
 
 impl Clone for Record {
     fn clone(&self) -> Self {

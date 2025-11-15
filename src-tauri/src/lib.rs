@@ -1,5 +1,5 @@
-use crate::model::PersistentState;
-use factbook_swipl::{term, Context};
+use crate::model::{Cache, Database};
+use factbook_swipl::{Context, term};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::RwLock;
@@ -14,7 +14,8 @@ mod util;
 const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
 struct AppState {
-    persistent_state: RwLock<PersistentState>,
+    database: RwLock<Database>,
+    cache: RwLock<Cache>,
     swipl_session: factbook_swipl::Session<'static>,
 }
 
@@ -27,7 +28,7 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_cli::init())?;
 
-            let mut persistent_state = None;
+            let mut database = None;
 
             if let Ok(matches) = app.cli().matches() {
                 if let Some(help) = matches.args.get("help") {
@@ -37,20 +38,23 @@ pub fn run() {
 
                 if let Some(file) = matches.args.get("file") {
                     let file = File::open(file.value.as_str().unwrap())?;
-                    persistent_state = Some(serde_json::from_reader(BufReader::new(file))?);
+                    database = Some(serde_json::from_reader(BufReader::new(file))?);
                 }
             }
 
-            let Some(persistent_state) = persistent_state else {
+            let Some(database) = database else {
                 panic!("No journal file loaded");
             };
 
             let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
-            let pl = swipl_session.engine();
+            let mut pl = swipl_session.engine();
             pl.assert(term! { &pl => foo(bar) }, Default::default());
 
+            let cache = Cache::init_from(&database, &mut pl);
+
             let state = AppState {
-                persistent_state: RwLock::new(persistent_state),
+                database: RwLock::new(database),
+                cache: RwLock::new(cache),
                 swipl_session,
             };
 
