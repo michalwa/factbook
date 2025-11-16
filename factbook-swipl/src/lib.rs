@@ -203,6 +203,13 @@ pub trait Context {
         self.atom(name).to_functor()
     }
 
+    fn predicate<const ARITY: usize>(&self, name: &str) -> Predicate<ARITY> {
+        Predicate {
+            _marker: Default::default(),
+            ptr: unsafe { pl::PL_predicate(name.as_ptr() as _, ARITY as _, std::ptr::null_mut()) },
+        }
+    }
+
     fn call(&self, term: Term) -> bool {
         unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
     }
@@ -251,6 +258,37 @@ pub struct Functor<const ARITY: usize> {
     _marker: PhantomData<*const ()>,
     ptr: pl::functor_t,
 }
+
+#[derive(Clone, Copy)]
+pub struct Predicate<const ARITY: usize> {
+    // Not `Send` because it's only valid in the context of the current thread engine
+    _marker: PhantomData<*const ()>,
+    ptr: pl::predicate_t,
+}
+
+impl<const ARITY: usize> From<Functor<ARITY>> for Predicate<ARITY> {
+    fn from(value: Functor<ARITY>) -> Self {
+        Self {
+            _marker: Default::default(),
+            ptr: unsafe { pl::PL_pred(value.ptr, std::ptr::null_mut()) },
+        }
+    }
+}
+
+impl<const ARITY: usize> Predicate<ARITY> {
+    pub fn exists(self) -> bool {
+        unsafe {
+            pl::PL_predicate_info(
+                self.ptr,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            ) != 0
+        }
+    }
+}
+
+pub struct PredicateInfo {}
 
 /// A handle to a recorded term which can be shared between threads
 pub struct Record {
@@ -323,7 +361,8 @@ pub enum Assert {
 /// * `term` will construct an atom `term`.
 /// * `_` will construct an empty term (variable).
 /// * `f(a, b, ...)` will construct a compound term with the given functor `f`
-///   and args.
+///   and args. Functors which are not valid Rust idents, e.g. `,` can be
+///   wrapped in a string literal: `","(a, b)`.
 /// * `[a, b, ...]` will construct a list with the given members.
 /// * literals like `42` or `"hello"` will also be converted to Prolog values
 ///   using `ToTerm`.
@@ -339,11 +378,13 @@ pub enum Assert {
 ///
 /// let t1 = term! { &engine => foo };
 /// let t2 = term! { &engine => foo(bar({t1}), {t1}) };
-/// let t4 = term! { &engine => [{t1}, "bar", [3, 4]] };
+/// let t3 = term! { &engine => [{t1}, "bar", [3, 4]] };
+/// let t4 = term! { &engine => ","(a, ","(b, c)) };
 ///
 /// assert_eq!(t1.to_string(), "foo");
 /// assert_eq!(t2.to_string(), "foo(bar(foo),foo)");
-/// assert_eq!(t4.to_string(), "[foo,\"bar\",[3,4]]");
+/// assert_eq!(t3.to_string(), "[foo,\"bar\",[3,4]]");
+/// assert_eq!(t4.to_string(), "a,b,c");
 /// ```
 #[macro_export]
 macro_rules! term {
@@ -359,6 +400,13 @@ macro_rules! term {
     ($ctx:expr => _) => {
         $ctx.new_term()
     };
+    ($ctx:expr => $functor:literal ( $($args:tt)+ )) => {{
+        let ctx = $ctx;
+        ctx.new_term().put_functor(
+            ctx.functor($functor),
+            term!(@args () ctx => $($args)+),
+        )
+    }};
     ($ctx:expr => $functor:ident ( $($args:tt)+ )) => {{
         let ctx = $ctx;
         ctx.new_term().put_functor(
@@ -393,9 +441,9 @@ macro_rules! term {
             ($($($out)* ,)? term!($ctx => $functor ( $($args)+ )))
             $($ctx => $($rest)+)?)
     };
-    (@args ($($($out:tt)+)?) $ctx:expr => [ $($args:tt)+ ] $(, $($rest:tt)+)?) => {
+    (@args ($($($out:tt)+)?) $ctx:expr => $functor:literal ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
         term!(@args
-            ($($($out)* ,)? term!($ctx => [ $($args)+ ]))
+            ($($($out)* ,)? term!($ctx => $functor ( $($args)+ )))
             $($ctx => $($rest)+)?)
     };
 }

@@ -48,8 +48,6 @@ pub fn run() {
 
             let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
             let mut pl = swipl_session.engine();
-            pl.assert(term! { &pl => foo(bar) }, Default::default());
-
             let cache = Cache::init_from(&database, &mut pl);
 
             let state = AppState {
