@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
 pub use term::{Term, ToTerm};
 
+mod foreign;
 mod term;
 
 /// Global session handle which, when held, statically guarantees that the
@@ -62,7 +63,10 @@ impl<'s> Session<'s> {
         thread_local! {
             static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
         }
-        ENGINE.with_borrow_mut(|e| (&*e.get_or_insert_with(|| self.attach_engine())).into())
+        ENGINE.with_borrow_mut(|e| {
+            e.get_or_insert_with(|| self.attach_engine());
+            unsafe { EngineHandle::assume_attached() }
+        })
     }
 
     fn attach_engine(&self) -> Engine {
@@ -126,25 +130,13 @@ impl Drop for Engine {
 pub struct EngineHandle {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    id: c_int,
 }
 
-// SAFETY: If an `Engine` exists then an engine has been attached on the current
-// thread (`Engine` is not `Send`) and a handle can be created. It's enough for
-// `EngineHandle` not to be `Send` to ensure that is is always valid (for the
-// duration of the thread).
-impl From<&Engine> for EngineHandle {
-    fn from(value: &Engine) -> Self {
+impl EngineHandle {
+    pub(crate) unsafe fn assume_attached() -> Self {
         Self {
             _marker: Default::default(),
-            id: value.id,
         }
-    }
-}
-
-impl fmt::Debug for EngineHandle {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.id.fmt(f)
     }
 }
 
@@ -252,6 +244,20 @@ pub trait Context {
 
         // https://www.swi-prolog.org/pldoc/man?predicate=predicate_property/2
         self.call(term! { self => predicate_property({qualified_head}, defined) })
+    }
+
+    fn register_my_nondet_pred(&self) {
+        if unsafe {
+            pl::PL_register_foreign(
+                "my_nondet_pred".as_ptr() as _,
+                1,
+                std::mem::transmute(foreign::my_nondet_pred as *const ()),
+                pl::PL_FA_NONDETERMINISTIC as _,
+            )
+        } == 0
+        {
+            panic!("PL_register_foreign failed");
+        }
     }
 }
 
@@ -468,13 +474,13 @@ mod test {
     #[test]
     fn threads() {
         thread::spawn(|| {
-            let engine = dbg!(SESSION.engine());
+            let engine = SESSION.engine();
             let t = term! { &engine => foo(bar(baz), qux) };
 
             engine.assert(t, Default::default());
         });
 
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t = engine.new_term();
         let q = term! { &engine => foo(bar({t}), _) };
 
@@ -484,12 +490,12 @@ mod test {
 
     #[test]
     fn record() {
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t = term! { &engine => foo(bar) };
         let record = t.record();
 
         thread::spawn(move || {
-            let engine = dbg!(SESSION.engine());
+            let engine = SESSION.engine();
             let t = engine.new_term().put(&record);
 
             assert_eq!(t.to_string(), "foo(bar)");
@@ -498,7 +504,7 @@ mod test {
 
     #[test]
     fn external_record() {
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t1 = term! { &engine => foo(bar(42), ["hello", "world"]) };
 
         let bytes = {
@@ -512,11 +518,21 @@ mod test {
 
     #[test]
     fn frames() {
-        let mut engine = dbg!(SESSION.engine());
+        let mut engine = SESSION.engine();
         {
             let frame = engine.frame();
             frame.assert(frame.new_term().put_atom_chars("foo"), Default::default());
         }
         assert!(engine.call(engine.new_term().put_atom_chars("foo")));
+    }
+
+    #[test]
+    fn foreign_nondet() {
+        let engine = SESSION.engine();
+        engine.register_my_nondet_pred();
+        let t = engine.new_term();
+        let solutions = engine.new_term();
+        assert!(engine.call(term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) }));
+        panic!("{solutions}");
     }
 }
