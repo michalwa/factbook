@@ -203,13 +203,6 @@ pub trait Context {
         self.atom(name).to_functor()
     }
 
-    fn predicate<const ARITY: usize>(&self, name: &str) -> Predicate<ARITY> {
-        Predicate {
-            _marker: Default::default(),
-            ptr: unsafe { pl::PL_predicate(name.as_ptr() as _, ARITY as _, std::ptr::null_mut()) },
-        }
-    }
-
     fn call(&self, term: Term) -> bool {
         unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
     }
@@ -218,6 +211,47 @@ pub trait Context {
         if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");
         }
+    }
+
+    fn load_module_from_str(&self, module: &str, source: &str) {
+        // https://www.swi-prolog.org/pldoc/man?section=defmodule
+        let scoped_source = format!(":- module({module}, []). {source}");
+        let s = self.new_term();
+
+        let load_goal = term! {
+            self => ","(
+                // https://www.swi-prolog.org/pldoc/man?predicate=open_string/2
+                open_string({scoped_source.as_str()}, {s}),
+                // https://www.swi-prolog.org/pldoc/man?predicate=load_files/2
+                load_files(user, [stream({s}), redefine_module(true)])
+            )
+        };
+
+        if !self.call(load_goal) {
+            panic!("could not load module from source");
+        }
+    }
+
+    fn predicate_defined<'m, const ARITY: usize>(
+        &self,
+        name: &str,
+        module: impl Into<Option<&'m str>>,
+    ) -> bool {
+        let head = self.new_term();
+        if unsafe { pl::PL_put_functor(head.ptr, self.functor::<ARITY>(name).ptr) } == 0 {
+            panic!("PL_put_functor failed");
+        }
+
+        let module = module.into().map(|m| self.atom(m));
+        let qualified_head = match &module {
+            Some(module) => {
+                term! { self => ":"({module}, { head }) }
+            },
+            None => head,
+        };
+
+        // https://www.swi-prolog.org/pldoc/man?predicate=predicate_property/2
+        self.call(term! { self => predicate_property({qualified_head}, defined) })
     }
 }
 
@@ -258,37 +292,6 @@ pub struct Functor<const ARITY: usize> {
     _marker: PhantomData<*const ()>,
     ptr: pl::functor_t,
 }
-
-#[derive(Clone, Copy)]
-pub struct Predicate<const ARITY: usize> {
-    // Not `Send` because it's only valid in the context of the current thread engine
-    _marker: PhantomData<*const ()>,
-    ptr: pl::predicate_t,
-}
-
-impl<const ARITY: usize> From<Functor<ARITY>> for Predicate<ARITY> {
-    fn from(value: Functor<ARITY>) -> Self {
-        Self {
-            _marker: Default::default(),
-            ptr: unsafe { pl::PL_pred(value.ptr, std::ptr::null_mut()) },
-        }
-    }
-}
-
-impl<const ARITY: usize> Predicate<ARITY> {
-    pub fn exists(self) -> bool {
-        unsafe {
-            pl::PL_predicate_info(
-                self.ptr,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            ) != 0
-        }
-    }
-}
-
-pub struct PredicateInfo {}
 
 /// A handle to a recorded term which can be shared between threads
 pub struct Record {

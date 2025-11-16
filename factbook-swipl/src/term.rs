@@ -304,7 +304,7 @@ impl<'a> ParseError<'a> {
 /// Implemented by types that can be converted to Prolog values and put in a
 /// term reference
 pub trait ToTerm: Sized {
-    fn to_term<'a>(self, ctx: &'a impl Context) -> Term<'a>
+    fn to_term<'a>(self, ctx: &'a (impl Context + ?Sized)) -> Term<'a>
     where
         Self: 'a,
     {
@@ -315,7 +315,7 @@ pub trait ToTerm: Sized {
 }
 
 impl ToTerm for Term<'_> {
-    fn to_term<'a>(self, _: &'a impl Context) -> Term<'a>
+    fn to_term<'a>(self, _: &'a (impl Context + ?Sized)) -> Term<'a>
     where
         Self: 'a,
     {

@@ -42,29 +42,19 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let cache = state.cache.read().unwrap();
 
     let mut engine = state.swipl_session.engine();
-    let mut pl = engine.frame();
+    let pl = engine.frame();
 
     if let Some(view_id) = view {
         let view = db.views.get(&view_id).unwrap();
-        let pl = pl.frame();
-        let s = pl.new_term();
+        let module_name = format!("view_{view_id}");
 
-        if !pl.call(term! { &pl => ","(open_string({view.definition.as_str()}, {s}), load_files(user, [stream({s})])) }) {
-            panic!("loading view definition failed");
-        }
+        pl.load_module_from_str(&module_name, &view.definition);
 
-        if pl.predicate::<1>("show").exists() {
+        if pl.predicate_defined::<1>("show", module_name.as_str()) {
             log::debug!("show/1 exists");
         } else {
             log::debug!("show/1 doesn't exist");
         }
-    }
-
-    // TODO: Make sure it's scoped to the frame OR load it into a dedicated module
-    if pl.predicate::<1>("show").exists() {
-        log::debug!("show/1 exists outside the frame");
-    } else {
-        log::debug!("show/1 doesn't exist outside the frame");
     }
 
     let state = state.database.read().unwrap();
