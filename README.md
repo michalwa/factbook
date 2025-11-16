@@ -33,7 +33,7 @@ Personal knowledge base app based on logic programming
 - Rust v1.88+
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - SWI-Prolog (install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually)
-  - On Mac/Linux/MinGW verify the installation with `pkg-config --mod-version swipl`
+  - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
   - On Windows (MSVC) add the following to your `~/.cargo/config.toml`:
     ```toml
     # `rustdocflags` is only needed for running some doc tests
