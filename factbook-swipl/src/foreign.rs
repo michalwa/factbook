@@ -9,9 +9,8 @@ pub trait Nondet: NondetMeta {
     fn init(ctx: &impl Context) -> Self;
 
     /// Advances the foreign predicate to the next solution. The implementation
-    /// may unify the terms in `args` with values and return `true` to
-    /// indicate that there are more solutions or `false` if it wants to
-    /// terminate.
+    /// may unify the terms in `args` with values and return `true` for success,
+    /// or return `false` in which case the search will be terminated.
     fn next(&mut self, ctx: &impl Context, args: Self::Args<'_>) -> bool;
 }
 
