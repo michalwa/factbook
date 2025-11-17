@@ -1,12 +1,13 @@
+use crate::foreign::Nondet;
 use std::cell::RefCell;
+use std::ffi::CString;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
-use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
 pub use term::{Term, ToTerm};
 
-mod foreign;
+pub mod foreign;
 mod term;
 
 /// Global session handle which, when held, statically guarantees that the
@@ -63,10 +64,7 @@ impl<'s> Session<'s> {
         thread_local! {
             static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
         }
-        ENGINE.with_borrow_mut(|e| {
-            e.get_or_insert_with(|| self.attach_engine());
-            unsafe { EngineHandle::assume_attached() }
-        })
+        ENGINE.with_borrow_mut(|e| (&*e.get_or_insert_with(|| self.attach_engine())).into())
     }
 
     fn attach_engine(&self) -> Engine {
@@ -85,9 +83,8 @@ impl<'s> Session<'s> {
             -2 => panic!(
                 "failed to create Prolog engine: SWI-Prolog version does not support threads"
             ),
-            id => Engine {
+            _ => Engine {
                 _marker: Default::default(),
-                id,
             },
         }
     }
@@ -107,7 +104,6 @@ impl Drop for Session<'_> {
 struct Engine {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    id: c_int,
 }
 
 impl Drop for Engine {
@@ -140,12 +136,21 @@ impl EngineHandle {
     }
 }
 
+impl From<&Engine> for EngineHandle {
+    fn from(_: &Engine) -> Self {
+        // SAFETY: If an `Engine` exists then an engine has been attached on the current
+        // thread (`Engine` is not `Send`) and a handle can be created. It's enough for
+        // `EngineHandle` not to be `Send` to ensure that is is always valid (for the
+        // duration of the thread).
+        unsafe { Self::assume_attached() }
+    }
+}
+
 /// A foreign frame - a contained environment for operating on the Prolog
 /// stack
 pub struct Frame<'p> {
     // Not `Send` because it's only valid in the context of the current thread engine
-    _marker: PhantomData<*const ()>,
-    _parent: PhantomData<&'p ()>,
+    _marker: PhantomData<(*const (), &'p ())>,
     ptr: pl::PL_fid_t,
 }
 
@@ -175,7 +180,6 @@ pub trait Context {
     fn frame<'a>(&'a mut self) -> Frame<'a> {
         Frame {
             _marker: Default::default(),
-            _parent: Default::default(),
             ptr: unsafe { pl::PL_open_foreign_frame() },
         }
     }
@@ -246,12 +250,12 @@ pub trait Context {
         self.call(term! { self => predicate_property({qualified_head}, defined) })
     }
 
-    fn register_my_nondet_pred(&self) {
+    fn register_predicate<P: Nondet>(&self) {
         if unsafe {
             pl::PL_register_foreign(
-                "my_nondet_pred".as_ptr() as _,
-                1,
-                std::mem::transmute(foreign::my_nondet_pred as *const ()),
+                CString::new(P::NAME).unwrap().as_ptr(),
+                P::ARITY as _,
+                std::mem::transmute(P::EXTERN_FN),
                 pl::PL_FA_NONDETERMINISTIC as _,
             )
         } == 0
@@ -460,6 +464,7 @@ macro_rules! term {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::foreign::NondetMeta;
     use std::sync::LazyLock;
     use std::thread;
 
@@ -528,11 +533,38 @@ mod test {
 
     #[test]
     fn foreign_nondet() {
+        pub(crate) struct MyNondetPred {
+            i: i32,
+        }
+
+        impl_nondet!(MyNondetPred as my_nondet_pred(t1));
+
+        impl Nondet for MyNondetPred {
+            fn init(_: &impl Context) -> Self {
+                Self { i: 1 }
+            }
+
+            fn next(&mut self, ctx: &impl Context, [t1]: Self::Args<'_>) -> bool {
+                if self.i <= 3 {
+                    let t = ctx.new_term().put(self.i);
+                    self.i += 1;
+                    t1.unify_with(t)
+                } else {
+                    false
+                }
+            }
+        }
+
+        assert_eq!(MyNondetPred::NAME, "my_nondet_pred");
+        assert_eq!(MyNondetPred::ARITY, 1);
+
         let engine = SESSION.engine();
-        engine.register_my_nondet_pred();
+        engine.register_predicate::<MyNondetPred>();
+        assert!(engine.predicate_defined::<{ MyNondetPred::ARITY }>(MyNondetPred::NAME, None));
+
         let t = engine.new_term();
         let solutions = engine.new_term();
         assert!(engine.call(term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) }));
-        panic!("{solutions}");
+        assert!(solutions.unify_with(term! { &engine => [1, 2, 3] }));
     }
 }
