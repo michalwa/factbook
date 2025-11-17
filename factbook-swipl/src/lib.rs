@@ -461,6 +461,18 @@ macro_rules! term {
     };
 }
 
+#[macro_export]
+macro_rules! assert_unify {
+    ($a:expr, $b:expr) => {{
+        let a = $a;
+        let b = $b;
+        assert!(
+            a.unify_with(b),
+            "assertion `left.unify_with(right)` failed\n  left: {a},\n right: {b}"
+        );
+    }};
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -518,7 +530,7 @@ mod test {
         };
 
         let t2 = engine.new_term().put_recorded_external(&bytes);
-        assert!(t1.unify_with(t2));
+        assert_unify!(t1, t2);
     }
 
     #[test]
@@ -565,6 +577,6 @@ mod test {
         let t = engine.new_term();
         let solutions = engine.new_term();
         assert!(engine.call(term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) }));
-        assert!(solutions.unify_with(term! { &engine => [1, 2, 3] }));
+        assert_unify!(solutions, term! { &engine => [1, 2, 3] });
     }
 }
