@@ -1,6 +1,5 @@
-use crate::foreign::Nondet;
+use crate::foreign::{Nondet, PredicateArgs};
 use std::cell::RefCell;
-use std::ffi::CString;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -253,8 +252,8 @@ pub trait Context {
     fn register_predicate<P: Nondet>(&self) {
         if unsafe {
             pl::PL_register_foreign(
-                CString::new(P::NAME).unwrap().as_ptr(),
-                P::ARITY as _,
+                P::NAME.as_ptr(),
+                P::Args::ARITY as _,
                 std::mem::transmute(P::EXTERN_FN),
                 pl::PL_FA_NONDETERMINISTIC as _,
             )
@@ -567,12 +566,17 @@ mod test {
             }
         }
 
-        assert_eq!(MyNondetPred::NAME, "my_nondet_pred");
-        assert_eq!(MyNondetPred::ARITY, 1);
+        assert_eq!(MyNondetPred::NAME, c"my_nondet_pred");
+        assert_eq!(<MyNondetPred as NondetMeta>::Args::ARITY, 1);
 
         let engine = SESSION.engine();
         engine.register_predicate::<MyNondetPred>();
-        assert!(engine.predicate_defined::<{ MyNondetPred::ARITY }>(MyNondetPred::NAME, None));
+        assert!(
+            engine.predicate_defined::<{ <MyNondetPred as NondetMeta>::Args::ARITY }>(
+                MyNondetPred::NAME.to_str().unwrap(),
+                None
+            )
+        );
 
         let t = engine.new_term();
         let solutions = engine.new_term();

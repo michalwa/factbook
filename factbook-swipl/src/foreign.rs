@@ -1,4 +1,5 @@
 use crate::{Context, EngineHandle, Term};
+use std::ffi::CStr;
 use swipl_fli as pl;
 
 /// Implemented by non-deterministic foreign predicates
@@ -18,8 +19,7 @@ pub trait Nondet: NondetMeta {
 pub unsafe trait NondetMeta {
     type Args<'a>: PredicateArgs;
 
-    const NAME: &'static str;
-    const ARITY: usize;
+    const NAME: &'static CStr;
     const EXTERN_FN: *const ();
 }
 
@@ -29,11 +29,15 @@ pub unsafe trait NondetMeta {
 pub trait PredicateArgs {
     type Raw;
 
+    const ARITY: usize;
+
     unsafe fn from_raw(_: Self::Raw) -> Self;
 }
 
 impl<const N: usize> PredicateArgs for [Term<'_>; N] {
     type Raw = [pl::term_t; N];
+
+    const ARITY: usize = N;
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
         raw.map(Term::from_ptr)
@@ -58,8 +62,11 @@ macro_rules! impl_nondet {
         unsafe impl $crate::foreign::NondetMeta for $type {
             type Args<'a> = [$crate::Term<'a>; $crate::impl_nondet!(@count $($arg),+)];
 
-            const NAME: &'static str = stringify!($name);
-            const ARITY: usize = $crate::impl_nondet!(@count $($arg),+);
+            const NAME: &'static std::ffi::CStr = unsafe {
+                std::ffi::CStr::from_ptr(
+                    concat!(stringify!($name), "\0").as_ptr() as *const _,
+                )
+            };
             const EXTERN_FN: *const () = $name as _;
         }
 
