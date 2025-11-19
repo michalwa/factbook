@@ -87,7 +87,7 @@ pub fn predicate(attr: TokenStream, item: TokenStream) -> TokenStream {
         #item
 
         unsafe impl ::factbook_swipl::foreign::Predicate for #typename {
-            type Args<'a> = [::factbook_swipl::Term<'a>; #arity];
+            type Args<'a> = [::factbook_swipl::term::Term<'a>; #arity];
 
             const NAME: &'static ::std::ffi::CStr = #name_cstr;
             const EXTERN_FN: *const () = #extern_name as _;

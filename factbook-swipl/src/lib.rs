@@ -1,13 +1,14 @@
 use crate::foreign::{Predicate, PredicateArgs};
+use crate::term::Term;
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
-pub use term::{Term, ToTerm};
 
+pub mod blob;
 pub mod foreign;
-mod term;
+pub mod term;
 
 /// Global session handle which, when held, statically guarantees that the
 /// Prolog runtime has been initialized. Parameterized by the lifetime of the
@@ -406,10 +407,10 @@ pub enum Assert {
 #[macro_export]
 macro_rules! term {
     ($ctx:expr => {$term:expr}) => {
-        $crate::ToTerm::to_term($term, $ctx)
+        $crate::term::ToTerm::to_term($term, $ctx)
     };
     ($ctx:expr => $value:literal) => {
-        $crate::ToTerm::to_term($value, $ctx)
+        $crate::term::ToTerm::to_term($value, $ctx)
     };
     ($ctx:expr => $atom:ident) => {
         $ctx.new_term().put_atom_chars(stringify!($atom))
