@@ -2,8 +2,13 @@ use crate::{Context, EngineHandle, Term};
 use std::ffi::CStr;
 use swipl_fli as pl;
 
-/// Implemented by all foreign predicates. Use the [`predicate`] macro to
-/// implement this for your type.
+/// Implemented by all foreign predicates. Use the [`predicates`] macro to
+/// generate types implementing this trait or [`predicate`] to implement it for
+/// existing types.
+///
+/// # Safety
+/// `EXTERN_FN` must be a pointer to a valid SWI-Prolog callback function as
+/// specified in https://www.swi-prolog.org/pldoc/man?section=foreign-register-predicate.
 pub unsafe trait Predicate {
     type Args<'a>: PredicateArgs;
 
@@ -24,6 +29,9 @@ pub trait PredicateArgs {
 
     const ARITY: usize;
 
+    /// # Safety
+    /// The returned value must actually be valid for the duration of its
+    /// lifetime.
     unsafe fn from_raw(_: Self::Raw) -> Self;
 }
 
@@ -164,6 +172,9 @@ pub trait Nondet: Predicate {
 
 /// Generic wrapper implementation for semi-deterministic foreign predicates.
 /// Only meant to be used from the [`predicate`] macro.
+///
+/// # Safety
+/// * `args` must be an array of valid `term_t` handles.
 pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw) -> pl::foreign_t {
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
@@ -178,6 +189,12 @@ pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw
 
 /// Generic wrapper implementation for non-deterministic foreign predicates.
 /// Only meant to be used from the [`predicate`] macro.
+///
+/// # Safety
+/// * `args` must be an array of valid `term_t` handles.
+/// * `ctrl` must be a valid `control_t` value passed to the callback function
+///   `P::EXTERN_FN` by SWI-Prolog. The implementation assumes that it contains
+///   a valid address of the heap-allocated instance of `P`.
 pub unsafe fn nondet_impl<P: Nondet>(
     args: <P::Args<'_> as PredicateArgs>::Raw,
     ctrl: pl::control_t,
@@ -210,7 +227,7 @@ pub unsafe fn nondet_impl<P: Nondet>(
         },
         pl::PL_PRUNED => {
             let state_ptr = unsafe { pl::PL_foreign_context_address(ctrl) };
-            let _state = unsafe { Box::from_raw(state_ptr as _) };
+            let _state = unsafe { Box::from_raw(state_ptr as *mut P) };
 
             pl::TRUE as _
         },

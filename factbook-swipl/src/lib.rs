@@ -1,4 +1,4 @@
-use crate::foreign::{Nondet, Predicate, PredicateArgs};
+use crate::foreign::{Predicate, PredicateArgs};
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
@@ -33,15 +33,15 @@ impl<'s> Session<'s> {
             panic!("failed to initialize SWI-Prolog: already initialized");
         }
 
-        if let Some(state) = state.into() {
-            if unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) } == 0 {
-                panic!("failed to initialize SWI-Prolog: PL_set_resource_db_mem failed");
-            }
+        if let Some(state) = state.into()
+            && unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) } == 0
+        {
+            panic!("failed to initialize SWI-Prolog: PL_set_resource_db_mem failed");
         }
 
         let mut args = [
-            b"factbook\0".as_ptr() as *mut _,
-            b"--quiet\0".as_ptr() as *mut _,
+            c"factbook".as_ptr() as *mut _,
+            c"--quiet".as_ptr() as *mut _,
             std::ptr::null_mut(),
         ];
 
@@ -110,10 +110,10 @@ impl Drop for Engine {
         // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
         // called, otherwise it will hang. This can be the case if `Session` is dropped
         // before the `Engine`, e.g. when the thread holding the `Session` exits.
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
-            if unsafe { pl::PL_thread_destroy_engine() } == 0 {
-                eprintln!("warning: PL_thread_destroy_engine failed");
-            }
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0
+            && unsafe { pl::PL_thread_destroy_engine() } == 0
+        {
+            eprintln!("warning: PL_thread_destroy_engine failed");
         }
     }
 }
@@ -259,7 +259,7 @@ pub trait Context {
             pl::PL_register_foreign(
                 P::NAME.as_ptr(),
                 P::Args::ARITY as _,
-                std::mem::transmute(P::EXTERN_FN),
+                std::mem::transmute::<*const (), Option<unsafe extern "C" fn() -> _>>(P::EXTERN_FN),
                 P::FLAGS as _,
             )
         } == 0
