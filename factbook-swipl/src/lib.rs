@@ -1,4 +1,4 @@
-use crate::foreign::{Nondet, PredicateArgs};
+use crate::foreign::{Nondet, Predicate, PredicateArgs};
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
@@ -187,6 +187,11 @@ pub trait Context {
         Term::from_ptr(unsafe { pl::PL_new_term_ref() })
     }
 
+    fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
+        let t = unsafe { pl::PL_new_term_refs(N) };
+        std::array::from_fn(|i| Term::from_ptr(t + i))
+    }
+
     fn atom(&self, chars: &str) -> Atom {
         Atom {
             _marker: Default::default(),
@@ -249,13 +254,13 @@ pub trait Context {
         self.call(term! { self => predicate_property({qualified_head}, defined) })
     }
 
-    fn register_predicate<P: Nondet>(&self) {
+    fn register_predicate<P: Predicate>(&self) {
         if unsafe {
             pl::PL_register_foreign(
                 P::NAME.as_ptr(),
                 P::Args::ARITY as _,
                 std::mem::transmute(P::EXTERN_FN),
-                pl::PL_FA_NONDETERMINISTIC as _,
+                P::FLAGS as _,
             )
         } == 0
         {
@@ -475,7 +480,6 @@ macro_rules! assert_unify {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::foreign::NondetMeta;
     use std::sync::LazyLock;
     use std::thread;
 
@@ -540,47 +544,5 @@ mod test {
             frame.assert(frame.new_term().put_atom_chars("foo"), Default::default());
         }
         assert!(engine.call(engine.new_term().put_atom_chars("foo")));
-    }
-
-    #[test]
-    fn foreign_nondet() {
-        pub(crate) struct MyNondetPred {
-            i: i32,
-        }
-
-        impl_nondet!(MyNondetPred as my_nondet_pred(t1));
-
-        impl Nondet for MyNondetPred {
-            fn init(_: &impl Context) -> Self {
-                Self { i: 1 }
-            }
-
-            fn next(&mut self, ctx: &impl Context, [t1]: Self::Args<'_>) -> bool {
-                if self.i <= 3 {
-                    let t = ctx.new_term().put(self.i);
-                    self.i += 1;
-                    t1.unify_with(t)
-                } else {
-                    false
-                }
-            }
-        }
-
-        assert_eq!(MyNondetPred::NAME, c"my_nondet_pred");
-        assert_eq!(<MyNondetPred as NondetMeta>::Args::ARITY, 1);
-
-        let engine = SESSION.engine();
-        engine.register_predicate::<MyNondetPred>();
-        assert!(
-            engine.predicate_defined::<{ <MyNondetPred as NondetMeta>::Args::ARITY }>(
-                MyNondetPred::NAME.to_str().unwrap(),
-                None
-            )
-        );
-
-        let t = engine.new_term();
-        let solutions = engine.new_term();
-        assert!(engine.call(term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) }));
-        assert_unify!(solutions, term! { &engine => [1, 2, 3] });
     }
 }

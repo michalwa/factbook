@@ -7,4 +7,5 @@ edition = "2024"
 factbook-swipl-state = { path = "../factbook-swipl-state" }
 
 [dependencies]
+paste = "1.0.15"
 swipl-fli = "0.3.6"

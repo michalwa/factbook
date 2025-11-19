@@ -2,30 +2,23 @@ use crate::{Context, EngineHandle, Term};
 use std::ffi::CStr;
 use swipl_fli as pl;
 
-/// Implemented by non-deterministic foreign predicates
-pub trait Nondet: NondetMeta {
-    /// Initializes the state of the foreign predicate call. This is called once
-    /// when the foreign predicate is called from Prolog. Multiple instances can
-    /// exist at the same time.
-    fn init(ctx: &impl Context) -> Self;
-
-    /// Advances the foreign predicate to the next solution. The implementation
-    /// may unify the terms in `args` with values and return `true` for success,
-    /// or return `false` in which case the search will be terminated.
-    fn next(&mut self, ctx: &impl Context, args: Self::Args<'_>) -> bool;
-}
-
-/// Implemented by the [`impl_nondet`] macro
-pub unsafe trait NondetMeta {
+/// Implemented by all foreign predicates. Use the [`predicate`] macro to
+/// implement this for your type.
+pub unsafe trait Predicate {
     type Args<'a>: PredicateArgs;
 
+    /// Name of the predicate as seen from Prolog
     const NAME: &'static CStr;
+    /// Function pointer to the `extern "C" fn` callback function
     const EXTERN_FN: *const ();
+    /// Flags passed to [`swipl_fli::PL_register_foreign`]
+    const FLAGS: u32;
 }
 
-/// Internal trait for the args array passed to foreign predicates to work
-/// around using `NondetMeta::ARITY` as an array size, which is not supported in
-/// stable Rust currently
+/// Internal trait for the args array passed to foreign predicates.
+/// It would be simpler to define a `const ARITY: usize` on `PredicateMeta`, but
+/// using the associated constant as an array size is not yet supported in
+/// stable Rust.
 pub trait PredicateArgs {
     type Raw;
 
@@ -44,45 +37,110 @@ impl<const N: usize> PredicateArgs for [Term<'_>; N] {
     }
 }
 
-/// Implements `NondetMeta` related to a non-deterministic foreign predicate and
-/// generates the required `extern "C" fn` item.
+/// Implements [`Predicate`] for a foreign predicate and generates the required
+/// `extern "C" fn` item.
+///
+/// Each predicate can be declared as _semi-deterministic_ (`semidet`) or
+/// _non-deterministic_ (`nondet`). _Deterministic_ predicates are a subset of
+/// _semi-deterministic_ predicates and are trivial to implement in terms of the
+/// `Semidet` trait, and are therefore left out.
+///
+/// * https://www.swi-prolog.org/pldoc/man?section=determinism
 ///
 /// ```ignore
+/// struct MySemidetPred;
 /// struct MyNondetPred;
 ///
-/// impl_nondet!(MyNondetPred as my_nondet_pred(t1, t2));
+/// predicate!(MySemidetPred as my_semidet_pred(t1, t2) semidet);
+/// predicate!(MyNondetPred as my_nondet_pred(t1, t2) nondet);
+///
+/// impl Semidet for MySemidetPred {
+///     // ...
+/// }
 ///
 /// impl Nondet for MyNondetPred {
 ///     // ...
 /// }
 /// ```
 #[macro_export]
-macro_rules! impl_nondet {
-    ($type:ty as $name:ident($($arg:ident),+)) => {
-        unsafe impl $crate::foreign::NondetMeta for $type {
-            type Args<'a> = [$crate::Term<'a>; $crate::impl_nondet!(@count $($arg),+)];
+macro_rules! predicate {
+    ($type:ty as $name:ident($($arg:ident),+) $det:ident) => {
+        unsafe impl $crate::foreign::Predicate for $type {
+            type Args<'a> = [$crate::Term<'a>; $crate::predicate!(@count $($arg),+)];
 
-            const NAME: &'static std::ffi::CStr = unsafe {
-                std::ffi::CStr::from_ptr(
+            const NAME: &'static ::std::ffi::CStr = unsafe {
+                ::std::ffi::CStr::from_ptr(
                     concat!(stringify!($name), "\0").as_ptr() as *const _,
                 )
             };
-            const EXTERN_FN: *const () = $name as _;
+            const EXTERN_FN: *const () = ::paste::paste!([<$name $(_ $arg)+>]) as _;
+            const FLAGS: u32 = $crate::predicate!(@flags $det);
         }
 
-        extern "C" fn $name(
-            $($arg: ::swipl_fli::term_t),+,
-            ctrl: ::swipl_fli::control_t,
-        ) -> ::swipl_fli::foreign_t {
-            unsafe { $crate::foreign::nondet_impl::<$type>([$($arg),+], ctrl) }
+        predicate!(@extern $type as $name($($arg),+) $det);
+    };
+    (@count $_:tt, $($rest:tt),+) => { 1 + $crate::predicate!(@count $($rest),+) };
+    (@count $_:tt) => { 1 };
+    (@extern $type:ty as $name:ident($($arg:ident),+) semidet) => {
+        ::paste::paste! {
+            extern "C" fn [<$name $(_ $arg)+>](
+                $($arg: ::swipl_fli::term_t),+,
+            ) -> ::swipl_fli::foreign_t {
+                unsafe { $crate::foreign::semidet_impl::<$type>([$($arg),+]) }
+            }
         }
     };
-    (@count $_:tt, $($rest:tt),+) => { 1 + $crate::impl_nondet!(@count $($rest),+) };
-    (@count $_:tt) => { 1 };
+    (@extern $type:ty as $name:ident($($arg:ident),+) nondet) => {
+        ::paste::paste! {
+            extern "C" fn [<$name $(_ $arg)+>](
+                $($arg: ::swipl_fli::term_t),+,
+                ctrl: ::swipl_fli::control_t,
+            ) -> ::swipl_fli::foreign_t {
+                unsafe { $crate::foreign::nondet_impl::<$type>([$($arg),+], ctrl) }
+            }
+        }
+    };
+    (@flags semidet) => { 0 };
+    (@flags nondet) => { ::swipl_fli::PL_FA_NONDETERMINISTIC };
+}
+
+/// Implemented by semi-deterministic foreign predicates
+pub trait Semidet: Predicate {
+    /// May unify terms in `args` and return `true` for success, or return
+    /// `false` for failure. Deterministic predicates are implemented by always
+    /// returning `true` from this method.
+    fn call(ctx: &impl Context, args: Self::Args<'_>) -> bool;
+}
+
+/// Implemented by non-deterministic foreign predicates
+pub trait Nondet: Predicate {
+    /// Initializes the state of the foreign predicate call. This is called once
+    /// when the foreign predicate is called from Prolog. Multiple instances can
+    /// exist at the same time.
+    fn init(ctx: &impl Context) -> Self;
+
+    /// Advances the foreign predicate to the next solution. The implementation
+    /// may unify the terms in `args` with values and return `true` for success,
+    /// or return `false` in which case the search will be terminated.
+    fn next(&mut self, ctx: &impl Context, args: Self::Args<'_>) -> bool;
+}
+
+/// Generic wrapper implementation for semi-deterministic foreign predicates.
+/// Only meant to be used from the [`predicate`] macro.
+pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw) -> pl::foreign_t {
+    // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
+    // PL_close_foreign_frame() pair.
+    // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
+    let ctx = unsafe { EngineHandle::assume_attached() };
+
+    match P::call(&ctx, unsafe { P::Args::from_raw(args) }) {
+        true => pl::TRUE as _,
+        false => pl::FALSE as _,
+    }
 }
 
 /// Generic wrapper implementation for non-deterministic foreign predicates.
-/// Only meant to be used from the [`impl_nondet`] macro.
+/// Only meant to be used from the [`predicate`] macro.
 pub unsafe fn nondet_impl<P: Nondet>(
     args: <P::Args<'_> as PredicateArgs>::Raw,
     ctrl: pl::control_t,
