@@ -5,6 +5,11 @@ use syn::parse::Parse;
 use syn::punctuated::Punctuated;
 use syn::{DeriveInput, Ident, Token, parenthesized, parse_macro_input};
 
+mod keyword {
+    syn::custom_keyword!(semidet);
+    syn::custom_keyword!(nondet);
+}
+
 struct PredicateAttr {
     name: Ident,
     args: Punctuated<Ident, Token![,]>,
@@ -30,11 +35,16 @@ enum Det {
 
 impl Parse for Det {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let ident: Ident = input.parse()?;
-        match ident.to_string().as_str() {
-            "semidet" => Ok(Self::Semidet),
-            "nondet" => Ok(Self::Nondet),
-            _ => Err(syn::Error::new(ident.span(), "unrecognized predicate type")),
+        let lookahead = input.lookahead1();
+
+        if lookahead.peek(keyword::semidet) {
+            input.parse::<keyword::semidet>()?;
+            Ok(Self::Semidet)
+        } else if lookahead.peek(keyword::nondet) {
+            input.parse::<keyword::nondet>()?;
+            Ok(Self::Nondet)
+        } else {
+            Err(lookahead.error())
         }
     }
 }
