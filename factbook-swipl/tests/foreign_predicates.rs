@@ -1,16 +1,14 @@
 use factbook_swipl::foreign::{Nondet, Predicate, Semidet};
-use factbook_swipl::{Context, Session, assert_unify, predicate, term};
+use factbook_swipl::{Context, Session, assert_unify, predicates, term};
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-struct MySemidetPred;
-
-struct MyNondetPred {
-    i: i32,
+predicates! {
+    my_semidet_pred(t1, t2) semidet as MySemidetPred;
+    my_nondet_pred(t1) nondet as MyNondetPred {
+        i: i32,
+    }
 }
-
-predicate!(MySemidetPred as my_semidet_pred(t1, t2) semidet);
-predicate!(MyNondetPred as my_nondet_pred(t1) nondet);
 
 impl Semidet for MySemidetPred {
     fn call(ctx: &impl Context, [t1, t2]: Self::Args<'_>) -> bool {

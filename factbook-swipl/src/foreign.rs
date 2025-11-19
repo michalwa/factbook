@@ -37,28 +37,65 @@ impl<const N: usize> PredicateArgs for [Term<'_>; N] {
     }
 }
 
-/// Implements [`Predicate`] for a foreign predicate and generates the required
-/// `extern "C" fn` item.
+/// Generates foreign predicate types, implements [`Predicate`] for them and
+/// generates the necessary `extern "C" fn` items. It does not generate
+/// predicate implementations. You must implement [`Semidet`] or [`Nondet`] for
+/// the generated types explicitly.
 ///
 /// Each predicate can be declared as _semi-deterministic_ (`semidet`) or
 /// _non-deterministic_ (`nondet`). _Deterministic_ predicates are a subset of
 /// _semi-deterministic_ predicates and are trivial to implement in terms of the
 /// `Semidet` trait, and are therefore left out.
 ///
+/// For existing types use [`predicate`] instead.
+///
 /// * https://www.swi-prolog.org/pldoc/man?section=determinism
 ///
 /// ```ignore
-/// struct MySemidetPred;
-/// struct MyNondetPred;
-///
-/// predicate!(MySemidetPred as my_semidet_pred(t1, t2) semidet);
-/// predicate!(MyNondetPred as my_nondet_pred(t1, t2) nondet);
+/// predicates! {
+///     my_semidet_pred(t1, t2) semidet as MySemidetPred;
+///     my_nondet_pred(t1, t2) nondet as MyNondetPred {
+///         // struct fields
+///     }
+/// }
 ///
 /// impl Semidet for MySemidetPred {
 ///     // ...
 /// }
 ///
 /// impl Nondet for MyNondetPred {
+///     // ...
+/// }
+/// ```
+#[macro_export]
+macro_rules! predicates {
+    () => {};
+    ($(#[$attr:meta])* $pub:vis $name:ident($($arg:ident),+) $det:ident as $type:ident; $($rest:tt)*) => {
+        $(#[$attr])* $pub struct $type;
+        $crate::predicate!($type as $name($($arg),+) $det);
+        $crate::predicates!($($rest)*);
+    };
+    ($(#[$attr:meta])* $pub:vis $name:ident($($arg:ident),+) $det:ident as $type:ident { $($field:tt)* } $($rest:tt)*) => {
+        $(#[$attr])* $pub struct $type { $($field)* }
+        $crate::predicate!($type as $name($($arg),+) $det);
+        $crate::predicates!($($rest)*);
+    };
+    ($(#[$attr:meta])* $pub:vis $name:ident($($arg:ident),+) $det:ident as $type:ident ( $($field:tt)* ); $($rest:tt)*) => {
+        $(#[$attr])* $pub struct $type ( $($field)* );
+        $crate::predicate!($type as $name($($arg),+) $det);
+        $crate::predicates!($($rest)*);
+    };
+}
+
+/// Implements [`Predicate`] for an existing type and generates the necessary
+/// `extern "C" fn` item. See [`predicates`] for more info.
+///
+/// ```ignore
+/// struct MyPredicate;
+///
+/// predicate!(MyPredicate as my_predicate(t1, t2) semidet);
+///
+/// impl Semidet for MyPredicate {
 ///     // ...
 /// }
 /// ```
@@ -77,7 +114,7 @@ macro_rules! predicate {
             const FLAGS: u32 = $crate::predicate!(@flags $det);
         }
 
-        predicate!(@extern $type as $name($($arg),+) $det);
+        $crate::predicate!(@extern $type as $name($($arg),+) $det);
     };
     (@count $_:tt, $($rest:tt),+) => { 1 + $crate::predicate!(@count $($rest),+) };
     (@count $_:tt) => { 1 };
