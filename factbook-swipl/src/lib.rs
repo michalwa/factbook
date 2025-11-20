@@ -1,11 +1,12 @@
+use crate::foreign::{Predicate, PredicateArgs};
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
-use std::os::raw::c_int;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
 pub use term::{Term, ToTerm};
 
+pub mod foreign;
 mod term;
 
 /// Global session handle which, when held, statically guarantees that the
@@ -32,15 +33,15 @@ impl<'s> Session<'s> {
             panic!("failed to initialize SWI-Prolog: already initialized");
         }
 
-        if let Some(state) = state.into() {
-            if unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) } == 0 {
-                panic!("failed to initialize SWI-Prolog: PL_set_resource_db_mem failed");
-            }
+        if let Some(state) = state.into()
+            && unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) } == 0
+        {
+            panic!("failed to initialize SWI-Prolog: PL_set_resource_db_mem failed");
         }
 
         let mut args = [
-            b"factbook\0".as_ptr() as *mut _,
-            b"--quiet\0".as_ptr() as *mut _,
+            c"factbook".as_ptr() as *mut _,
+            c"--quiet".as_ptr() as *mut _,
             std::ptr::null_mut(),
         ];
 
@@ -81,9 +82,8 @@ impl<'s> Session<'s> {
             -2 => panic!(
                 "failed to create Prolog engine: SWI-Prolog version does not support threads"
             ),
-            id => Engine {
+            _ => Engine {
                 _marker: Default::default(),
-                id,
             },
         }
     }
@@ -103,7 +103,6 @@ impl Drop for Session<'_> {
 struct Engine {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    id: c_int,
 }
 
 impl Drop for Engine {
@@ -111,10 +110,10 @@ impl Drop for Engine {
         // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
         // called, otherwise it will hang. This can be the case if `Session` is dropped
         // before the `Engine`, e.g. when the thread holding the `Session` exits.
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
-            if unsafe { pl::PL_thread_destroy_engine() } == 0 {
-                eprintln!("warning: PL_thread_destroy_engine failed");
-            }
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0
+            && unsafe { pl::PL_thread_destroy_engine() } == 0
+        {
+            eprintln!("warning: PL_thread_destroy_engine failed");
         }
     }
 }
@@ -126,25 +125,23 @@ impl Drop for Engine {
 pub struct EngineHandle {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    id: c_int,
 }
 
-// SAFETY: If an `Engine` exists then an engine has been attached on the current
-// thread (`Engine` is not `Send`) and a handle can be created. It's enough for
-// `EngineHandle` not to be `Send` to ensure that is is always valid (for the
-// duration of the thread).
-impl From<&Engine> for EngineHandle {
-    fn from(value: &Engine) -> Self {
+impl EngineHandle {
+    pub(crate) unsafe fn assume_attached() -> Self {
         Self {
             _marker: Default::default(),
-            id: value.id,
         }
     }
 }
 
-impl fmt::Debug for EngineHandle {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.id.fmt(f)
+impl From<&Engine> for EngineHandle {
+    fn from(_: &Engine) -> Self {
+        // SAFETY: If an `Engine` exists then an engine has been attached on the current
+        // thread (`Engine` is not `Send`) and a handle can be created. It's enough for
+        // `EngineHandle` not to be `Send` to ensure that is is always valid (for the
+        // duration of the thread).
+        unsafe { Self::assume_attached() }
     }
 }
 
@@ -152,8 +149,7 @@ impl fmt::Debug for EngineHandle {
 /// stack
 pub struct Frame<'p> {
     // Not `Send` because it's only valid in the context of the current thread engine
-    _marker: PhantomData<*const ()>,
-    _parent: PhantomData<&'p ()>,
+    _marker: PhantomData<(*const (), &'p ())>,
     ptr: pl::PL_fid_t,
 }
 
@@ -183,13 +179,17 @@ pub trait Context {
     fn frame<'a>(&'a mut self) -> Frame<'a> {
         Frame {
             _marker: Default::default(),
-            _parent: Default::default(),
             ptr: unsafe { pl::PL_open_foreign_frame() },
         }
     }
 
     fn new_term<'a>(&'a self) -> Term<'a> {
         Term::from_ptr(unsafe { pl::PL_new_term_ref() })
+    }
+
+    fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
+        let t = unsafe { pl::PL_new_term_refs(N) };
+        std::array::from_fn(|i| Term::from_ptr(t + i))
     }
 
     fn atom(&self, chars: &str) -> Atom {
@@ -252,6 +252,20 @@ pub trait Context {
 
         // https://www.swi-prolog.org/pldoc/man?predicate=predicate_property/2
         self.call(term! { self => predicate_property({qualified_head}, defined) })
+    }
+
+    fn register_predicate<P: Predicate>(&self) {
+        if unsafe {
+            pl::PL_register_foreign(
+                P::NAME.as_ptr(),
+                P::Args::ARITY as _,
+                std::mem::transmute::<*const (), Option<unsafe extern "C" fn() -> _>>(P::EXTERN_FN),
+                P::FLAGS as _,
+            )
+        } == 0
+        {
+            panic!("PL_register_foreign failed");
+        }
     }
 }
 
@@ -451,6 +465,18 @@ macro_rules! term {
     };
 }
 
+#[macro_export]
+macro_rules! assert_unify {
+    ($a:expr, $b:expr) => {{
+        let a = $a;
+        let b = $b;
+        assert!(
+            a.unify_with(b),
+            "assertion `left.unify_with(right)` failed\n  left: {a},\n right: {b}"
+        );
+    }};
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -468,13 +494,13 @@ mod test {
     #[test]
     fn threads() {
         thread::spawn(|| {
-            let engine = dbg!(SESSION.engine());
+            let engine = SESSION.engine();
             let t = term! { &engine => foo(bar(baz), qux) };
 
             engine.assert(t, Default::default());
         });
 
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t = engine.new_term();
         let q = term! { &engine => foo(bar({t}), _) };
 
@@ -484,12 +510,12 @@ mod test {
 
     #[test]
     fn record() {
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t = term! { &engine => foo(bar) };
         let record = t.record();
 
         thread::spawn(move || {
-            let engine = dbg!(SESSION.engine());
+            let engine = SESSION.engine();
             let t = engine.new_term().put(&record);
 
             assert_eq!(t.to_string(), "foo(bar)");
@@ -498,7 +524,7 @@ mod test {
 
     #[test]
     fn external_record() {
-        let engine = dbg!(SESSION.engine());
+        let engine = SESSION.engine();
         let t1 = term! { &engine => foo(bar(42), ["hello", "world"]) };
 
         let bytes = {
@@ -507,12 +533,12 @@ mod test {
         };
 
         let t2 = engine.new_term().put_recorded_external(&bytes);
-        assert!(t1.unify_with(t2));
+        assert_unify!(t1, t2);
     }
 
     #[test]
     fn frames() {
-        let mut engine = dbg!(SESSION.engine());
+        let mut engine = SESSION.engine();
         {
             let frame = engine.frame();
             frame.assert(frame.new_term().put_atom_chars("foo"), Default::default());
