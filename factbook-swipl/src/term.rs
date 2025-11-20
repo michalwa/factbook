@@ -112,7 +112,7 @@ impl<'a> Term<'a> {
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record_external%27)
     pub fn record_external(self) -> Option<ExternalRecord> {
         let mut len: usize = 0;
-        let ptr = unsafe { pl::PL_record_external(self.ptr, &mut len as _) };
+        let ptr = unsafe { pl::PL_record_external(self.ptr, &raw mut len) };
 
         std::ptr::NonNull::new(ptr).map(|ptr| ExternalRecord { ptr, len })
     }
@@ -196,9 +196,7 @@ impl<'a> Term<'a> {
         let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
 
-        if unsafe { pl::PL_get_atom_nchars(self.ptr, &mut len as _, &mut chars as *mut _ as _) }
-            == 0
-        {
+        if unsafe { pl::PL_get_atom_nchars(self.ptr, &raw mut len, &raw mut chars as _) } == 0 {
             return None;
         }
 
@@ -239,8 +237,8 @@ impl<'a> Term<'a> {
         if unsafe {
             pl::PL_get_nchars(
                 self.ptr,
-                &mut len as _,
-                &mut chars as *mut _ as _,
+                &raw mut len,
+                &raw mut chars as _,
                 flags | pl::REP_UTF8 | pl::BUF_DISCARDABLE,
             )
         } == 0
@@ -311,7 +309,7 @@ pub trait ToTerm: Sized {
         ctx.new_term().put(self)
     }
 
-    fn put_in(&self, term: Term);
+    fn put_in(self, term: Term);
 }
 
 impl ToTerm for Term<'_> {
@@ -322,7 +320,7 @@ impl ToTerm for Term<'_> {
         Term::from_ptr(self.ptr)
     }
 
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_term failed");
         }
@@ -330,7 +328,7 @@ impl ToTerm for Term<'_> {
 }
 
 impl ToTerm for &Atom {
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_put_atom(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_atom failed");
         }
@@ -338,7 +336,7 @@ impl ToTerm for &Atom {
 }
 
 impl ToTerm for &Record {
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_recorded(self.ptr, term.ptr) } == 0 {
             panic!("PL_recorded failed");
         }
@@ -348,8 +346,8 @@ impl ToTerm for &Record {
 macro_rules! impl_ToTerm {
     (|$value:ident: $type:ty, $term:ident| pl::$fn:ident($($args:tt)*)) => {
         impl ToTerm for $type {
-            fn put_in(&self, term: Term) {
-                let $value = *self;
+            fn put_in(self, term: Term) {
+                let $value = self;
                 let $term = term;
                 if unsafe { pl::$fn($($args)*) } == 0 {
                     panic!(concat!(stringify!($fn), " failed"));
