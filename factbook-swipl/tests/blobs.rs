@@ -1,15 +1,15 @@
-use factbook_swipl::blob::{Blob, BlobData, CopyBlob, CopyBlobData};
+use factbook_swipl::blob::{Blob, BlobData, BlobRef, CopyBlob, CopyBlobData};
 use factbook_swipl::{Context, Session};
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-#[derive(Debug, BlobData)]
+#[derive(Debug, BlobData, PartialEq)]
 struct MyBlob {
     text: String,
     number: i32,
 }
 
-#[derive(Debug, Clone, Copy, CopyBlobData)]
+#[derive(Debug, Clone, Copy, CopyBlobData, PartialEq)]
 struct Vec2i {
     x: i32,
     y: i32,
@@ -30,4 +30,13 @@ fn blobs() {
 
     assert_eq!(t1.to_string(), "MyBlob { text: \"Hello\", number: 42 }");
     assert_eq!(t2.to_string(), "Vec2i { x: 1, y: 2 }");
+
+    assert!(t3.unify_with(t1));
+    assert_eq!(*t3.get::<BlobRef<MyBlob>>().unwrap(), MyBlob {
+        text: "Hello".into(),
+        number: 42,
+    });
+
+    assert!(t4.unify_with(t2));
+    assert_eq!(t4.get::<CopyBlob<Vec2i>>().unwrap().0, Vec2i { x: 1, y: 2 });
 }

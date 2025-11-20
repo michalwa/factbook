@@ -206,6 +206,11 @@ impl<'a> Term<'a> {
         )
     }
 
+    /// Extracts a value from the term
+    pub fn get<T: FromTerm<'a>>(self) -> Option<T> {
+        T::from_term(self)
+    }
+
     /// Unifies the two terms and returns `true` on success or `false` on
     /// failure.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_unify%27)
@@ -346,9 +351,8 @@ impl ToTerm for &Record {
 macro_rules! impl_ToTerm {
     (|$value:ident: $type:ty, $term:ident| pl::$fn:ident($($args:tt)*)) => {
         impl ToTerm for $type {
-            fn put_in(self, term: Term) {
+            fn put_in(self, $term: Term) {
                 let $value = self;
-                let $term = term;
                 if unsafe { pl::$fn($($args)*) } == 0 {
                     panic!(concat!(stringify!($fn), " failed"));
                 }
@@ -370,6 +374,65 @@ impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr, v as _));
 impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr, v));
 impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr, v as _));
 impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
+
+pub trait FromTerm<'a>: Sized {
+    fn from_term(term: Term<'a>) -> Option<Self>;
+}
+
+impl FromTerm<'_> for Atom {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut atom: pl::atom_t = 0;
+        if unsafe { pl::PL_get_atom(term.ptr, &raw mut atom) } != 0 {
+            Some(Atom::from_ptr(atom))
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm<'_> for bool {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: i32 = 0;
+        if unsafe { pl::PL_get_bool(term.ptr, &raw mut value) } != 0 {
+            Some(value != 0)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm<'_> for i64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: i64 = 0;
+        if unsafe { pl::PL_get_int64(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm<'_> for u64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: u64 = 0;
+        if unsafe { pl::PL_get_uint64(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm<'_> for f64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: f64 = 0.0;
+        if unsafe { pl::PL_get_float(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

@@ -1,8 +1,9 @@
-use crate::term::{Term, ToTerm};
+use crate::term::{FromTerm, Term, ToTerm};
 pub use factbook_swipl_macros::{BlobData, CopyBlobData};
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
+use std::ops::Deref;
 use swipl_fli as pl;
 
 #[repr(transparent)]
@@ -19,7 +20,7 @@ impl<T> BlobSpec<T> {
         let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
 
         spec.magic = pl::PL_BLOB_MAGIC as _;
-        spec.flags = (pl::PL_BLOB_UNIQUE | pl::PL_BLOB_NOCOPY) as _;
+        spec.flags = pl::PL_BLOB_NOCOPY as _;
         spec.name = name.as_ptr();
         spec.release = Some(blob_release::<T>);
         spec.write = Some(blob_write::<T>);
@@ -48,15 +49,28 @@ impl<T> BlobSpec<T> {
 }
 
 /// A non-copyable blob which owns `T`
+#[derive(Debug, Clone)]
 pub struct Blob<T: BlobData>(Box<T>);
 
+/// A reference to a value stored in a blob
+#[derive(Debug, Clone)]
+pub struct BlobRef<'a, T: BlobData>(&'a T);
+
 /// A copyable blob which owns `T`
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct CopyBlob<T: CopyBlobData>(pub T);
 
 impl<T: BlobData> Blob<T> {
     pub fn new(value: T) -> Self {
         Self(Box::new(value))
+    }
+}
+
+impl<T: BlobData> Deref for BlobRef<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
     }
 }
 
@@ -98,6 +112,28 @@ impl<T: BlobData> ToTerm for Blob<T> {
     }
 }
 
+impl<'a, T: BlobData> FromTerm<'a> for BlobRef<'a, T> {
+    fn from_term(term: Term<'a>) -> Option<Self> {
+        let mut blob_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+
+        if unsafe {
+            pl::PL_get_blob(
+                term.ptr,
+                &raw mut blob_ptr,
+                std::ptr::null_mut(),
+                &raw mut spec,
+            )
+        } != 0
+            && std::ptr::eq(T::SPEC, spec as _)
+        {
+            Some(Self(unsafe { &*(blob_ptr as *const T) }))
+        } else {
+            None
+        }
+    }
+}
+
 impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     fn put_in(mut self, term: Term) {
         if unsafe {
@@ -114,13 +150,35 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     }
 }
 
+impl<T: CopyBlobData> FromTerm<'_> for CopyBlob<T> {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut blob_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+
+        if unsafe {
+            pl::PL_get_blob(
+                term.ptr,
+                &raw mut blob_ptr,
+                std::ptr::null_mut(),
+                &raw mut spec,
+            )
+        } != 0
+            && std::ptr::eq(T::SPEC, spec as _)
+        {
+            Some(Self(unsafe { *(blob_ptr as *const T) }))
+        } else {
+            None
+        }
+    }
+}
+
 extern "C" fn blob_write<T: BlobData>(
     stream: *mut pl::IOSTREAM,
     atom: pl::atom_t,
     _flags: std::ffi::c_int,
 ) -> std::ffi::c_int {
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
-    let blob = unsafe { (blob_ptr as *mut T).as_ref().unwrap() };
+    let blob = unsafe { &*(blob_ptr as *mut T) };
 
     let string = CString::new(format!("{blob:?}")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };

@@ -281,8 +281,7 @@ pub struct Atom {
 
 impl Clone for Atom {
     fn clone(&self) -> Self {
-        unsafe { pl::PL_register_atom(self.ptr) };
-        Self { ..*self }
+        Self::from_ptr(self.ptr)
     }
 }
 
@@ -293,6 +292,14 @@ impl Drop for Atom {
 }
 
 impl Atom {
+    pub(crate) fn from_ptr(ptr: pl::atom_t) -> Self {
+        unsafe { pl::PL_register_atom(ptr) };
+        Self {
+            _marker: Default::default(),
+            ptr,
+        }
+    }
+
     pub fn to_functor<const ARITY: usize>(&self) -> Functor<ARITY> {
         Functor {
             _marker: Default::default(),
