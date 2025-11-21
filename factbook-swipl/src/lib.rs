@@ -112,6 +112,7 @@ impl Drop for Engine {
         // called, otherwise it will hang. This can be the case if `Session` is dropped
         // before the `Engine`, e.g. when the thread holding the `Session` exits.
         if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0
+            && unsafe { pl::PL_thread_self() } >= 0
             && unsafe { pl::PL_thread_destroy_engine() } == 0
         {
             eprintln!("warning: PL_thread_destroy_engine failed");
@@ -189,7 +190,7 @@ pub trait Context {
     }
 
     fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
-        let t = unsafe { pl::PL_new_term_refs(N) };
+        let t = unsafe { pl::PL_new_term_refs(N as _) }; // type of argument varies by platform
         std::array::from_fn(|i| Term::from_ptr(t + i))
     }
 
