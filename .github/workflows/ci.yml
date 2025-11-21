@@ -6,12 +6,16 @@ jobs:
   clippy_check:
     runs-on: ubuntu-latest
     steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libglib2.0-dev
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         components: clippy
-    - uses: Swatinem/rust-cache@v2
+    - uses: swatinem/rust-cache@v2
     - uses: actions-rs/clippy-check@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -20,11 +24,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libglib2.0-dev
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-    - uses: Swatinem/rust-cache@v2
+        components: clippy
+    - uses: swatinem/rust-cache@v2
     - uses: actions-rs/cargo@v1
       with:
         command: test
