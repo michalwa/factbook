@@ -3,7 +3,11 @@ use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
 
-/// Reference to a Prolog term
+/// Reference to a Prolog term.
+///
+/// The lifetime `'a`, for the duration of which the term reference is valid, is
+/// the lifetime of the enclosing context, e.g. a [`Frame`](crate::Frame). When
+/// the context is dropped it may clean up term references created within it.
 #[derive(Clone, Copy)]
 pub struct Term<'a> {
     // Not `Send` because it's only valid within the context of the current thread engine
@@ -112,7 +116,7 @@ impl<'a> Term<'a> {
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record_external%27)
     pub fn record_external(self) -> Option<ExternalRecord> {
         let mut len: usize = 0;
-        let ptr = unsafe { pl::PL_record_external(self.ptr, &mut len as _) };
+        let ptr = unsafe { pl::PL_record_external(self.ptr, &raw mut len) };
 
         std::ptr::NonNull::new(ptr).map(|ptr| ExternalRecord { ptr, len })
     }
@@ -196,9 +200,7 @@ impl<'a> Term<'a> {
         let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
 
-        if unsafe { pl::PL_get_atom_nchars(self.ptr, &mut len as _, &mut chars as *mut _ as _) }
-            == 0
-        {
+        if unsafe { pl::PL_get_atom_nchars(self.ptr, &raw mut len, &raw mut chars as _) } == 0 {
             return None;
         }
 
@@ -206,6 +208,11 @@ impl<'a> Term<'a> {
             str::from_utf8(unsafe { slice::from_raw_parts(chars, len) })
                 .expect("PL_get_atom_nchars returned invalid UTF-8"),
         )
+    }
+
+    /// Extracts a value from the term
+    pub fn get<T: FromTerm>(self) -> Option<T> {
+        T::from_term(self)
     }
 
     /// Unifies the two terms and returns `true` on success or `false` on
@@ -239,8 +246,8 @@ impl<'a> Term<'a> {
         if unsafe {
             pl::PL_get_nchars(
                 self.ptr,
-                &mut len as _,
-                &mut chars as *mut _ as _,
+                &raw mut len,
+                &raw mut chars as _,
                 flags | pl::REP_UTF8 | pl::BUF_DISCARDABLE,
             )
         } == 0
@@ -261,7 +268,7 @@ impl fmt::Display for Term<'_> {
     }
 }
 
-pub struct Canonical<'t>(Term<'t>);
+pub struct Canonical<'a>(Term<'a>);
 
 impl fmt::Display for Canonical<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -304,6 +311,7 @@ impl<'a> ParseError<'a> {
 /// Implemented by types that can be converted to Prolog values and put in a
 /// term reference
 pub trait ToTerm: Sized {
+    /// Puts (copies) the value into a new term reference
     fn to_term<'a>(self, ctx: &'a (impl Context + ?Sized)) -> Term<'a>
     where
         Self: 'a,
@@ -311,7 +319,8 @@ pub trait ToTerm: Sized {
         ctx.new_term().put(self)
     }
 
-    fn put_in(&self, term: Term);
+    /// Puts (copies) the value into the term reference
+    fn put_in(self, term: Term);
 }
 
 impl ToTerm for Term<'_> {
@@ -322,7 +331,7 @@ impl ToTerm for Term<'_> {
         Term::from_ptr(self.ptr)
     }
 
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_term failed");
         }
@@ -330,7 +339,7 @@ impl ToTerm for Term<'_> {
 }
 
 impl ToTerm for &Atom {
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_put_atom(term.ptr, self.ptr) } == 0 {
             panic!("PL_put_atom failed");
         }
@@ -338,7 +347,7 @@ impl ToTerm for &Atom {
 }
 
 impl ToTerm for &Record {
-    fn put_in(&self, term: Term) {
+    fn put_in(self, term: Term) {
         if unsafe { pl::PL_recorded(self.ptr, term.ptr) } == 0 {
             panic!("PL_recorded failed");
         }
@@ -348,9 +357,8 @@ impl ToTerm for &Record {
 macro_rules! impl_ToTerm {
     (|$value:ident: $type:ty, $term:ident| pl::$fn:ident($($args:tt)*)) => {
         impl ToTerm for $type {
-            fn put_in(&self, term: Term) {
-                let $value = *self;
-                let $term = term;
+            fn put_in(self, $term: Term) {
+                let $value = self;
                 if unsafe { pl::$fn($($args)*) } == 0 {
                     panic!(concat!(stringify!($fn), " failed"));
                 }
@@ -372,6 +380,69 @@ impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr, v as _));
 impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr, v));
 impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr, v as _));
 impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
+
+/// Implemented by types that can be extracted from a term reference
+pub trait FromTerm: Sized {
+    /// Extracts the value from the term, if the term contains a value of this
+    /// type. The extracted value may not be bound to the lifetime of the
+    /// term.
+    fn from_term(term: Term) -> Option<Self>;
+}
+
+impl FromTerm for Atom {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut atom: pl::atom_t = 0;
+        if unsafe { pl::PL_get_atom(term.ptr, &raw mut atom) } != 0 {
+            Some(Atom::from_ptr(atom))
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm for bool {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: i32 = 0;
+        if unsafe { pl::PL_get_bool(term.ptr, &raw mut value) } != 0 {
+            Some(value != 0)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm for i64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: i64 = 0;
+        if unsafe { pl::PL_get_int64(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm for u64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: u64 = 0;
+        if unsafe { pl::PL_get_uint64(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromTerm for f64 {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut value: f64 = 0.0;
+        if unsafe { pl::PL_get_float(term.ptr, &raw mut value) } != 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

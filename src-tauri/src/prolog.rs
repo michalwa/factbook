@@ -1,5 +1,41 @@
-use factbook_swipl::{Context, Term};
+use factbook_swipl::Context;
+use factbook_swipl::term::Term;
 use std::str::Chars;
+
+pub mod predicates {
+    use crate::model::EntryId;
+    use factbook_swipl::{Atom, Context};
+    use factbook_swipl::blob::ScopedBlobData;
+    use factbook_swipl::foreign::{Nondet, predicate};
+    use std::cell::RefCell;
+    use std::collections::btree_map;
+
+    #[derive(ScopedBlobData)]
+    pub struct EntryTags<'a>(pub RefCell<btree_map::Iter<'a, EntryId, Vec<factbook_swipl::Record>>>);
+
+    #[predicate(tag(entry_tags, entry, tag) nondet)]
+    pub struct Tag;
+
+    impl Nondet for Tag {
+        fn init(_: &impl Context) -> Self {
+            Self
+        }
+
+        fn next(&mut self, _: &impl Context, [entry_tags, entry, tag]: Self::Args<'_>) -> bool {
+            log::debug!("tag/3 called");
+
+            let Some(entry_tags_atom) = entry_tags.get::<Atom>() else { return false };
+            let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTags>() else { return false };
+
+            if let Some((entry_id, tags)) = entry_tags.0.borrow_mut().next() {
+                log::debug!("  {entry_id:?}");
+                true
+            } else {
+                false
+            }
+        }
+    }
+}
 
 struct Parse<'i, 'c, C: Context> {
     input: Chars<'i>,
@@ -13,10 +49,11 @@ impl<'c, C: Context> Iterator for Parse<'_, 'c, C> {
         let mut last_was_space = true;
 
         while let Some(c) = self.input.next() {
-            if c == '@' && last_was_space {
-                if let Some(term) = self.consume_term() {
-                    return Some(term);
-                }
+            if c == '@'
+                && last_was_space
+                && let Some(term) = self.consume_term()
+            {
+                return Some(term);
             }
 
             last_was_space = c.is_whitespace();
@@ -60,7 +97,7 @@ impl<'c, C: Context> Parse<'_, 'c, C> {
         let mut escape = false;
         let mut quoted = [delimiter].into_iter().collect::<String>();
 
-        while let Some(c) = self.input.next() {
+        for c in self.input.by_ref() {
             match c {
                 c if c == delimiter && !escape => {
                     quoted.push(c);
