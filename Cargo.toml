@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = ["src-tauri", "factbook-swipl", "factbook-swipl-macros", "factbook-swipl-state"]
