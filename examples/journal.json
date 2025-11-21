@@ -2,15 +2,15 @@
   "views": {
     "1": {
       "name": "To do",
-      "definition": "show(E) :- tag(E, todo).\n% show(E) :- tag(E, todo), tag(E, due(tomorrow))."
+      "definition": "show(C, E) :- tag(C, E, todo).\n% show(C, E) :- tag(C, E, todo), tag(C, E, due(tomorrow))."
     },
     "2": {
       "name": "Work",
-      "definition": "show(E) :- tag(E, work)."
+      "definition": "show(C, E) :- tag(C, E, work)."
     },
     "3": {
       "name": "Recommendations",
-      "definition": "show(E) :- tag(E, recommended)."
+      "definition": "show(C, E) :- tag(C, E, recommended)."
     }
   },
   "entries": {

@@ -1,9 +1,12 @@
 use crate::AppState;
 use crate::model::{EntryId, ViewId};
+use crate::prolog::predicates::EntryTags;
 use crate::util::SerializeIterOnce;
 use chrono::{DateTime, Local};
+use factbook_swipl::blob::ScopedBlob;
 use factbook_swipl::{Context, term};
 use serde::Serialize;
+use std::cell::RefCell;
 use tauri::{State, ipc};
 
 #[derive(Serialize)]
@@ -44,16 +47,23 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let mut engine = state.swipl_session.engine();
     let pl = engine.frame();
 
+    let entry_tags = EntryTags(RefCell::new(cache.entry_tags.iter()));
+    let entry_tags_blob = ScopedBlob::new(&entry_tags);
+    let t_entry_tags = pl.new_term().put(&entry_tags_blob);
+
+    log::debug!("{t_entry_tags}");
+
     if let Some(view_id) = view {
         let view = db.views.get(&view_id).unwrap();
         let module_name = format!("view_{view_id}");
 
         pl.load_module_from_str(&module_name, &view.definition);
 
-        if pl.predicate_defined::<1>("show", module_name.as_str()) {
-            log::debug!("show/1 exists");
+        if pl.predicate_defined::<2>("show", module_name.as_str()) {
+            log::debug!("show/2 exists");
+            pl.call_module(&module_name, term! { &pl => show({t_entry_tags}, 1) });
         } else {
-            log::debug!("show/1 doesn't exist");
+            log::debug!("show/2 doesn't exist");
         }
     }
 

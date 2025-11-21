@@ -1,5 +1,5 @@
 use crate::model::{Cache, Database};
-use factbook_swipl::{Context, term};
+use factbook_swipl::Context;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::RwLock;
@@ -48,6 +48,7 @@ pub fn run() {
 
             let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
             let mut pl = swipl_session.engine();
+            pl.register_predicate::<prolog::predicates::Tag>();
             let cache = Cache::init_from(&database, &mut pl);
 
             let state = AppState {
