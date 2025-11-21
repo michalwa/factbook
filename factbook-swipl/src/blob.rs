@@ -12,36 +12,37 @@ pub struct BlobSpec(pl::PL_blob_t);
 
 impl BlobSpec {
     pub const fn new<T: BlobData>(name: &'static CStr) -> Self {
-        let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
-
-        spec.magic = pl::PL_BLOB_MAGIC as _;
-        spec.flags = pl::PL_BLOB_NOCOPY as _;
-        spec.name = name.as_ptr();
-        spec.release = Some(blob_release::<T>);
-        spec.write = Some(blob_write::<T>);
-
-        Self(spec)
+        Self(pl::PL_blob_t {
+            magic: pl::PL_BLOB_MAGIC as _,
+            flags: pl::PL_BLOB_NOCOPY as _,
+            name: name.as_ptr(),
+            release: Some(blob_release::<T>),
+            write: Some(blob_write::<T>),
+            ..Self::zeroed()
+        })
     }
 
     pub const fn copy<T: CopyBlobData>(name: &'static CStr) -> Self {
-        let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
-
-        spec.magic = pl::PL_BLOB_MAGIC as _;
-        spec.name = name.as_ptr();
-        spec.write = Some(copy_blob_write::<T>);
-
-        Self(spec)
+        Self(pl::PL_blob_t {
+            magic: pl::PL_BLOB_MAGIC as _,
+            name: name.as_ptr(),
+            write: Some(copy_blob_write::<T>),
+            ..Self::zeroed()
+        })
     }
 
     pub const fn scoped<T: ScopedBlobData>(name: &'static CStr) -> Self {
-        let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
+        Self(pl::PL_blob_t {
+            magic: pl::PL_BLOB_MAGIC as _,
+            flags: pl::PL_BLOB_NOCOPY as _,
+            name: name.as_ptr(),
+            release: Some(scoped_blob_release::<T>),
+            ..Self::zeroed()
+        })
+    }
 
-        spec.magic = pl::PL_BLOB_MAGIC as _;
-        spec.flags = pl::PL_BLOB_NOCOPY as _;
-        spec.name = name.as_ptr();
-        spec.release = Some(scoped_blob_release::<T>);
-
-        Self(spec)
+    const fn zeroed() -> pl::PL_blob_t {
+        unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() }
     }
 }
 
@@ -49,7 +50,8 @@ impl BlobSpec {
 #[derive(Debug, Clone)]
 pub struct Blob<T: BlobData>(Box<T>);
 
-/// A reference to a value stored in a [`Blob`]
+/// A reference to a value stored in a [`Blob`]. It lives as long as the atom
+/// holding the blob.
 #[derive(Debug, Clone)]
 pub struct BlobRef<'a, T: BlobData>(&'a T);
 
@@ -59,10 +61,14 @@ pub struct CopyBlob<T: CopyBlobData>(pub T);
 
 /// A non-copyable blob which borrows non-`'static` data for the duration of its
 /// lifetime. It may be put in a term by reference. While it's held, shared
-/// references to the data may obtained via [`Atom::scoped_blob`]. It's not safe
-/// to share the terms holding references to scoped blobs between threads.
-/// Dropping the original scoped blob while borrowed in another thread will
-/// panic.
+/// references to the data may obtained via [`Atom::scoped_blob`].
+///
+/// It's not safe to share the terms holding references to scoped blobs between
+/// threads. Dropping the original scoped blob while borrowed in another thread
+/// will panic.
+///
+/// Unlike a [`Blob`], the inner type is dropped when this handle is dropped,
+/// not when the blob is released by Prolog.
 pub struct ScopedBlob<'a, T: ScopedBlobData> {
     // We store the raw heap allocation, because the handle needs to be held and potentially give
     // out more than one reference to it. We cannot own a `Box` since we can't leak it multiple
@@ -70,17 +76,14 @@ pub struct ScopedBlob<'a, T: ScopedBlobData> {
     data: *const ScopedBlobAlloc<'a, T>,
 }
 
-type ScopedBlobAlloc<'a, T> = RwLock<ScopedBlobGuard<'a, T>>;
-
-struct ScopedBlobGuard<'a, T> {
-    alive: bool,
-    value: &'a T,
-}
+type ScopedBlobAlloc<'a, T> = RwLock<Option<&'a T>>;
 
 /// A reference to a value stored in a [`ScopedBlob`]. When held, the blob data
 /// is guaranteed to be alive.
 pub struct ScopedBlobRef<'a, T: ScopedBlobData> {
-    guard: RwLockReadGuard<'a, ScopedBlobGuard<'a, T>>,
+    // The `Option` is ensured to be `Some` before construction
+    // TODO: Would be nice to use https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html
+    guard: RwLockReadGuard<'a, Option<&'a T>>,
 }
 
 impl<T: BlobData> Blob<T> {
@@ -100,10 +103,7 @@ impl<T: BlobData> Deref for BlobRef<'_, T> {
 impl<'a, T: ScopedBlobData> ScopedBlob<'a, T> {
     pub fn new(value: &'a T) -> Self {
         Self {
-            data: Box::leak(Box::new(RwLock::new(ScopedBlobGuard {
-                alive: true,
-                value,
-            }))),
+            data: Box::leak(Box::new(RwLock::new(Some(value)))),
         }
     }
 }
@@ -243,9 +243,7 @@ impl Atom {
                 .read()
                 .expect("ScopedBlob borrowed from another thread");
 
-            if !guard.alive {
-                return None;
-            }
+            (*guard)?; // ensure the reference is still there
 
             Some(ScopedBlobRef { guard })
         } else {
@@ -258,7 +256,7 @@ impl<T: ScopedBlobData> Deref for ScopedBlobRef<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.guard.value
+        self.guard.unwrap()
     }
 }
 
@@ -267,7 +265,7 @@ impl<T: ScopedBlobData> Drop for ScopedBlob<'_, T> {
         unsafe { &*self.data }
             .try_write()
             .expect("ScopedBlob borrowed from another thread")
-            .alive = false;
+            .take();
     }
 }
 
@@ -305,6 +303,8 @@ extern "C" fn copy_blob_write<T: CopyBlobData>(
     pl::TRUE as _
 }
 
+// Pretty much the same as `blob_release<ScopedBlobAlloc<T>>`, but kept separate
+// to avoid future confusion
 extern "C" fn scoped_blob_release<T>(atom: pl::atom_t) -> std::ffi::c_int {
     let blob = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
     let _boxed = unsafe { Box::from_raw(blob as *mut ScopedBlobAlloc<T>) };
