@@ -158,22 +158,6 @@ impl<T: BlobData> ToTerm for Blob<T> {
     }
 }
 
-impl Atom {
-    /// Borrows the blob stored in the atom, or returns `None` if a blob of that
-    /// type is not stored in the atom.
-    pub fn blob<'a, T: BlobData>(&'a self) -> Option<BlobRef<'a, T>> {
-        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
-        let blob_ptr: *mut std::ffi::c_void =
-            unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
-
-        if std::ptr::eq(T::SPEC, spec as _) {
-            Some(BlobRef(unsafe { &*(blob_ptr as *const T) }))
-        } else {
-            None
-        }
-    }
-}
-
 impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     fn put_in(mut self, term: Term) {
         if unsafe {
@@ -181,6 +165,22 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
                 term.ptr,
                 &raw mut self.0 as _,
                 std::mem::size_of::<T>(),
+                T::SPEC as _,
+            )
+        } == 0
+        {
+            panic!("PL_put_blob failed");
+        }
+    }
+}
+
+impl<T: ScopedBlobData> ToTerm for &ScopedBlob<'_, T> {
+    fn put_in(self, term: Term) {
+        if unsafe {
+            pl::PL_put_blob(
+                term.ptr,
+                self.data as _,
+                std::mem::size_of::<ScopedBlobAlloc<T>>(),
                 T::SPEC as _,
             )
         } == 0
@@ -212,23 +212,21 @@ impl<T: CopyBlobData> FromTerm for CopyBlob<T> {
     }
 }
 
-impl<T: ScopedBlobData> ToTerm for &ScopedBlob<'_, T> {
-    fn put_in(self, term: Term) {
-        if unsafe {
-            pl::PL_put_blob(
-                term.ptr,
-                self.data as _,
-                std::mem::size_of::<ScopedBlobAlloc<T>>(),
-                T::SPEC as _,
-            )
-        } == 0
-        {
-            panic!("PL_put_blob failed");
+impl Atom {
+    /// Borrows the blob stored in the atom, or returns `None` if a blob of that
+    /// type is not stored in the atom.
+    pub fn blob<'a, T: BlobData>(&'a self) -> Option<BlobRef<'a, T>> {
+        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+        let blob_ptr: *mut std::ffi::c_void =
+            unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
+
+        if std::ptr::eq(T::SPEC, spec as _) {
+            Some(BlobRef(unsafe { &*(blob_ptr as *const T) }))
+        } else {
+            None
         }
     }
-}
 
-impl Atom {
     pub fn scoped_blob<'a, T: ScopedBlobData>(&'a self) -> Option<ScopedBlobRef<'a, T>> {
         let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
         let blob_ptr = unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };

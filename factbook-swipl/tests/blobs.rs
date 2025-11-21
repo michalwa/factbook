@@ -1,4 +1,4 @@
-use factbook_swipl::blob::{Blob, BlobData, BlobRef, CopyBlob, CopyBlobData, ScopedBlob};
+use factbook_swipl::blob::{Blob, BlobData, CopyBlob, CopyBlobData, ScopedBlob};
 use factbook_swipl::foreign::Semidet;
 use factbook_swipl::{Atom, Context, Session, term};
 use factbook_swipl_macros::{ScopedBlobData, predicate};
