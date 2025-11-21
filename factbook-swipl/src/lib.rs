@@ -208,6 +208,13 @@ pub trait Context {
         unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
     }
 
+    fn call_module(&self, module: &str, term: Term) -> bool {
+        let module_atom = self.atom(module);
+        let module = unsafe { pl::PL_new_module(module_atom.ptr) };
+
+        unsafe { pl::PL_call(term.ptr, module) != 0 }
+    }
+
     fn assert(&self, term: Term, mode: Assert) {
         if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");

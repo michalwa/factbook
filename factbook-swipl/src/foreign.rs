@@ -101,6 +101,10 @@ pub unsafe fn nondet_impl<P: Nondet>(
     args: <P::Args<'_> as PredicateArgs>::Raw,
     ctrl: pl::control_t,
 ) -> pl::foreign_t {
+    // Fixes a "bad alignment" error from SWI-Prolog for zero-sized types
+    #[repr(align(4))]
+    struct State<P>(P);
+
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
@@ -111,7 +115,7 @@ pub unsafe fn nondet_impl<P: Nondet>(
             let mut state = P::init(&ctx);
 
             if state.next(&ctx, unsafe { P::Args::from_raw(args) }) {
-                let boxed = Box::leak(Box::new(state));
+                let boxed = Box::leak(Box::new(State(state)));
                 unsafe { pl::_PL_retry_address(boxed as *mut _ as _) }
             } else {
                 pl::FALSE as _
@@ -119,9 +123,9 @@ pub unsafe fn nondet_impl<P: Nondet>(
         },
         pl::PL_REDO => {
             let state_ptr = unsafe { pl::PL_foreign_context_address(ctrl) };
-            let state = unsafe { (state_ptr as *mut P).as_mut() }.unwrap();
+            let state = unsafe { (state_ptr as *mut State<P>).as_mut() }.unwrap();
 
-            if state.next(&ctx, unsafe { P::Args::from_raw(args) }) {
+            if state.0.next(&ctx, unsafe { P::Args::from_raw(args) }) {
                 unsafe { pl::_PL_retry_address(state_ptr) }
             } else {
                 pl::FALSE as _
@@ -129,7 +133,7 @@ pub unsafe fn nondet_impl<P: Nondet>(
         },
         pl::PL_PRUNED => {
             let state_ptr = unsafe { pl::PL_foreign_context_address(ctrl) };
-            let _state = unsafe { Box::from_raw(state_ptr as *mut P) };
+            let _state = unsafe { Box::from_raw(state_ptr as *mut State<P>) };
 
             pl::TRUE as _
         },
