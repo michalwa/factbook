@@ -189,7 +189,7 @@ pub trait Context {
     }
 
     fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
-        let t = unsafe { pl::PL_new_term_refs(N) };
+        let t = unsafe { pl::PL_new_term_refs(N as _) }; // type of argument varies by platform
         std::array::from_fn(|i| Term::from_ptr(t + i))
     }
 
