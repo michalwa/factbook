@@ -7,6 +7,8 @@ use std::ops::Deref;
 use std::sync::{RwLock, RwLockReadGuard};
 use swipl_fli as pl;
 
+/// A static set of metadata used by Prolog to distinguish blob types and call
+/// lifecycle callbacks.
 #[repr(transparent)]
 pub struct BlobSpec(pl::PL_blob_t);
 
@@ -52,11 +54,11 @@ pub struct Blob<T: BlobData>(Box<T>);
 
 /// A reference to a value stored in a [`Blob`]. It lives as long as the atom
 /// holding the blob.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BlobRef<'a, T: BlobData>(&'a T);
 
 /// A copyable blob which owns `T`
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CopyBlob<T: CopyBlobData>(pub T);
 
 /// A non-copyable blob which borrows non-`'static` data for the duration of its
@@ -156,22 +158,16 @@ impl<T: BlobData> ToTerm for Blob<T> {
     }
 }
 
-impl<'a, T: BlobData> FromTerm<'a> for BlobRef<'a, T> {
-    fn from_term(term: Term<'a>) -> Option<Self> {
-        let mut blob_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+impl Atom {
+    /// Borrows the blob stored in the atom, or returns `None` if a blob of that
+    /// type is not stored in the atom.
+    pub fn blob<'a, T: BlobData>(&'a self) -> Option<BlobRef<'a, T>> {
         let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+        let blob_ptr: *mut std::ffi::c_void =
+            unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
 
-        if unsafe {
-            pl::PL_get_blob(
-                term.ptr,
-                &raw mut blob_ptr,
-                std::ptr::null_mut(),
-                &raw mut spec,
-            )
-        } != 0
-            && std::ptr::eq(T::SPEC, spec as _)
-        {
-            Some(Self(unsafe { &*(blob_ptr as *const T) }))
+        if std::ptr::eq(T::SPEC, spec as _) {
+            Some(BlobRef(unsafe { &*(blob_ptr as *const T) }))
         } else {
             None
         }
@@ -194,7 +190,7 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     }
 }
 
-impl<T: CopyBlobData> FromTerm<'_> for CopyBlob<T> {
+impl<T: CopyBlobData> FromTerm for CopyBlob<T> {
     fn from_term(term: Term) -> Option<Self> {
         let mut blob_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
         let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();

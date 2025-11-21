@@ -3,7 +3,11 @@ use std::marker::PhantomData;
 use std::{fmt, slice};
 use swipl_fli as pl;
 
-/// Reference to a Prolog term
+/// Reference to a Prolog term.
+///
+/// The lifetime `'a`, for the duration of which the term reference is valid, is
+/// the lifetime of the enclosing context, e.g. a [`Frame`](crate::Frame). When
+/// the context is dropped it may clean up term references created within it.
 #[derive(Clone, Copy)]
 pub struct Term<'a> {
     // Not `Send` because it's only valid within the context of the current thread engine
@@ -207,7 +211,7 @@ impl<'a> Term<'a> {
     }
 
     /// Extracts a value from the term
-    pub fn get<T: FromTerm<'a>>(self) -> Option<T> {
+    pub fn get<T: FromTerm>(self) -> Option<T> {
         T::from_term(self)
     }
 
@@ -264,7 +268,7 @@ impl fmt::Display for Term<'_> {
     }
 }
 
-pub struct Canonical<'t>(Term<'t>);
+pub struct Canonical<'a>(Term<'a>);
 
 impl fmt::Display for Canonical<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -307,6 +311,7 @@ impl<'a> ParseError<'a> {
 /// Implemented by types that can be converted to Prolog values and put in a
 /// term reference
 pub trait ToTerm: Sized {
+    /// Puts (copies) the value into a new term reference
     fn to_term<'a>(self, ctx: &'a (impl Context + ?Sized)) -> Term<'a>
     where
         Self: 'a,
@@ -314,6 +319,7 @@ pub trait ToTerm: Sized {
         ctx.new_term().put(self)
     }
 
+    /// Puts (copies) the value into the term reference
     fn put_in(self, term: Term);
 }
 
@@ -375,11 +381,15 @@ impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr, v));
 impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr, v as _));
 impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
 
-pub trait FromTerm<'a>: Sized {
-    fn from_term(term: Term<'a>) -> Option<Self>;
+/// Implemented by types that can be extracted from a term reference
+pub trait FromTerm: Sized {
+    /// Extracts the value from the term, if the term contains a value of this
+    /// type. The extracted value may not be bound to the lifetime of the
+    /// term.
+    fn from_term(term: Term) -> Option<Self>;
 }
 
-impl FromTerm<'_> for Atom {
+impl FromTerm for Atom {
     fn from_term(term: Term) -> Option<Self> {
         let mut atom: pl::atom_t = 0;
         if unsafe { pl::PL_get_atom(term.ptr, &raw mut atom) } != 0 {
@@ -390,7 +400,7 @@ impl FromTerm<'_> for Atom {
     }
 }
 
-impl FromTerm<'_> for bool {
+impl FromTerm for bool {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: i32 = 0;
         if unsafe { pl::PL_get_bool(term.ptr, &raw mut value) } != 0 {
@@ -401,7 +411,7 @@ impl FromTerm<'_> for bool {
     }
 }
 
-impl FromTerm<'_> for i64 {
+impl FromTerm for i64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: i64 = 0;
         if unsafe { pl::PL_get_int64(term.ptr, &raw mut value) } != 0 {
@@ -412,7 +422,7 @@ impl FromTerm<'_> for i64 {
     }
 }
 
-impl FromTerm<'_> for u64 {
+impl FromTerm for u64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: u64 = 0;
         if unsafe { pl::PL_get_uint64(term.ptr, &raw mut value) } != 0 {
@@ -423,7 +433,7 @@ impl FromTerm<'_> for u64 {
     }
 }
 
-impl FromTerm<'_> for f64 {
+impl FromTerm for f64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: f64 = 0.0;
         if unsafe { pl::PL_get_float(term.ptr, &raw mut value) } != 0 {

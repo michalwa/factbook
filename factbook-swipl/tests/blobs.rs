@@ -7,43 +7,70 @@ use std::sync::LazyLock;
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-pub(crate) static SESSION: LazyLock<Session<'static>> =
-    LazyLock::new(|| Session::init(STATE).unwrap());
+static SESSION: LazyLock<Session<'static>> = LazyLock::new(|| Session::init(STATE).unwrap());
 
 #[test]
-fn blobs() {
+fn blob() {
     #[derive(Debug, BlobData, PartialEq)]
-    struct MyBlob {
+    struct FooBlob {
         text: String,
         number: i32,
     }
 
+    #[derive(Debug, BlobData, PartialEq)]
+    struct BarBlob {
+        number: f32,
+    }
+
+    let engine = SESSION.engine();
+    let [t1, t2, t3] = engine.new_terms();
+
+    t1.put(Blob::new(FooBlob {
+        text: "Hello".into(),
+        number: 42,
+    }));
+    assert_eq!(t1.to_string(), "FooBlob { text: \"Hello\", number: 42 }");
+
+    assert!(t2.unify_with(t1));
+    t3.put(Blob::new(BarBlob { number: 1.0 }));
+
+    let a2 = t2.get::<Atom>().unwrap();
+    let a3 = t3.get::<Atom>().unwrap();
+
+    assert_eq!(*a2.blob::<FooBlob>().unwrap(), FooBlob {
+        text: "Hello".into(),
+        number: 42,
+    });
+    assert_eq!(a3.blob::<FooBlob>(), None);
+}
+
+#[test]
+fn copy_blob() {
     #[derive(Debug, Clone, Copy, CopyBlobData, PartialEq)]
     struct Vec2i {
         x: i32,
         y: i32,
     }
 
+    #[derive(Debug, Clone, Copy, CopyBlobData, PartialEq)]
+    struct Vec3i {
+        x: i32,
+        y: i32,
+        z: i32,
+    }
+
     let engine = SESSION.engine();
     let [t1, t2, t3, t4] = engine.new_terms();
 
-    t1.put(Blob::new(MyBlob {
-        text: "Hello".into(),
-        number: 42,
-    }));
-    t2.put(CopyBlob(Vec2i { x: 1, y: 2 }));
+    t1.put(CopyBlob(Vec2i { x: 1, y: 2 }));
+    assert_eq!(t1.to_string(), "Vec2i { x: 1, y: 2 }");
 
-    assert_eq!(t1.to_string(), "MyBlob { text: \"Hello\", number: 42 }");
-    assert_eq!(t2.to_string(), "Vec2i { x: 1, y: 2 }");
+    assert!(t2.unify_with(t1));
+    t3.put(CopyBlob(Vec3i { x: 1, y: 2, z: 3 }));
 
-    assert!(t3.unify_with(t1));
-    assert_eq!(*t3.get::<BlobRef<MyBlob>>().unwrap(), MyBlob {
-        text: "Hello".into(),
-        number: 42,
-    });
-
-    assert!(t4.unify_with(t2));
-    assert_eq!(t4.get::<CopyBlob<Vec2i>>().unwrap().0, Vec2i { x: 1, y: 2 });
+    assert_eq!(t2.get::<CopyBlob<Vec2i>>().unwrap().0, Vec2i { x: 1, y: 2 });
+    assert_eq!(t3.get::<CopyBlob<Vec2i>>(), None);
+    assert_eq!(t4.get::<CopyBlob<Vec2i>>(), None);
 }
 
 #[test]
