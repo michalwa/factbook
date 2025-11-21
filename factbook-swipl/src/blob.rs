@@ -39,6 +39,7 @@ impl BlobSpec {
             flags: pl::PL_BLOB_NOCOPY as _,
             name: name.as_ptr(),
             release: Some(scoped_blob_release::<T>),
+            write: Some(scoped_blob_write::<T>),
             ..Self::zeroed()
         })
     }
@@ -234,7 +235,7 @@ impl Atom {
         if std::ptr::eq(T::SPEC, spec as _) {
             let lock = unsafe { &*(blob_ptr as *const ScopedBlobAlloc<T>) };
             let guard = lock
-                .read()
+                .try_read()
                 .expect("ScopedBlob borrowed from another thread");
 
             (*guard)?; // ensure the reference is still there
@@ -271,7 +272,7 @@ extern "C" fn blob_write<T: BlobData>(
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
     let blob = unsafe { &*(blob_ptr as *mut T) };
 
-    let string = CString::new(format!("{blob:?}")).unwrap();
+    let string = CString::new(format!("<{blob:?}>")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
 
     pl::TRUE as _
@@ -280,6 +281,7 @@ extern "C" fn blob_write<T: BlobData>(
 extern "C" fn blob_release<T>(atom: pl::atom_t) -> std::ffi::c_int {
     let blob = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
     let _boxed = unsafe { Box::from_raw(blob as *mut T) };
+
     pl::TRUE as _
 }
 
@@ -291,7 +293,7 @@ extern "C" fn copy_blob_write<T: CopyBlobData>(
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
     let blob = unsafe { *(blob_ptr as *mut T) };
 
-    let string = CString::new(format!("{blob:?}")).unwrap();
+    let string = CString::new(format!("<{blob:?}>")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
 
     pl::TRUE as _
@@ -302,5 +304,28 @@ extern "C" fn copy_blob_write<T: CopyBlobData>(
 extern "C" fn scoped_blob_release<T>(atom: pl::atom_t) -> std::ffi::c_int {
     let blob = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
     let _boxed = unsafe { Box::from_raw(blob as *mut ScopedBlobAlloc<T>) };
+
+    pl::TRUE as _
+}
+
+extern "C" fn scoped_blob_write<T>(
+    stream: *mut pl::IOSTREAM,
+    atom: pl::atom_t,
+    _flags: std::ffi::c_int,
+) -> std::ffi::c_int {
+    let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+    let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), &raw mut spec) };
+    let type_name = unsafe { CStr::from_ptr((&*spec).name) }.to_str().unwrap();
+
+    let blob_lock = unsafe { &*(blob_ptr as *mut ScopedBlobAlloc<T>) };
+    let blob = blob_lock
+        .try_read()
+        .expect("ScopedBlob borrowed from another thread");
+
+    let valid = blob.map(|_| "").unwrap_or(" (invalid)");
+    let string = CString::new(format!("<{type_name}{valid}>")).unwrap();
+
+    unsafe { pl::Sfputs(string.as_ptr(), stream) };
+
     pl::TRUE as _
 }

@@ -29,7 +29,7 @@ fn blob() {
         text: "Hello".into(),
         number: 42,
     }));
-    assert_eq!(t1.to_string(), "FooBlob { text: \"Hello\", number: 42 }");
+    assert_eq!(t1.to_string(), "<FooBlob { text: \"Hello\", number: 42 }>");
 
     assert!(t2.unify_with(t1));
     t3.put(Blob::new(BarBlob { number: 1.0 }));
@@ -63,7 +63,7 @@ fn copy_blob() {
     let [t1, t2, t3, t4] = engine.new_terms();
 
     t1.put(CopyBlob(Vec2i { x: 1, y: 2 }));
-    assert_eq!(t1.to_string(), "Vec2i { x: 1, y: 2 }");
+    assert_eq!(t1.to_string(), "<Vec2i { x: 1, y: 2 }>");
 
     assert!(t2.unify_with(t1));
     t3.put(CopyBlob(Vec3i { x: 1, y: 2, z: 3 }));
@@ -105,10 +105,12 @@ fn scoped_blob_with_foreign_predicate() {
         let blob = ScopedBlob::new(&xs);
         t.put(&blob);
         assert!(engine.call(term! { &engine => custom_predicate({t}) }));
+        assert_eq!(t.to_string(), "<MyVec>");
     }
 
     assert_eq!(*xs.0.borrow(), [1]);
 
     // Blob is dropped and references cannot be obtained anymore
     assert!(!engine.call(term! { &engine => custom_predicate({t}) }));
+    assert_eq!(t.to_string(), "<MyVec (invalid)>");
 }
