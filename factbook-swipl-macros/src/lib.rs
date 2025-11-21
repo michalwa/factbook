@@ -37,3 +37,8 @@ pub fn derive_blob_data(item: TokenStream) -> TokenStream {
 pub fn derive_copy_blob_data(item: TokenStream) -> TokenStream {
     crate::derive_blob::derive_copy_blob_data_macro_impl(item)
 }
+
+#[proc_macro_derive(ScopedBlobData)]
+pub fn derive_scoped_blob_data(item: TokenStream) -> TokenStream {
+    crate::derive_blob::derive_scoped_blob_data_macro_impl(item)
+}

@@ -1,22 +1,17 @@
+use crate::Atom;
 use crate::term::{FromTerm, Term, ToTerm};
-pub use factbook_swipl_macros::{BlobData, CopyBlobData};
+pub use factbook_swipl_macros::{BlobData, CopyBlobData, ScopedBlobData};
 use std::ffi::{CStr, CString};
-use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
+use std::sync::{RwLock, RwLockReadGuard};
 use swipl_fli as pl;
 
 #[repr(transparent)]
-pub struct BlobSpec<T> {
-    _marker: PhantomData<T>,
-    spec: pl::PL_blob_t,
-}
+pub struct BlobSpec(pl::PL_blob_t);
 
-impl<T> BlobSpec<T> {
-    pub const fn new(name: &'static CStr) -> Self
-    where
-        T: BlobData,
-    {
+impl BlobSpec {
+    pub const fn new<T: BlobData>(name: &'static CStr) -> Self {
         let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
 
         spec.magic = pl::PL_BLOB_MAGIC as _;
@@ -25,26 +20,28 @@ impl<T> BlobSpec<T> {
         spec.release = Some(blob_release::<T>);
         spec.write = Some(blob_write::<T>);
 
-        Self {
-            _marker: PhantomData,
-            spec,
-        }
+        Self(spec)
     }
 
-    pub const fn copy(name: &'static CStr) -> Self
-    where
-        T: CopyBlobData,
-    {
+    pub const fn copy<T: CopyBlobData>(name: &'static CStr) -> Self {
         let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
 
         spec.magic = pl::PL_BLOB_MAGIC as _;
         spec.name = name.as_ptr();
         spec.write = Some(copy_blob_write::<T>);
 
-        Self {
-            _marker: PhantomData,
-            spec,
-        }
+        Self(spec)
+    }
+
+    pub const fn scoped<T: ScopedBlobData>(name: &'static CStr) -> Self {
+        let mut spec = unsafe { MaybeUninit::<pl::PL_blob_t>::zeroed().assume_init() };
+
+        spec.magic = pl::PL_BLOB_MAGIC as _;
+        spec.flags = pl::PL_BLOB_NOCOPY as _;
+        spec.name = name.as_ptr();
+        spec.release = Some(scoped_blob_release::<T>);
+
+        Self(spec)
     }
 }
 
@@ -52,13 +49,39 @@ impl<T> BlobSpec<T> {
 #[derive(Debug, Clone)]
 pub struct Blob<T: BlobData>(Box<T>);
 
-/// A reference to a value stored in a blob
+/// A reference to a value stored in a [`Blob`]
 #[derive(Debug, Clone)]
 pub struct BlobRef<'a, T: BlobData>(&'a T);
 
 /// A copyable blob which owns `T`
 #[derive(Debug, Clone, Copy)]
 pub struct CopyBlob<T: CopyBlobData>(pub T);
+
+/// A non-copyable blob which borrows non-`'static` data for the duration of its
+/// lifetime. It may be put in a term by reference. While it's held, shared
+/// references to the data may obtained via [`Atom::scoped_blob`]. It's not safe
+/// to share the terms holding references to scoped blobs between threads.
+/// Dropping the original scoped blob while borrowed in another thread will
+/// panic.
+pub struct ScopedBlob<'a, T: ScopedBlobData> {
+    // We store the raw heap allocation, because the handle needs to be held and potentially give
+    // out more than one reference to it. We cannot own a `Box` since we can't leak it multiple
+    // times.
+    data: *const ScopedBlobAlloc<'a, T>,
+}
+
+type ScopedBlobAlloc<'a, T> = RwLock<ScopedBlobGuard<'a, T>>;
+
+struct ScopedBlobGuard<'a, T> {
+    alive: bool,
+    value: &'a T,
+}
+
+/// A reference to a value stored in a [`ScopedBlob`]. When held, the blob data
+/// is guaranteed to be alive.
+pub struct ScopedBlobRef<'a, T: ScopedBlobData> {
+    guard: RwLockReadGuard<'a, ScopedBlobGuard<'a, T>>,
+}
 
 impl<T: BlobData> Blob<T> {
     pub fn new(value: T) -> Self {
@@ -74,6 +97,17 @@ impl<T: BlobData> Deref for BlobRef<'_, T> {
     }
 }
 
+impl<'a, T: ScopedBlobData> ScopedBlob<'a, T> {
+    pub fn new(value: &'a T) -> Self {
+        Self {
+            data: Box::leak(Box::new(RwLock::new(ScopedBlobGuard {
+                alive: true,
+                value,
+            }))),
+        }
+    }
+}
+
 /// A type which can be stored in a [`Blob`]. Its not copied within Prolog and
 /// its destructor gets called when the blob is freed. The type must be
 /// `'static` because its memory is managed by Prolog.
@@ -82,7 +116,7 @@ impl<T: BlobData> Deref for BlobRef<'_, T> {
 /// `SPEC` must be a valid pointer to a static `BlobSpec` instance for that
 /// type.
 pub unsafe trait BlobData: Sized + std::fmt::Debug + 'static {
-    const SPEC: *mut BlobSpec<Self>;
+    const SPEC: *mut BlobSpec;
 }
 
 /// A type which can be stored in a [`CopyBlob`]. Its destructor is not called
@@ -93,7 +127,17 @@ pub unsafe trait BlobData: Sized + std::fmt::Debug + 'static {
 /// `SPEC` must be a valid pointer to a static `BlobSpec` instance for that
 /// type.
 pub unsafe trait CopyBlobData: Copy + std::fmt::Debug + 'static {
-    const SPEC: *mut BlobSpec<Self>;
+    const SPEC: *mut BlobSpec;
+}
+
+/// A type which can be borrowed via a [`ScopedBlob`]. Its destructor gets
+/// called when the blob is freed.
+///
+/// # Safety
+/// `SPEC` must be a valid pointer to a static `BlobSpec` instance for that
+/// type.
+pub unsafe trait ScopedBlobData {
+    const SPEC: *mut BlobSpec;
 }
 
 impl<T: BlobData> ToTerm for Blob<T> {
@@ -172,6 +216,61 @@ impl<T: CopyBlobData> FromTerm<'_> for CopyBlob<T> {
     }
 }
 
+impl<T: ScopedBlobData> ToTerm for &ScopedBlob<'_, T> {
+    fn put_in(self, term: Term) {
+        if unsafe {
+            pl::PL_put_blob(
+                term.ptr,
+                self.data as _,
+                std::mem::size_of::<ScopedBlobAlloc<T>>(),
+                T::SPEC as _,
+            )
+        } == 0
+        {
+            panic!("PL_put_blob failed");
+        }
+    }
+}
+
+impl Atom {
+    pub fn scoped_blob<'a, T: ScopedBlobData>(&'a self) -> Option<ScopedBlobRef<'a, T>> {
+        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
+        let blob_ptr = unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
+
+        if std::ptr::eq(T::SPEC, spec as _) {
+            let lock = unsafe { &*(blob_ptr as *const ScopedBlobAlloc<T>) };
+            let guard = lock
+                .read()
+                .expect("ScopedBlob borrowed from another thread");
+
+            if !guard.alive {
+                return None;
+            }
+
+            Some(ScopedBlobRef { guard })
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: ScopedBlobData> Deref for ScopedBlobRef<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.guard.value
+    }
+}
+
+impl<T: ScopedBlobData> Drop for ScopedBlob<'_, T> {
+    fn drop(&mut self) {
+        unsafe { &*self.data }
+            .try_write()
+            .expect("ScopedBlob borrowed from another thread")
+            .alive = false;
+    }
+}
+
 extern "C" fn blob_write<T: BlobData>(
     stream: *mut pl::IOSTREAM,
     atom: pl::atom_t,
@@ -203,5 +302,11 @@ extern "C" fn copy_blob_write<T: CopyBlobData>(
     let string = CString::new(format!("{blob:?}")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
 
+    pl::TRUE as _
+}
+
+extern "C" fn scoped_blob_release<T>(atom: pl::atom_t) -> std::ffi::c_int {
+    let blob = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
+    let _boxed = unsafe { Box::from_raw(blob as *mut ScopedBlobAlloc<T>) };
     pl::TRUE as _
 }
