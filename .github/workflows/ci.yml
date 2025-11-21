@@ -18,7 +18,8 @@ jobs:
           libxdo-dev \
           libssl-dev \
           libayatana-appindicator3-dev \
-          librsvg2-dev
+          librsvg2-dev \
+          swi-prolog
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
@@ -45,7 +46,8 @@ jobs:
           libxdo-dev \
           libssl-dev \
           libayatana-appindicator3-dev \
-          librsvg2-dev
+          librsvg2-dev \
+          swi-prolog
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
