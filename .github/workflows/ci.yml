@@ -9,7 +9,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt install -y \
+        sudo apt-get install -y \
           libwebkit2gtk-4.1-dev \
           build-essential \
           curl \
@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt install -y \
+        sudo apt-get install -y \
           libwebkit2gtk-4.1-dev \
           build-essential \
           curl \
