@@ -1,7 +1,7 @@
 use crate::{Atom, Context, ExternalRecord, Functor, Record, term};
 use std::marker::PhantomData;
 use std::num::NonZero;
-use std::ops::{Deref, Index};
+use std::ops::Deref;
 use std::{fmt, slice};
 use swipl_fli as pl;
 

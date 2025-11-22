@@ -58,31 +58,18 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
         pl.load_module_from_str(&module_name, &view.definition)
             .unwrap();
 
-        if pl.predicate_defined::<2>("show", module_name.as_str()) {
-            log::debug!("show/2 exists");
-            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-            while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                println!("{entry_id}");
-            }
-        } else {
-            log::debug!("show/2 doesn't exist");
+        let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
+        while let Some([_, entry_id]) = query.next_solution().unwrap() {
+            println!("{entry_id}");
         }
     }
 
     let state = state.database.read().unwrap();
-    let entries = state
-        .entries
-        .iter()
-        .inspect(|(id, _)| {
-            for tag in cache.entry_tags.get(id).unwrap() {
-                log::debug!("entry {id:?} has the tag: {}", pl.new_term().put(tag));
-            }
-        })
-        .map(|(&id, entry)| Entry {
-            id,
-            created_at: entry.created_at,
-            content: &entry.content,
-        });
+    let entries = state.entries.iter().map(|(&id, entry)| Entry {
+        id,
+        created_at: entry.created_at,
+        content: &entry.content,
+    });
 
     // Return an `ipc::Response` directly to avoid allocations
     let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();
