@@ -67,3 +67,9 @@ impl factbook_swipl::term::ToTerm for EntryId {
         self.0.put_in(term);
     }
 }
+
+impl factbook_swipl::term::FromTerm for EntryId {
+    fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
+        term.get().map(Self)
+    }
+}
