@@ -1,5 +1,6 @@
 use crate::foreign::{Predicate, PredicateArgs};
-use crate::term::{Exception, Term};
+use crate::query::Query;
+use crate::term::{Exception, Term, Terms};
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
@@ -8,6 +9,7 @@ use swipl_fli as pl;
 
 pub mod blob;
 pub mod foreign;
+pub mod query;
 pub mod term;
 
 /// Global session handle which, when held, statically guarantees that the
@@ -147,16 +149,25 @@ impl From<&Engine> for EngineHandle {
 }
 
 /// A foreign frame - a contained environment for operating on the Prolog
-/// stack
+/// stack. When dropped, destroys all bindings made since it was opened.
 pub struct Frame<'p> {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<(*const (), &'p ())>,
     ptr: pl::PL_fid_t,
 }
 
+impl Frame<'_> {
+    /// Closes the foreign frame without destroying bindings made while it was
+    /// open
+    pub fn close(self) {
+        unsafe { pl::PL_close_foreign_frame(self.ptr) };
+        std::mem::forget(self);
+    }
+}
+
 impl Drop for Frame<'_> {
     fn drop(&mut self) {
-        unsafe { pl::PL_close_foreign_frame(self.ptr) };
+        unsafe { pl::PL_discard_foreign_frame(self.ptr) };
     }
 }
 
@@ -188,9 +199,8 @@ pub trait Context {
         Term::from_ptr(unsafe { pl::PL_new_term_ref() }).unwrap()
     }
 
-    fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
-        let t = unsafe { pl::PL_new_term_refs(N) };
-        std::array::from_fn(|i| Term::from_ptr(t + i).unwrap())
+    fn new_terms<'a, const N: usize>(&'a self) -> Terms<'a, N> {
+        unsafe { Terms::new() }
     }
 
     fn atom(&self, chars: &str) -> Atom {
@@ -225,25 +235,11 @@ pub trait Context {
         term: Term,
         module: impl Into<Option<&'m str>>,
     ) -> Result<bool, Exception<'a>> {
-        let module = match module.into() {
-            Some(module) => {
-                let module_atom = self.atom(module);
-                unsafe { pl::PL_new_module(module_atom.ptr) }
-            },
-            None => std::ptr::null_mut(),
-        };
-
-        if unsafe { pl::PL_call(term.ptr.get(), module) } != 0 {
+        if unsafe { pl::PL_call(term.ptr.get(), get_module(self, module.into())) } != 0 {
             Ok(true)
         } else {
-            // https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions
-            match Term::from_ptr(unsafe { pl::PL_exception(std::ptr::null_mut()) }) {
-                Some(exception) => {
-                    // Make a copy of the exception term before calling `PL_clear_exception`
-                    let exception = self.new_term().put(exception);
-                    unsafe { pl::PL_clear_exception() };
-                    Err(Exception::from(exception))
-                },
+            match get_exception(self) {
+                Some(exception) => Err(exception),
                 None => Ok(false),
             }
         }
@@ -253,6 +249,19 @@ pub trait Context {
         if unsafe { pl::PL_assert(term.ptr.get(), std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");
         }
+    }
+
+    /// Opens a new query over the specified predicate
+    fn open_query<'a, 'm, F, const ARITY: usize>(
+        &'a mut self,
+        pred: &str,
+        args_fn: F,
+        module: impl Into<Option<&'m str>>,
+    ) -> Result<Query<'a, ARITY>, Exception<'a>>
+    where
+        F: FnOnce(&Self, &[Term; ARITY]),
+    {
+        Query::new(self, pred, args_fn, module)
     }
 
     /// (Re)defines the specified module using the given Prolog source code
@@ -425,6 +434,26 @@ pub enum Assert {
     First = pl::PL_ASSERTA,
 }
 
+pub(crate) fn get_module<C: Context + ?Sized>(ctx: &C, name: Option<&str>) -> pl::module_t {
+    match name {
+        Some(name) => {
+            let module_atom = ctx.atom(name);
+            unsafe { pl::PL_new_module(module_atom.ptr) }
+        },
+        None => std::ptr::null_mut(),
+    }
+}
+
+pub(crate) fn get_exception<'c, C: Context + ?Sized>(ctx: &'c C) -> Option<Exception<'c>> {
+    // https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions
+    Term::from_ptr(unsafe { pl::PL_exception(std::ptr::null_mut()) }).map(|exception| {
+        // Make a copy of the exception term before calling `PL_clear_exception`
+        let exception = ctx.new_term().put(exception);
+        unsafe { pl::PL_clear_exception() };
+        Exception::from(exception)
+    })
+}
+
 /// Constructs a Prolog term using Prolog-like syntax
 ///
 /// Supported terms:
@@ -477,19 +506,19 @@ macro_rules! term {
         let ctx = $ctx;
         ctx.new_term().put_functor(
             ctx.functor($functor),
-            term!(@args () ctx => $($args)+),
+            $crate::term!(@args () ctx => $($args)+),
         )
     }};
     ($ctx:expr => $functor:ident ( $($args:tt)+ )) => {{
         let ctx = $ctx;
         ctx.new_term().put_functor(
             ctx.functor(stringify!($functor)),
-            term!(@args () ctx => $($args)+),
+            $crate::term!(@args () ctx => $($args)+),
         )
     }};
     ($ctx:expr => [ $($args:tt)+ ]) => {{
         let ctx = $ctx;
-        ctx.new_term().put_list(term!(@args () ctx => $($args)+))
+        ctx.new_term().put_list($crate::term!(@args () ctx => $($args)+))
     }};
     // Recursively builds nested terms. The base case without arguments wraps
     // the resulting expressions in an array, because macro invocations cannot
@@ -505,18 +534,18 @@ macro_rules! term {
         [$($out)*]
     };
     (@args ($($($out:tt)+)?) $ctx:expr => $term:tt $(, $($rest:tt)+)?) => {
-        term!(@args
-            ($($($out)* ,)? term!($ctx => $term))
+        $crate::term!(@args
+            ($($($out)* ,)? $crate::term!($ctx => $term))
             $($ctx => $($rest)+)?)
     };
     (@args ($($($out:tt)+)?) $ctx:expr => $functor:ident ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
-        term!(@args
-            ($($($out)* ,)? term!($ctx => $functor ( $($args)+ )))
+        $crate::term!(@args
+            ($($($out)* ,)? $crate::term!($ctx => $functor ( $($args)+ )))
             $($ctx => $($rest)+)?)
     };
     (@args ($($($out:tt)+)?) $ctx:expr => $functor:literal ( $($args:tt)+ ) $(, $($rest:tt)+)?) => {
-        term!(@args
-            ($($($out)* ,)? term!($ctx => $functor ( $($args)+ )))
+        $crate::term!(@args
+            ($($($out)* ,)? $crate::term!($ctx => $functor ( $($args)+ )))
             $($ctx => $($rest)+)?)
     };
 }

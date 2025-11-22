@@ -60,3 +60,16 @@ pub struct Entry {
     pub created_at: DateTime<Local>,
     pub content: String,
 }
+
+impl factbook_swipl::term::ToTerm for EntryId {
+    fn put_in(self, term: factbook_swipl::term::Term) {
+        // TODO: Make it an opaque blob
+        self.0.put_in(term);
+    }
+}
+
+impl factbook_swipl::term::FromTerm for EntryId {
+    fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
+        term.get().map(Self)
+    }
+}

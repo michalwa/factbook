@@ -3,10 +3,10 @@ use crate::model::{EntryId, ViewId};
 use crate::prolog::predicates::EntryTags;
 use crate::util::SerializeIterOnce;
 use chrono::{DateTime, Local};
+use factbook_swipl::Context;
 use factbook_swipl::blob::ScopedBlob;
-use factbook_swipl::{Context, term};
+use factbook_swipl::query::open_query;
 use serde::Serialize;
-use std::cell::RefCell;
 use tauri::{State, ipc};
 
 #[derive(Serialize)]
@@ -45,47 +45,38 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let cache = state.cache.read().unwrap();
 
     let mut engine = state.swipl_session.engine();
-    let pl = engine.frame();
+    let mut pl = engine.frame();
 
-    let entry_tags = EntryTags(RefCell::new(cache.entry_tags.iter()));
+    let entry_tags = EntryTags::new(&cache.entry_tags);
     let entry_tags_blob = ScopedBlob::new(&entry_tags);
-    let t_entry_tags = pl.new_term().put(&entry_tags_blob);
-
-    log::debug!("{t_entry_tags}");
-
-    if let Some(view_id) = view {
-        let view = db.views.get(&view_id).unwrap();
-        let module_name = format!("view_{view_id}");
-
-        pl.load_module_from_str(&module_name, &view.definition)
-            .unwrap();
-
-        if pl.predicate_defined::<2>("show", module_name.as_str()) {
-            log::debug!("show/2 exists");
-            pl.call(
-                term! { &pl => show({t_entry_tags}, 1) },
-                module_name.as_str(),
-            )
-            .unwrap();
-        } else {
-            log::debug!("show/2 doesn't exist");
-        }
-    }
 
     let state = state.database.read().unwrap();
-    let entries = state
-        .entries
-        .iter()
-        .inspect(|(id, _)| {
-            for tag in cache.entry_tags.get(id).unwrap() {
-                log::debug!("entry {id:?} has the tag: {}", pl.new_term().put(tag));
+
+    let entries: Box<dyn Iterator<Item = (EntryId, &crate::model::Entry)>> =
+        if let Some(view_id) = view {
+            let mut entry_ids = Vec::new();
+            let view = db.views.get(&view_id).unwrap();
+            let module_name = format!("view_{view_id}");
+
+            pl.load_module_from_str(&module_name, &view.definition)
+                .unwrap();
+
+            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
+            while let Some([_, entry_id]) = query.next_solution().unwrap() {
+                // TODO: impl Iterator for Query
+                entry_ids.push(entry_id.get::<EntryId>().unwrap());
             }
-        })
-        .map(|(&id, entry)| Entry {
-            id,
-            created_at: entry.created_at,
-            content: &entry.content,
-        });
+
+            Box::new(entry_ids.into_iter().map(|id| (id, &state.entries[&id])))
+        } else {
+            Box::new(state.entries.iter().map(|(id, entry)| (*id, entry)))
+        };
+
+    let entries = entries.map(|(id, entry)| Entry {
+        id,
+        created_at: entry.created_at,
+        content: &entry.content,
+    });
 
     // Return an `ipc::Response` directly to avoid allocations
     let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();

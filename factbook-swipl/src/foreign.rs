@@ -56,7 +56,7 @@ pub trait Semidet: Predicate {
     /// May unify terms in `args` and return `true` for success, or return
     /// `false` for failure. Deterministic predicates are implemented by always
     /// returning `true` from this method.
-    fn call(ctx: &impl Context, args: Self::Args<'_>) -> bool;
+    fn call(ctx: &mut impl Context, args: Self::Args<'_>) -> bool;
 }
 
 /// Implemented by non-deterministic foreign predicates
@@ -69,7 +69,7 @@ pub trait Nondet: Predicate {
     /// Advances the foreign predicate to the next solution. The implementation
     /// may unify the terms in `args` with values and return `true` for success,
     /// or return `false` in which case the search will be terminated.
-    fn next(&mut self, ctx: &impl Context, args: Self::Args<'_>) -> bool;
+    fn next(&mut self, ctx: &mut impl Context, args: Self::Args<'_>) -> bool;
 }
 
 /// Generic wrapper implementation for semi-deterministic foreign predicates.
@@ -81,9 +81,9 @@ pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
-    let ctx = unsafe { EngineHandle::assume_attached() };
+    let mut ctx = unsafe { EngineHandle::assume_attached() };
 
-    match P::call(&ctx, unsafe { P::Args::from_raw(args) }) {
+    match P::call(&mut ctx, unsafe { P::Args::from_raw(args) }) {
         true => pl::TRUE as _,
         false => pl::FALSE as _,
     }
@@ -108,13 +108,13 @@ pub unsafe fn nondet_impl<P: Nondet>(
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
-    let ctx = unsafe { EngineHandle::assume_attached() };
+    let mut ctx = unsafe { EngineHandle::assume_attached() };
 
     match unsafe { pl::PL_foreign_control(ctrl) } as u32 {
         pl::PL_FIRST_CALL => {
             let mut state = P::init(&ctx);
 
-            if state.next(&ctx, unsafe { P::Args::from_raw(args) }) {
+            if state.next(&mut ctx, unsafe { P::Args::from_raw(args) }) {
                 let boxed = Box::leak(Box::new(State(state)));
                 unsafe { pl::_PL_retry_address(boxed as *mut _ as _) }
             } else {
@@ -125,7 +125,7 @@ pub unsafe fn nondet_impl<P: Nondet>(
             let state_ptr = unsafe { pl::PL_foreign_context_address(ctrl) };
             let state = unsafe { (state_ptr as *mut State<P>).as_mut() }.unwrap();
 
-            if state.0.next(&ctx, unsafe { P::Args::from_raw(args) }) {
+            if state.0.next(&mut ctx, unsafe { P::Args::from_raw(args) }) {
                 unsafe { pl::_PL_retry_address(state_ptr) }
             } else {
                 pl::FALSE as _

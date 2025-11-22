@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 
 mod derive_blob;
 mod predicate;
+mod query;
 
 /// Implements [`Predicate`](factbook_swipl::Predicate) for a type and generates
 /// the necessary `extern "C" fn` item. This does not generate predicate
@@ -41,4 +42,9 @@ pub fn derive_copy_blob_data(item: TokenStream) -> TokenStream {
 #[proc_macro_derive(ScopedBlobData)]
 pub fn derive_scoped_blob_data(item: TokenStream) -> TokenStream {
     crate::derive_blob::derive_scoped_blob_data_macro_impl(item)
+}
+
+#[proc_macro]
+pub fn open_query(input: TokenStream) -> TokenStream {
+    crate::query::open_query_macro_impl(input)
 }
