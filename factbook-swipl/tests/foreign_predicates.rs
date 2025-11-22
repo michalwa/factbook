@@ -12,7 +12,7 @@ struct MyNondetPred {
 }
 
 impl Semidet for MySemidetPred {
-    fn call(ctx: &impl Context, [t1, t2]: Self::Args<'_>) -> bool {
+    fn call(ctx: &mut impl Context, [t1, t2]: Self::Args<'_>) -> bool {
         t1.unify_with(ctx.new_term().put(1)) && t2.unify_with(ctx.new_term().put(2))
     }
 }
@@ -22,7 +22,7 @@ impl Nondet for MyNondetPred {
         Self { i: 1 }
     }
 
-    fn next(&mut self, ctx: &impl Context, [t1]: Self::Args<'_>) -> bool {
+    fn next(&mut self, ctx: &mut impl Context, [t1]: Self::Args<'_>) -> bool {
         if self.i <= 3 {
             let t = ctx.new_term().put(self.i);
             self.i += 1;

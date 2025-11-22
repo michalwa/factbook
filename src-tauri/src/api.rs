@@ -3,9 +3,9 @@ use crate::model::{EntryId, ViewId};
 use crate::prolog::predicates::EntryTags;
 use crate::util::SerializeIterOnce;
 use chrono::{DateTime, Local};
+use factbook_swipl::Context;
 use factbook_swipl::blob::ScopedBlob;
 use factbook_swipl::query::open_query;
-use factbook_swipl::{Context, term};
 use serde::Serialize;
 use std::cell::RefCell;
 use tauri::{State, ipc};
@@ -48,7 +48,7 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let mut engine = state.swipl_session.engine();
     let mut pl = engine.frame();
 
-    let entry_tags = EntryTags(RefCell::new(cache.entry_tags.iter()));
+    let entry_tags = EntryTags::new(&cache.entry_tags);
     let entry_tags_blob = ScopedBlob::new(&entry_tags);
 
     if let Some(view_id) = view {

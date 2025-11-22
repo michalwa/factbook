@@ -149,16 +149,25 @@ impl From<&Engine> for EngineHandle {
 }
 
 /// A foreign frame - a contained environment for operating on the Prolog
-/// stack
+/// stack. When dropped, destroys all bindings made since it was opened.
 pub struct Frame<'p> {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<(*const (), &'p ())>,
     ptr: pl::PL_fid_t,
 }
 
+impl Frame<'_> {
+    /// Closes the foreign frame without destroying bindings made while it was
+    /// open
+    pub fn close(self) {
+        unsafe { pl::PL_close_foreign_frame(self.ptr) };
+        std::mem::forget(self);
+    }
+}
+
 impl Drop for Frame<'_> {
     fn drop(&mut self) {
-        unsafe { pl::PL_close_foreign_frame(self.ptr) };
+        unsafe { pl::PL_discard_foreign_frame(self.ptr) };
     }
 }
 

@@ -82,7 +82,7 @@ fn scoped_blob_with_foreign_predicate() {
     struct CustomPredicate;
 
     impl Semidet for CustomPredicate {
-        fn call(_: &impl Context, [t_blob]: Self::Args<'_>) -> bool {
+        fn call(_: &mut impl Context, [t_blob]: Self::Args<'_>) -> bool {
             let Some(atom) = t_blob.get::<Atom>() else {
                 return false;
             };

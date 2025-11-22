@@ -4,14 +4,25 @@ use std::str::Chars;
 
 pub mod predicates {
     use crate::model::EntryId;
-    use factbook_swipl::{Atom, Context};
     use factbook_swipl::blob::ScopedBlobData;
     use factbook_swipl::foreign::{Nondet, predicate};
+    use factbook_swipl::{Atom, Context};
     use std::cell::RefCell;
-    use std::collections::btree_map;
+    use std::collections::BTreeMap;
 
     #[derive(ScopedBlobData)]
-    pub struct EntryTags<'a>(pub RefCell<btree_map::Iter<'a, EntryId, Vec<factbook_swipl::Record>>>);
+    pub struct EntryTags<'a> {
+        iter: RefCell<Box<dyn Iterator<Item = (EntryId, &'a factbook_swipl::Record)> + 'a>>,
+    }
+
+    impl<'a> EntryTags<'a> {
+        pub fn new(map: &'a BTreeMap<EntryId, Vec<factbook_swipl::Record>>) -> Self {
+            let iter = map.iter().flat_map(|(k, vs)| vs.iter().map(|v| (*k, v)));
+            Self {
+                iter: RefCell::new(Box::new(iter)),
+            }
+        }
+    }
 
     #[predicate(tag(entry_tags, entry, tag) nondet)]
     pub struct Tag;
@@ -21,19 +32,41 @@ pub mod predicates {
             Self
         }
 
-        fn next(&mut self, _: &impl Context, [entry_tags, entry, tag]: Self::Args<'_>) -> bool {
-            log::debug!("tag/3 called");
+        fn next(
+            &mut self,
+            pl: &mut impl Context,
+            [entry_tags, arg_entry, arg_tag]: Self::Args<'_>,
+        ) -> bool {
+            let Some(entry_tags_atom) = entry_tags.get::<Atom>() else {
+                return false;
+            };
+            let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTags>() else {
+                return false;
+            };
 
-            let Some(entry_tags_atom) = entry_tags.get::<Atom>() else { return false };
-            let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTags>() else { return false };
+            for (entry_id, tag) in entry_tags.iter.borrow_mut().as_mut() {
+                let pl = pl.frame();
+                let entry_id = pl.new_term().put(entry_id);
+                let tag = pl.new_term().put(tag);
 
-            if let Some((entry_id, tags)) = entry_tags.0.borrow_mut().next() {
-                log::debug!("  {entry_id:?}");
-                true
-            } else {
-                false
+                if arg_entry.unify_with(entry_id) && arg_tag.unify_with(tag) {
+                    pl.close();
+                    return true;
+                }
             }
+
+            false
         }
+    }
+}
+
+pub fn parse<'i, 'c: 'i>(
+    input: &'i str,
+    ctx: &'c impl Context,
+) -> impl Iterator<Item = Term<'c>> + 'i {
+    Parse {
+        input: input.chars(),
+        ctx,
     }
 }
 
@@ -114,16 +147,6 @@ impl<'c, C: Context> Parse<'_, 'c, C> {
         }
 
         None
-    }
-}
-
-pub fn parse<'i, 'c: 'i>(
-    input: &'i str,
-    ctx: &'c impl Context,
-) -> impl Iterator<Item = Term<'c>> + 'i {
-    Parse {
-        input: input.chars(),
-        ctx,
     }
 }
 

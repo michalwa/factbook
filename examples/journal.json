@@ -2,7 +2,7 @@
   "views": {
     "1": {
       "name": "To do",
-      "definition": "show(C, E) :- tag(C, E, todo).\n% show(C, E) :- tag(C, E, todo), tag(C, E, due(tomorrow))."
+      "definition": "show(C, E) :- tag(C, E, todo)."
     },
     "2": {
       "name": "Work",
