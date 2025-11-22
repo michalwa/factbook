@@ -1,5 +1,6 @@
 use crate::{Atom, Context, ExternalRecord, Functor, Record, term};
 use std::marker::PhantomData;
+use std::num::NonZero;
 use std::{fmt, slice};
 use swipl_fli as pl;
 
@@ -13,22 +14,22 @@ pub struct Term<'a> {
     // Not `Send` because it's only valid within the context of the current thread engine
     _marker: PhantomData<*const ()>,
     _lifetime: PhantomData<&'a ()>,
-    pub(crate) ptr: pl::term_t,
+    pub(crate) ptr: NonZero<pl::term_t>,
 }
 
 impl<'a> Term<'a> {
-    pub(crate) fn from_ptr(ptr: pl::term_t) -> Self {
-        Self {
+    pub(crate) fn from_ptr(ptr: pl::term_t) -> Option<Self> {
+        NonZero::new(ptr).map(|ptr| Self {
             _marker: Default::default(),
             _lifetime: Default::default(),
             ptr,
-        }
+        })
     }
 
     /// Resets this term reference to a variable
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_variable%27)
     pub fn put_variable(self) -> Self {
-        if unsafe { pl::PL_put_variable(self.ptr) } == 0 {
+        if unsafe { pl::PL_put_variable(self.ptr.get()) } == 0 {
             panic!("PL_put_variable failed");
         }
 
@@ -38,7 +39,8 @@ impl<'a> Term<'a> {
     /// Puts an atom with the given name in the term reference
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_atom_chars%27)
     pub fn put_atom_chars(self, chars: &str) -> Self {
-        if unsafe { pl::PL_put_atom_nchars(self.ptr, chars.len(), chars.as_ptr() as _) } == 0 {
+        if unsafe { pl::PL_put_atom_nchars(self.ptr.get(), chars.len(), chars.as_ptr() as _) } == 0
+        {
             panic!("PL_put_atom_nchars failed");
         }
 
@@ -54,12 +56,12 @@ impl<'a> Term<'a> {
         functor: Functor<ARITY>,
         args: [Self; ARITY],
     ) -> Self {
-        if unsafe { pl::PL_put_functor(self.ptr, functor.ptr) } == 0 {
+        if unsafe { pl::PL_put_functor(self.ptr.get(), functor.ptr) } == 0 {
             panic!("PL_put_functor failed");
         }
 
         for (i, arg) in args.into_iter().enumerate() {
-            if unsafe { pl::PL_unify_arg_sz(i + 1, self.ptr, arg.ptr) } == 0 {
+            if unsafe { pl::PL_unify_arg_sz(i + 1, self.ptr.get(), arg.ptr.get()) } == 0 {
                 panic!("PL_unify_arg_sz failed");
             }
         }
@@ -89,12 +91,12 @@ impl<'a> Term<'a> {
         M: IntoIterator<IntoIter = I>,
         I: DoubleEndedIterator<Item = Self>,
     {
-        if unsafe { pl::PL_put_nil(self.ptr) } == 0 {
+        if unsafe { pl::PL_put_nil(self.ptr.get()) } == 0 {
             panic!("PL_put_nil failed");
         }
 
         for member in members.into_iter().rev() {
-            if unsafe { pl::PL_cons_list(self.ptr, member.ptr, self.ptr) } == 0 {
+            if unsafe { pl::PL_cons_list(self.ptr.get(), member.ptr.get(), self.ptr.get()) } == 0 {
                 panic!("PL_cons_list failed");
             }
         }
@@ -107,7 +109,7 @@ impl<'a> Term<'a> {
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record%27)
     pub fn record(self) -> Record {
         Record {
-            ptr: unsafe { pl::PL_record(self.ptr) },
+            ptr: unsafe { pl::PL_record(self.ptr.get()) },
         }
     }
 
@@ -116,7 +118,7 @@ impl<'a> Term<'a> {
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_record_external%27)
     pub fn record_external(self) -> Option<ExternalRecord> {
         let mut len: usize = 0;
-        let ptr = unsafe { pl::PL_record_external(self.ptr, &raw mut len) };
+        let ptr = unsafe { pl::PL_record_external(self.ptr.get(), &raw mut len) };
 
         std::ptr::NonNull::new(ptr).map(|ptr| ExternalRecord { ptr, len })
     }
@@ -124,7 +126,7 @@ impl<'a> Term<'a> {
     /// Copies a serialized term into the term reference
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_recorded_external%27)
     pub fn put_recorded_external(self, record: &[u8]) -> Self {
-        if unsafe { pl::PL_recorded_external(record.as_ptr() as _, self.ptr) } == 0 {
+        if unsafe { pl::PL_recorded_external(record.as_ptr() as _, self.ptr.get()) } == 0 {
             panic!("PL_recorded_external failed");
         }
 
@@ -182,13 +184,16 @@ impl<'a> Term<'a> {
     ///     "syntax_error(end_of_clause)"
     /// );
     /// ```
-    pub fn put_parsed(self, repr: &str) -> Result<Self, ParseError<'a>> {
+    pub fn put_parsed(self, repr: &str) -> Result<Self, Exception<'a>> {
         match unsafe {
-            pl::PL_put_term_from_chars(self.ptr, pl::REP_UTF8 as _, repr.len(), repr.as_ptr() as _)
+            pl::PL_put_term_from_chars(
+                self.ptr.get(),
+                pl::REP_UTF8 as _,
+                repr.len(),
+                repr.as_ptr() as _,
+            )
         } {
-            0 => Err(ParseError {
-                exception: Self::from_ptr(self.ptr),
-            }),
+            0 => Err(self.into()),
             _ => Ok(self),
         }
     }
@@ -200,7 +205,8 @@ impl<'a> Term<'a> {
         let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
 
-        if unsafe { pl::PL_get_atom_nchars(self.ptr, &raw mut len, &raw mut chars as _) } == 0 {
+        if unsafe { pl::PL_get_atom_nchars(self.ptr.get(), &raw mut len, &raw mut chars as _) } == 0
+        {
             return None;
         }
 
@@ -219,7 +225,7 @@ impl<'a> Term<'a> {
     /// failure.
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_unify%27)
     pub fn unify_with(self, other: Term) -> bool {
-        unsafe { pl::PL_unify(self.ptr, other.ptr) != 0 }
+        unsafe { pl::PL_unify(self.ptr.get(), other.ptr.get()) != 0 }
     }
 
     /// Used with [`std::fmt::Display`] to obtain a canonical string
@@ -245,7 +251,7 @@ impl<'a> Term<'a> {
 
         if unsafe {
             pl::PL_get_nchars(
-                self.ptr,
+                self.ptr.get(),
                 &raw mut len,
                 &raw mut chars as _,
                 flags | pl::REP_UTF8 | pl::BUF_DISCARDABLE,
@@ -280,31 +286,36 @@ impl fmt::Debug for Term<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
             "<term:{:p} {}>",
-            self.ptr as *const (),
+            self.ptr.get() as *const (),
             self.canonical()
         ))
     }
 }
 
+/// Wrapper around a [`Term`] that represents a Prolog exception
 #[derive(Clone, Copy, Debug)]
-pub struct ParseError<'a> {
-    exception: Term<'a>,
-}
+pub struct Exception<'a>(Term<'a>);
 
-impl<'a> ParseError<'a> {
-    pub fn exception(self) -> Term<'a> {
-        self.exception
+impl<'a> Exception<'a> {
+    pub fn into_term(self) -> Term<'a> {
+        self.0
     }
 
     /// The "formal" description of the error, as described in https://www.swi-prolog.org/pldoc/man?section=exceptterm.
     /// Returns `None` if the exception doesn't unify with `error(_, _)`.
     pub fn formal(self, ctx: &'a impl Context) -> Option<Term<'a>> {
         let formal = ctx.new_term();
-        if term! { ctx => error({formal}, _) }.unify_with(self.exception) {
+        if term! { ctx => error({formal}, _) }.unify_with(self.0) {
             Some(formal)
         } else {
             None
         }
+    }
+}
+
+impl<'a> From<Term<'a>> for Exception<'a> {
+    fn from(value: Term<'a>) -> Self {
+        Self(value)
     }
 }
 
@@ -328,11 +339,11 @@ impl ToTerm for Term<'_> {
     where
         Self: 'a,
     {
-        Term::from_ptr(self.ptr)
+        self
     }
 
     fn put_in(self, term: Term) {
-        if unsafe { pl::PL_put_term(term.ptr, self.ptr) } == 0 {
+        if unsafe { pl::PL_put_term(term.ptr.get(), self.ptr.get()) } == 0 {
             panic!("PL_put_term failed");
         }
     }
@@ -340,7 +351,7 @@ impl ToTerm for Term<'_> {
 
 impl ToTerm for &Atom {
     fn put_in(self, term: Term) {
-        if unsafe { pl::PL_put_atom(term.ptr, self.ptr) } == 0 {
+        if unsafe { pl::PL_put_atom(term.ptr.get(), self.ptr) } == 0 {
             panic!("PL_put_atom failed");
         }
     }
@@ -348,7 +359,7 @@ impl ToTerm for &Atom {
 
 impl ToTerm for &Record {
     fn put_in(self, term: Term) {
-        if unsafe { pl::PL_recorded(self.ptr, term.ptr) } == 0 {
+        if unsafe { pl::PL_recorded(self.ptr, term.ptr.get()) } == 0 {
             panic!("PL_recorded failed");
         }
     }
@@ -367,19 +378,19 @@ macro_rules! impl_ToTerm {
     };
 }
 
-impl_ToTerm!(|v: bool, t| pl::PL_put_bool(t.ptr, v as _));
-impl_ToTerm!(|v: &str, t| pl::PL_put_string_nchars(t.ptr, v.len(), v.as_ptr() as _));
+impl_ToTerm!(|v: bool, t| pl::PL_put_bool(t.ptr.get(), v as _));
+impl_ToTerm!(|v: &str, t| pl::PL_put_string_nchars(t.ptr.get(), v.len(), v.as_ptr() as _));
 // Not using `PL_put_integer` because the integer type is platform-dependent
-impl_ToTerm!(|v: i8, t| pl::PL_put_int64(t.ptr, v as _));
-impl_ToTerm!(|v: i16, t| pl::PL_put_int64(t.ptr, v as _));
-impl_ToTerm!(|v: i32, t| pl::PL_put_int64(t.ptr, v as _));
-impl_ToTerm!(|v: i64, t| pl::PL_put_int64(t.ptr, v));
-impl_ToTerm!(|v: u8, t| pl::PL_put_uint64(t.ptr, v as _));
-impl_ToTerm!(|v: u16, t| pl::PL_put_uint64(t.ptr, v as _));
-impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr, v as _));
-impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr, v));
-impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr, v as _));
-impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr, v));
+impl_ToTerm!(|v: i8, t| pl::PL_put_int64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: i16, t| pl::PL_put_int64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: i32, t| pl::PL_put_int64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: i64, t| pl::PL_put_int64(t.ptr.get(), v));
+impl_ToTerm!(|v: u8, t| pl::PL_put_uint64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: u16, t| pl::PL_put_uint64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr.get(), v as _));
+impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr.get(), v));
+impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr.get(), v as _));
+impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr.get(), v));
 
 /// Implemented by types that can be extracted from a term reference
 pub trait FromTerm: Sized {
@@ -392,7 +403,7 @@ pub trait FromTerm: Sized {
 impl FromTerm for Atom {
     fn from_term(term: Term) -> Option<Self> {
         let mut atom: pl::atom_t = 0;
-        if unsafe { pl::PL_get_atom(term.ptr, &raw mut atom) } != 0 {
+        if unsafe { pl::PL_get_atom(term.ptr.get(), &raw mut atom) } != 0 {
             Some(Atom::from_ptr(atom))
         } else {
             None
@@ -403,7 +414,7 @@ impl FromTerm for Atom {
 impl FromTerm for bool {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: i32 = 0;
-        if unsafe { pl::PL_get_bool(term.ptr, &raw mut value) } != 0 {
+        if unsafe { pl::PL_get_bool(term.ptr.get(), &raw mut value) } != 0 {
             Some(value != 0)
         } else {
             None
@@ -414,7 +425,7 @@ impl FromTerm for bool {
 impl FromTerm for i64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: i64 = 0;
-        if unsafe { pl::PL_get_int64(term.ptr, &raw mut value) } != 0 {
+        if unsafe { pl::PL_get_int64(term.ptr.get(), &raw mut value) } != 0 {
             Some(value)
         } else {
             None
@@ -425,7 +436,7 @@ impl FromTerm for i64 {
 impl FromTerm for u64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: u64 = 0;
-        if unsafe { pl::PL_get_uint64(term.ptr, &raw mut value) } != 0 {
+        if unsafe { pl::PL_get_uint64(term.ptr.get(), &raw mut value) } != 0 {
             Some(value)
         } else {
             None
@@ -436,7 +447,7 @@ impl FromTerm for u64 {
 impl FromTerm for f64 {
     fn from_term(term: Term) -> Option<Self> {
         let mut value: f64 = 0.0;
-        if unsafe { pl::PL_get_float(term.ptr, &raw mut value) } != 0 {
+        if unsafe { pl::PL_get_float(term.ptr.get(), &raw mut value) } != 0 {
             Some(value)
         } else {
             None

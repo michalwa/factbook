@@ -46,13 +46,14 @@ fn foreign_nondet() {
 
     let [t1, t2] = engine.new_terms();
     let solutions = engine.new_term();
-    assert!(engine.call(
-        term! { &engine => findall("-"({t1}, {t2}), my_semidet_pred({t1}, {t2}), {solutions}) }
-    ));
+    let goal =
+        term! { &engine => findall("-"({t1}, {t2}), my_semidet_pred({t1}, {t2}), {solutions}) };
+    assert!(engine.call(goal, None).unwrap());
     assert_unify!(solutions, term! { &engine => ["-"(1, 2)] });
 
     let t = engine.new_term();
     let solutions = engine.new_term();
-    assert!(engine.call(term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) }));
+    let goal = term! { &engine => findall({t}, my_nondet_pred({t}), {solutions}) };
+    assert!(engine.call(goal, None).unwrap());
     assert_unify!(solutions, term! { &engine => [1, 2, 3] });
 }

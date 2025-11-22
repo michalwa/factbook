@@ -104,13 +104,15 @@ fn scoped_blob_with_foreign_predicate() {
     {
         let blob = ScopedBlob::new(&xs);
         t.put(&blob);
-        assert!(engine.call(term! { &engine => custom_predicate({t}) }));
+        let goal = term! { &engine => custom_predicate({t}) };
+        assert!(engine.call(goal, None).unwrap());
         assert_eq!(t.to_string(), "<MyVec>");
     }
 
     assert_eq!(*xs.0.borrow(), [1]);
 
     // Blob is dropped and references cannot be obtained anymore
-    assert!(!engine.call(term! { &engine => custom_predicate({t}) }));
+    let goal = term! { &engine => custom_predicate({t}) };
+    assert!(!engine.call(goal, None).unwrap());
     assert_eq!(t.to_string(), "<MyVec (invalid)>");
 }

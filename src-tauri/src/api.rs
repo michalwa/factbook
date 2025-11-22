@@ -57,11 +57,16 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
         let view = db.views.get(&view_id).unwrap();
         let module_name = format!("view_{view_id}");
 
-        pl.load_module_from_str(&module_name, &view.definition);
+        pl.load_module_from_str(&module_name, &view.definition)
+            .unwrap();
 
         if pl.predicate_defined::<2>("show", module_name.as_str()) {
             log::debug!("show/2 exists");
-            pl.call_module(&module_name, term! { &pl => show({t_entry_tags}, 1) });
+            pl.call(
+                term! { &pl => show({t_entry_tags}, 1) },
+                module_name.as_str(),
+            )
+            .unwrap();
         } else {
             log::debug!("show/2 doesn't exist");
         }

@@ -47,7 +47,7 @@ impl<const N: usize> PredicateArgs for [Term<'_>; N] {
     const ARITY: usize = N;
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        raw.map(Term::from_ptr)
+        raw.map(|ptr| Term::from_ptr(ptr).unwrap())
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::foreign::{Predicate, PredicateArgs};
-use crate::term::Term;
+use crate::term::{Exception, Term};
 use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
@@ -185,12 +185,12 @@ pub trait Context {
     }
 
     fn new_term<'a>(&'a self) -> Term<'a> {
-        Term::from_ptr(unsafe { pl::PL_new_term_ref() })
+        Term::from_ptr(unsafe { pl::PL_new_term_ref() }).unwrap()
     }
 
     fn new_terms<'a, const N: usize>(&'a self) -> [Term<'a>; N] {
         let t = unsafe { pl::PL_new_term_refs(N) };
-        std::array::from_fn(|i| Term::from_ptr(t + i))
+        std::array::from_fn(|i| Term::from_ptr(t + i).unwrap())
     }
 
     fn atom(&self, chars: &str) -> Atom {
@@ -204,24 +204,59 @@ pub trait Context {
         self.atom(name).to_functor()
     }
 
-    fn call(&self, term: Term) -> bool {
-        unsafe { pl::PL_call(term.ptr, std::ptr::null_mut()) != 0 }
-    }
+    /// Calls the given goal and returns one of three possible results;
+    /// * `Ok(true)` if the goal succeeds,
+    /// * `Ok(false)` if the goal fails without exception,
+    /// * `Err(_)` if the goal raises an exception.
+    ///
+    /// Takes an optional module name to run the goal in.
+    ///
+    /// ```
+    /// # use factbook_swipl::*;
+    /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+    /// # let session = Session::init(STATE).unwrap();
+    /// let engine = session.engine();
+    /// assert!(engine.call(term! { &engine => true }, None).unwrap());
+    /// assert!(!engine.call(term! { &engine => false }, None).unwrap());
+    /// assert!(engine.call(term! { &engine => nonexistent }, None).is_err());
+    /// ```
+    fn call<'a, 'm>(
+        &'a self,
+        term: Term,
+        module: impl Into<Option<&'m str>>,
+    ) -> Result<bool, Exception<'a>> {
+        let module = match module.into() {
+            Some(module) => {
+                let module_atom = self.atom(module);
+                unsafe { pl::PL_new_module(module_atom.ptr) }
+            },
+            None => std::ptr::null_mut(),
+        };
 
-    fn call_module(&self, module: &str, term: Term) -> bool {
-        let module_atom = self.atom(module);
-        let module = unsafe { pl::PL_new_module(module_atom.ptr) };
-
-        unsafe { pl::PL_call(term.ptr, module) != 0 }
+        if unsafe { pl::PL_call(term.ptr.get(), module) } != 0 {
+            Ok(true)
+        } else {
+            // https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions
+            match Term::from_ptr(unsafe { pl::PL_exception(std::ptr::null_mut()) }) {
+                Some(exception) => {
+                    // Make a copy of the exception term before calling `PL_clear_exception`
+                    let exception = self.new_term().put(exception);
+                    unsafe { pl::PL_clear_exception() };
+                    Err(Exception::from(exception))
+                },
+                None => Ok(false),
+            }
+        }
     }
 
     fn assert(&self, term: Term, mode: Assert) {
-        if unsafe { pl::PL_assert(term.ptr, std::ptr::null_mut(), mode as _) } == 0 {
+        if unsafe { pl::PL_assert(term.ptr.get(), std::ptr::null_mut(), mode as _) } == 0 {
             panic!("PL_assert failed");
         }
     }
 
-    fn load_module_from_str(&self, module: &str, source: &str) {
+    /// (Re)defines the specified module using the given Prolog source code
+    fn load_module_from_str<'a>(&'a self, module: &str, source: &str) -> Result<(), Exception<'a>> {
         // https://www.swi-prolog.org/pldoc/man?section=defmodule
         let scoped_source = format!(":- module({module}, []). {source}");
         let s = self.new_term();
@@ -235,9 +270,11 @@ pub trait Context {
             )
         };
 
-        if !self.call(load_goal) {
+        if !self.call(load_goal, None)? {
             panic!("could not load module from source");
         }
+
+        Ok(())
     }
 
     fn predicate_defined<'m, const ARITY: usize>(
@@ -246,7 +283,7 @@ pub trait Context {
         module: impl Into<Option<&'m str>>,
     ) -> bool {
         let head = self.new_term();
-        if unsafe { pl::PL_put_functor(head.ptr, self.functor::<ARITY>(name).ptr) } == 0 {
+        if unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).ptr) } == 0 {
             panic!("PL_put_functor failed");
         }
 
@@ -259,7 +296,11 @@ pub trait Context {
         };
 
         // https://www.swi-prolog.org/pldoc/man?predicate=predicate_property/2
-        self.call(term! { self => predicate_property({qualified_head}, defined) })
+        self.call(
+            term! { self => predicate_property({qualified_head}, defined) },
+            None,
+        )
+        .unwrap()
     }
 
     fn register_predicate<P: Predicate>(&self) {
@@ -519,7 +560,7 @@ mod test {
         let t = engine.new_term();
         let q = term! { &engine => foo(bar({t}), _) };
 
-        assert!(engine.call(q));
+        assert!(engine.call(q, None).unwrap());
         assert_eq!(t.atom_chars(), Some("baz"));
     }
 
@@ -558,6 +599,10 @@ mod test {
             let frame = engine.frame();
             frame.assert(frame.new_term().put_atom_chars("foo"), Default::default());
         }
-        assert!(engine.call(engine.new_term().put_atom_chars("foo")));
+        assert!(
+            engine
+                .call(engine.new_term().put_atom_chars("foo"), None)
+                .unwrap()
+        );
     }
 }
