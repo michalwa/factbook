@@ -24,7 +24,7 @@ impl Parse for PredicateAttr {
         let args = args.parse_terminated(Ident::parse, Token![,])?;
         let det = input.parse()?;
 
-        Ok(PredicateAttr { name, args, det })
+        Ok(Self { name, args, det })
     }
 }
 

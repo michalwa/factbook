@@ -23,7 +23,7 @@ fn blob() {
     }
 
     let engine = SESSION.engine();
-    let [t1, t2, t3] = engine.new_terms();
+    let [t1, t2, t3] = engine.new_terms().into();
 
     t1.put(Blob::new(FooBlob {
         text: "Hello".into(),
@@ -60,7 +60,7 @@ fn copy_blob() {
     }
 
     let engine = SESSION.engine();
-    let [t1, t2, t3, t4] = engine.new_terms();
+    let [t1, t2, t3, t4] = engine.new_terms().into();
 
     t1.put(CopyBlob(Vec2i { x: 1, y: 2 }));
     assert_eq!(t1.to_string(), "<Vec2i { x: 1, y: 2 }>");

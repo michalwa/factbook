@@ -1,6 +1,7 @@
 use crate::{Atom, Context, ExternalRecord, Functor, Record, term};
 use std::marker::PhantomData;
 use std::num::NonZero;
+use std::ops::{Deref, Index};
 use std::{fmt, slice};
 use swipl_fli as pl;
 
@@ -316,6 +317,35 @@ impl<'a> Exception<'a> {
 impl<'a> From<Term<'a>> for Exception<'a> {
     fn from(value: Term<'a>) -> Self {
         Self(value)
+    }
+}
+
+/// An array of [`Terms`] obtained via `PL_term_refs`. In particular, this means
+/// that at each index `i`, the term reference `t[i]` points to `t[0] + i`.
+pub struct Terms<'a, const N: usize>([Term<'a>; N]);
+
+impl<const N: usize> Terms<'_, N> {
+    pub(crate) unsafe fn new() -> Self {
+        let t = unsafe { pl::PL_new_term_refs(N) };
+        Self(std::array::from_fn(|i| Term::from_ptr(t + i).unwrap()))
+    }
+
+    pub(crate) fn ptr(&self) -> pl::term_t {
+        self[0].ptr.get()
+    }
+}
+
+impl<'a, const N: usize> Deref for Terms<'a, N> {
+    type Target = [Term<'a>; N];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a, const N: usize> From<Terms<'a, N>> for [Term<'a>; N] {
+    fn from(value: Terms<'a, N>) -> Self {
+        value.0
     }
 }
 

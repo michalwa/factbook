@@ -44,7 +44,7 @@ fn foreign_nondet() {
     assert!(engine.predicate_defined::<2>(MySemidetPred::NAME.to_str().unwrap(), None));
     assert!(engine.predicate_defined::<1>(MyNondetPred::NAME.to_str().unwrap(), None));
 
-    let [t1, t2] = engine.new_terms();
+    let [t1, t2] = engine.new_terms().into();
     let solutions = engine.new_term();
     let goal =
         term! { &engine => findall("-"({t1}, {t2}), my_semidet_pred({t1}, {t2}), {solutions}) };
