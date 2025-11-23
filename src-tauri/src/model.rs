@@ -1,4 +1,3 @@
-use crate::prolog;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -17,19 +16,26 @@ pub struct Cache {
 
 impl Cache {
     pub fn init_from(state: &Database, pl: &mut impl factbook_swipl::Context) -> Self {
-        let pl = pl.frame();
-        let entry_tags = state
-            .entries
-            .iter()
-            .map(|(k, v)| {
-                (
-                    *k,
-                    prolog::parse(&v.content, &pl).map(|t| t.record()).collect(),
-                )
-            })
-            .collect();
+        let mut cache = Self {
+            entry_tags: Default::default(),
+        };
 
-        Self { entry_tags }
+        for (id, entry) in &state.entries {
+            cache.update_entry(pl, *id, &entry.content);
+        }
+
+        cache
+    }
+
+    pub fn update_entry(
+        &mut self,
+        pl: &mut impl factbook_swipl::Context,
+        id: EntryId,
+        content: &str,
+    ) {
+        let tags = self.entry_tags.entry(id).or_default();
+        tags.clear();
+        tags.extend(crate::prolog::parse(content, pl).map(|t| t.record()));
     }
 }
 

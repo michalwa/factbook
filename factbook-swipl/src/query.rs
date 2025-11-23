@@ -1,7 +1,7 @@
 use crate::term::{Exception, Term, Terms};
 use crate::{Context, get_exception, get_module};
-use swipl_fli as pl;
 pub use factbook_swipl_macros::open_query;
+use swipl_fli as pl;
 
 /// An open Prolog query.
 ///

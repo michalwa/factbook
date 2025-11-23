@@ -1,5 +1,5 @@
-use factbook_swipl::{Session, Context};
 use factbook_swipl::query::open_query;
+use factbook_swipl::{Context, Session};
 use std::sync::LazyLock;
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
