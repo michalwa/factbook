@@ -2,11 +2,18 @@ import { createCodeMirror } from "solid-codemirror";
 import { EditorView } from "@codemirror/view";
 import "./Entry.css";
 import { formatDate } from "date-fns";
+import { debounce } from "@solid-primitives/scheduled";
+import { invoke } from "@tauri-apps/api/core";
 
 export default function Entry(props) {
+  const setEntryContent = debounce(
+    (content) => invoke("set_entry_content", { entryId: props.id, content }),
+    200,
+  );
   const { ref: editorRef, createExtension: createEditorExtension } =
     createCodeMirror({
       value: props.content,
+      onValueChange: setEntryContent,
     });
 
   createEditorExtension(EditorView.lineWrapping);

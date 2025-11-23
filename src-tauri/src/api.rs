@@ -82,3 +82,18 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
     let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();
     ipc::Response::new(response)
 }
+
+#[tauri::command]
+pub fn set_entry_content(state: State<AppState>, entry_id: EntryId, content: &str) {
+    let mut db = state.database.write().unwrap();
+
+    db.entries.get_mut(&entry_id).unwrap().content = content.to_owned();
+
+    let pl = state.swipl_session.engine();
+    let mut cache = state.cache.write().unwrap();
+    let tags = cache.entry_tags.get_mut(&entry_id).unwrap();
+    tags.clear();
+    tags.extend(crate::prolog::parse(content, &pl).map(|t| t.record()));
+
+    log::debug!("updated entry {entry_id:?}");
+}
