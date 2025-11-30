@@ -26,6 +26,7 @@ thiserror = "2.0"
 tauri-plugin-log = "2"
 log = "0.4"
 factbook-swipl = { path = "../factbook-swipl" }
+tauri-plugin-prevent-default = { version = "4.0", features = ["platform-windows"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"

@@ -4,17 +4,22 @@ import "./Entry.css";
 import { formatDate } from "date-fns";
 import { debounce } from "@solid-primitives/scheduled";
 import { invoke } from "@tauri-apps/api/core";
+import { createEffect } from "solid-js";
 
 export default function Entry(props) {
   const setEntryContent = debounce(
     (content) => invoke("set_entry_content", { entryId: props.id, content }),
     200,
   );
-  const { ref: editorRef, createExtension: createEditorExtension } =
-    createCodeMirror({
-      value: props.content,
-      onValueChange: setEntryContent,
-    });
+
+  const {
+    ref: editorRef,
+    editorView,
+    createExtension: createEditorExtension,
+  } = createCodeMirror({
+    value: props.content,
+    onValueChange: setEntryContent,
+  });
 
   createEditorExtension(EditorView.lineWrapping);
   createEditorExtension(
@@ -36,6 +41,21 @@ export default function Entry(props) {
       { dark: true },
     ),
   );
+  createEditorExtension(
+    EditorView.domEventHandlers({
+      keydown(event) {
+        if (event.ctrlKey && ["ArrowUp", "KeyK"].includes(event.code)) {
+          props.focusPrev?.();
+        } else if (event.ctrlKey && ["ArrowDown", "KeyJ"].includes(event.code)) {
+          props.focusNext?.();
+        }
+      },
+    }),
+  );
+
+  createEffect(() => {
+    if (props.focused && editorView()) editorView().focus();
+  });
 
   const timestamp = () => formatDate(props.createdAt, "yyyy-MM-dd HH:mm");
 

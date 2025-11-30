@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
+/// Holds persistent data that is saved across sessions
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Database {
@@ -10,6 +11,7 @@ pub struct Database {
     pub entries: BTreeMap<EntryId, Entry>,
 }
 
+/// Holds non-persistent data for the duration of the current session
 pub struct Cache {
     pub entry_tags: BTreeMap<EntryId, Vec<factbook_swipl::Record>>,
 }

@@ -1,5 +1,8 @@
 import { createContext, createSignal, useContext } from "solid-js";
 
+/**
+ * @type {import("solid-js").Context<import("solid-js").Signal<number | "all">>}
+ */
 const ViewContext = createContext();
 
 /**
