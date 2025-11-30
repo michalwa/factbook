@@ -4,14 +4,16 @@ import "./Entry.css";
 import { formatDate } from "date-fns";
 import { debounce } from "@solid-primitives/scheduled";
 import { invoke } from "@tauri-apps/api/core";
-import { createEffect } from "solid-js";
+import { createEffect, createSignal, untrack } from "solid-js";
 import { keystroke } from "./utils";
 
 export default function Entry(props) {
-  const setEntryContent = debounce(
-    (content) => invoke("set_entry_content", { id: props.id, content }),
-    200,
-  );
+  const [dirty, setDirty] = createSignal(false);
+  const setContent = async (content) => {
+    await invoke("set_entry_content", { id: props.id, content });
+    setDirty(false);
+  };
+  const setContentDebounced = debounce(setContent, 200);
 
   const {
     ref: editorRef,
@@ -19,7 +21,10 @@ export default function Entry(props) {
     createExtension: createEditorExtension,
   } = createCodeMirror({
     value: props.content,
-    onValueChange: setEntryContent,
+    onValueChange: (content) => {
+      setDirty(true);
+      setContentDebounced(content);
+    },
   });
 
   createEditorExtension(EditorView.lineWrapping);
@@ -44,13 +49,31 @@ export default function Entry(props) {
   );
   createEditorExtension(
     EditorView.domEventHandlers({
-      keydown(event) {
-        if (keystroke(event, "ctrl", ["ArrowUp", "KeyK"])) props.focusPrev?.();
-        else if (keystroke(event, "ctrl", ["ArrowDown", "KeyJ"]))
+      keydown(event, view) {
+        const viewEmpty = view.state.doc.length === 0;
+
+        if (keystroke(event, "ctrl", ["ArrowUp", "KeyK"])) {
+          props.focusPrev?.();
+        } else if (keystroke(event, "ctrl", ["ArrowDown", "KeyJ"])) {
           props.focusNext?.();
-        else if (keystroke(event, "ctrl", "Enter")) props.createNew?.();
-        else if (keystroke(event, ["ctrl", "shift"], ["Backspace", "KeyX"]))
+        } else if (keystroke(event, "ctrl", "Enter")) {
+          (async () => {
+            // createNew will unload this component, so we need to skip the debounce
+            // and commit the state
+            if (dirty()) {
+              setContentDebounced.clear();
+              await setContent(view.state.doc.toString());
+            }
+
+            props.createNew?.();
+          })();
+        } else if (keystroke(event, ["ctrl", "shift"], ["Backspace", "KeyX"])) {
           props.remove?.();
+        } else if (keystroke(event, [], "Backspace") && viewEmpty) {
+          props.removeAndFocusPrev?.();
+        } else if (keystroke(event, [], "Delete") && viewEmpty) {
+          props.removeAndFocusNext?.();
+        }
       },
       focus() {
         props.focus?.();

@@ -97,12 +97,13 @@ pub fn set_entry_content(state: State<AppState>, id: EntryId, content: &str) {
 }
 
 #[tauri::command]
-pub fn create_entry(state: State<AppState>) {
+pub fn create_entry(state: State<AppState>) -> EntryId {
     let mut db = state.database.write().unwrap();
     let mut cache = state.cache.write().unwrap();
 
-    db.entries
-        .insert(cache.next_entry_id(), crate::model::Entry::new());
+    let id = cache.next_entry_id();
+    db.entries.insert(id, crate::model::Entry::new());
+    id
 }
 
 #[tauri::command]

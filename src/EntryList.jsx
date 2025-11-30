@@ -19,11 +19,12 @@ export default function EntryList() {
   });
 
   const createNew = async () => {
-    await invoke("create_entry");
+    setSelectedEntryId(await invoke("create_entry"));
     refetchEntries();
   };
 
-  const remove = async (id) => {
+  const remove = async (id, selectId) => {
+    if (selectId) setSelectedEntryId(selectId);
     await invoke("remove_entry", { id });
     refetchEntries();
   };
@@ -39,7 +40,9 @@ export default function EntryList() {
             focusPrev={() => prev && setSelectedEntryId(prev.id)}
             focusNext={() => next && setSelectedEntryId(next.id)}
             createNew={createNew}
-            remove={() => remove(entry.id)}
+            remove={() => remove(entry.id, next?.id || prev?.id)}
+            removeAndFocusPrev={() => prev && remove(entry.id, prev.id)}
+            removeAndFocusNext={() => next && remove(entry.id, next.id)}
           />
         )}
       </For>
