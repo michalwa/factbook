@@ -5,10 +5,11 @@ import { formatDate } from "date-fns";
 import { debounce } from "@solid-primitives/scheduled";
 import { invoke } from "@tauri-apps/api/core";
 import { createEffect } from "solid-js";
+import { keystroke } from "./utils";
 
 export default function Entry(props) {
   const setEntryContent = debounce(
-    (content) => invoke("set_entry_content", { entryId: props.id, content }),
+    (content) => invoke("set_entry_content", { id: props.id, content }),
     200,
   );
 
@@ -44,11 +45,12 @@ export default function Entry(props) {
   createEditorExtension(
     EditorView.domEventHandlers({
       keydown(event) {
-        if (event.ctrlKey && ["ArrowUp", "KeyK"].includes(event.code)) {
-          props.focusPrev?.();
-        } else if (event.ctrlKey && ["ArrowDown", "KeyJ"].includes(event.code)) {
+        if (keystroke(event, "ctrl", ["ArrowUp", "KeyK"])) props.focusPrev?.();
+        else if (keystroke(event, "ctrl", ["ArrowDown", "KeyJ"]))
           props.focusNext?.();
-        }
+        else if (keystroke(event, "ctrl", "Enter")) props.createNew?.();
+        else if (keystroke(event, ["ctrl", "shift"], ["Backspace", "KeyX"]))
+          props.remove?.();
       },
     }),
   );

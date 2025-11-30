@@ -29,7 +29,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_views,
             api::get_entries,
-            api::set_entry_content
+            api::set_entry_content,
+            api::create_entry,
+            api::remove_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

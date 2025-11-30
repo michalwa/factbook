@@ -84,14 +84,32 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
 }
 
 #[tauri::command]
-pub fn set_entry_content(state: State<AppState>, entry_id: EntryId, content: &str) {
+pub fn set_entry_content(state: State<AppState>, id: EntryId, content: &str) {
     let mut db = state.database.write().unwrap();
 
-    db.entries.get_mut(&entry_id).unwrap().content = content.to_owned();
+    db.entries.get_mut(&id).unwrap().content = content.to_owned();
 
     let mut pl = state.swipl_session.engine();
     let mut cache = state.cache.write().unwrap();
-    cache.update_entry(&mut pl.frame(), entry_id, content);
+    cache.update_entry(&mut pl.frame(), id, content);
 
-    log::debug!("updated entry {entry_id:?}");
+    log::debug!("updated entry {id:?}");
+}
+
+#[tauri::command]
+pub fn create_entry(state: State<AppState>) {
+    let mut db = state.database.write().unwrap();
+    let mut cache = state.cache.write().unwrap();
+
+    db.entries
+        .insert(cache.next_entry_id(), crate::model::Entry::new());
+}
+
+#[tauri::command]
+pub fn remove_entry(state: State<AppState>, id: EntryId) {
+    let mut db = state.database.write().unwrap();
+    let mut cache = state.cache.write().unwrap();
+
+    db.entries.remove(&id);
+    cache.entry_tags.remove(&id);
 }

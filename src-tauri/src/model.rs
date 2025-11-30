@@ -14,12 +14,20 @@ pub struct Database {
 /// Holds non-persistent data for the duration of the current session
 pub struct Cache {
     pub entry_tags: BTreeMap<EntryId, Vec<factbook_swipl::Record>>,
+    next_entry_id: EntryId,
 }
 
 impl Cache {
     pub fn init_from(state: &Database, pl: &mut impl factbook_swipl::Context) -> Self {
         let mut cache = Self {
             entry_tags: Default::default(),
+            next_entry_id: state
+                .entries
+                .iter()
+                .map(|(&id, _)| id)
+                .max()
+                .map(EntryId::next)
+                .unwrap_or_default(),
         };
 
         for (id, entry) in &state.entries {
@@ -39,6 +47,12 @@ impl Cache {
         tags.clear();
         tags.extend(crate::prolog::parse(content, pl).map(|t| t.record()));
     }
+
+    pub fn next_entry_id(&mut self) -> EntryId {
+        let id = self.next_entry_id;
+        self.next_entry_id = self.next_entry_id.next();
+        id
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -51,9 +65,28 @@ impl fmt::Display for ViewId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EntryId(u64);
+
+impl EntryId {
+    pub fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
+impl factbook_swipl::term::ToTerm for EntryId {
+    fn put_in(self, term: factbook_swipl::term::Term) {
+        // TODO: Make it an opaque blob
+        self.0.put_in(term);
+    }
+}
+
+impl factbook_swipl::term::FromTerm for EntryId {
+    fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
+        term.get().map(Self)
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,15 +102,11 @@ pub struct Entry {
     pub content: String,
 }
 
-impl factbook_swipl::term::ToTerm for EntryId {
-    fn put_in(self, term: factbook_swipl::term::Term) {
-        // TODO: Make it an opaque blob
-        self.0.put_in(term);
-    }
-}
-
-impl factbook_swipl::term::FromTerm for EntryId {
-    fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
-        term.get().map(Self)
+impl Entry {
+    pub fn new() -> Self {
+        Self {
+            created_at: Local::now(),
+            content: String::new(),
+        }
     }
 }
