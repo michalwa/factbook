@@ -3,6 +3,7 @@ import "./EntryList.css";
 import { createEffect, createResource, createSignal, For } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useViewContext, VIEW_ALL } from "./ViewContext";
+import { lookaround, maybe } from "./utils";
 
 export default function EntryList() {
   const [selectedViewId] = useViewContext();
@@ -10,42 +11,35 @@ export default function EntryList() {
     selectedViewId,
     (id) => invoke("get_entries", { view: id === VIEW_ALL ? undefined : id }),
   );
-  const [focusedIndex, setFocusedIndex] = createSignal(0);
+  const [selectedEntryId, setSelectedEntryId] = createSignal(null);
 
   createEffect(() => {
-    if (entries()) setFocusedIndex(entries().length - 1);
+    if (selectedEntryId() === null && entries()?.length)
+      setSelectedEntryId(entries()[0].id);
   });
-
-  const focusPrev = () => {
-    if (focusedIndex() > 0) setFocusedIndex(focusedIndex() - 1);
-  };
-
-  const focusNext = () => {
-    if (focusedIndex() < entries().length - 1)
-      setFocusedIndex(focusedIndex() + 1);
-  };
 
   const createNew = async () => {
     await invoke("create_entry");
     refetchEntries();
   };
 
-  const removeAt = async (index) => {
-    await invoke("remove_entry", { id: entries()[index].id });
+  const remove = async (id) => {
+    await invoke("remove_entry", { id });
     refetchEntries();
   };
 
   return (
     <div class="entry-list">
-      <For each={entries()}>
-        {(entry, index) => (
+      <For each={maybe(lookaround, entries())}>
+        {([prev, entry, next]) => (
           <Entry
             {...entry}
-            focused={focusedIndex() === index()}
-            focusPrev={focusPrev}
-            focusNext={focusNext}
+            focused={selectedEntryId() === entry.id}
+            focus={() => setSelectedEntryId(entry.id)}
+            focusPrev={() => prev && setSelectedEntryId(prev.id)}
+            focusNext={() => next && setSelectedEntryId(next.id)}
             createNew={createNew}
-            remove={() => removeAt(index())}
+            remove={() => remove(entry.id)}
           />
         )}
       </For>

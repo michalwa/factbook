@@ -52,6 +52,9 @@ export default function Entry(props) {
         else if (keystroke(event, ["ctrl", "shift"], ["Backspace", "KeyX"]))
           props.remove?.();
       },
+      focus() {
+        props.focus?.();
+      },
     }),
   );
 
