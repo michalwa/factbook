@@ -1,18 +1,18 @@
-# factbook
+![banner](banner.svg)
 
-Personal knowledge base app based on logic programming
+Programmer-friendly personal knowledge base based on logic programming
 
 ## Philosophy
 
-1. **Quick inbox** -- the most important feature is being able to dump _anything_ into your knowledge-base at any time, without any friction of organization. No need to think about which directory an entry belongs in, you do that later.
-2. **Atomic entries** -- every thought is its own entity, organization comes second. Entries have no name by default, only a timestamp and text.
-3. **Atomic tags** -- all organization is done via structured tags, which have no centralized definition, but whose semantics are defined by their usage, or by relevant views (queries). They are akin to Prolog terms. Creating ontologies is as simple as typing a tag inside of an entry, no need to do any meta-organization elsewhere. You are not forced to tag your entries, and if you do, they sit seamlessly scattered throughout your text.
+1. **Quick inbox** &ndash; Dump _anything_ into your knowledge base at any time, without any friction of organization. No need to think about which directory an entry belongs to. Write first, organize second.
+2. **Atomic entries** &ndash; Every thought is its own entity, allowing for powerful organization. Gain a completely new perspective on your notes simply by adjusting your queries. Entries have no enforced structure, only text. Don't worry about coming up with titles or formatting paragraphs.
+3. **Atomic tags** &ndash; All organization is done via parseable tags embedded in entries. Tagging entries is as simple as typing an `@` and a term, no need to do any meta-organization anywhere else. Easily express data you want to keep track of, create ontologies on the fly. Tags become part of your language. They can be atomic or hold nested data, just like Prolog terms. You are not forced to tag your entries, and if you do, they live seamlessly scattered throughout your text.
 
    ```css
    walk the dog @todo @due(tomorrow) @priority(10)
    ```
 
-4. **Views** (aka. queries, lenses) -- easily define subsets of your knowledge base by querying facts about entries, e.g. tags, timestamps. This is where organization happens, and there's no need to move any entries. You do it at your own pace, outside of the flow of taking notes. And you get all the [power of Prolog](https://www.metalevel.at/prolog) to your advantage.
+4. **Powerful views** (aka. queries) &ndash; Easily define views into your knowledge base by querying facts about entries&mdash;presence of tags, timestamps, relations between entries, and more... This is where organization happens. You do it at your own pace, outside of the flow of taking notes. And you get all the [power of Prolog](https://www.metalevel.at/prolog) to your advantage.
 
    <!-- TODO: The example should ideally use existing predicates once they are implemented -->
    ```prolog
