@@ -3,7 +3,8 @@ import "./EntryList.css";
 import { createEffect, createResource, createSignal, For } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useViewContext, VIEW_ALL } from "./ViewContext";
-import { lookaround, maybe } from "./utils";
+import { Key } from "@solid-primitives/keyed";
+import TransitionGroup from "./TransitionGroup";
 
 export default function EntryList() {
   const [selectedViewId] = useViewContext();
@@ -29,23 +30,31 @@ export default function EntryList() {
     refetchEntries();
   };
 
+  const getNeighbors = (index) => [entries()[index - 1], entries()[index + 1]];
+
   return (
     <div class="entry-list">
-      <For each={maybe(lookaround, entries())}>
-        {([prev, entry, next]) => (
-          <Entry
-            {...entry}
-            focused={selectedEntryId() === entry.id}
-            focus={() => setSelectedEntryId(entry.id)}
-            focusPrev={() => prev && setSelectedEntryId(prev.id)}
-            focusNext={() => next && setSelectedEntryId(next.id)}
-            createNew={createNew}
-            remove={() => remove(entry.id, next?.id || prev?.id)}
-            removeAndFocusPrev={() => prev && remove(entry.id, prev.id)}
-            removeAndFocusNext={() => next && remove(entry.id, next.id)}
-          />
-        )}
-      </For>
+      <TransitionGroup>
+        <Key each={entries()} by="id">
+          {(entry, index) => {
+            const [prev, next] = getNeighbors(index());
+
+            return (
+              <Entry
+                {...entry()}
+                focused={selectedEntryId() === entry().id}
+                focus={() => setSelectedEntryId(entry().id)}
+                focusPrev={() => prev && setSelectedEntryId(prev.id)}
+                focusNext={() => next && setSelectedEntryId(next.id)}
+                createNew={createNew}
+                remove={() => remove(entry().id, next?.id || prev?.id)}
+                removeAndFocusPrev={() => prev && remove(entry().id, prev.id)}
+                removeAndFocusNext={() => next && remove(entry().id, next.id)}
+              />
+            );
+          }}
+        </Key>
+      </TransitionGroup>
     </div>
   );
 }
