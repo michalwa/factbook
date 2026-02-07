@@ -1,0 +1,21 @@
+.view-editor {
+  border-left: 0.2rem solid var(--bg-0);
+}
+
+[data-orientation="horizontal"][data-collapsed]
+  ~ [data-corvu-resizable-panel]
+  .view-editor {
+  border-left: none;
+}
+
+.view-editor-controls {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--text-dim);
+}
+
+.view-editor-controls > form {
+  flex-grow: 1;
+}

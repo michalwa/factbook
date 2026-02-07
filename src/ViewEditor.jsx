@@ -3,19 +3,26 @@ import Panel from "./Panel";
 import PanelHeader from "./PanelHeader";
 import { useViewContext } from "./ViewContext";
 import "./ViewEditor.css";
-import { PanelBottomCloseIcon } from "lucide-solid";
+import { PanelBottomCloseIcon, TrashIcon } from "lucide-solid";
 
 export default function ViewEditor() {
-  const { view, setViewName, viewJustCreated } = useViewContext();
+  const { view, setViewName, viewJustCreated, removeView } = useViewContext();
 
   return (
     <Panel class="view-editor">
       <PanelHeader title="Edit view" collapseIcon={<PanelBottomCloseIcon />} />
-      <Input
-        value={view()?.name}
-        onInput={setViewName}
-        focus={viewJustCreated()}
-      />
+      <Show when={view()}>
+        <div class="view-editor-controls">
+          <Input
+            value={view().name}
+            onInput={setViewName}
+            focus={viewJustCreated()}
+          />
+          <button class="icon-button icon-button-danger" onClick={removeView}>
+            <TrashIcon />
+          </button>
+        </div>
+      </Show>
     </Panel>
   );
 }

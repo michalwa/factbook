@@ -7,11 +7,13 @@
   --text-badge: #6478a7;
   --text-normal: #c5d1e2;
   --text-active: #7696ff;
+  --text-danger:  #f76580;
 }
 
 * {
   scrollbar-color: var(--bg-2) transparent;
   scrollbar-width: thin;
+  box-sizing: border-box;
 }
 
 body {
@@ -51,11 +53,19 @@ body {
 
 .icon-button {
   display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.icon-button-danger:hover {
+  color: var(--text-danger);
 }
 
 .badge {

@@ -50,10 +50,17 @@ pub fn create_view(state: State<AppState>) -> ViewId {
 }
 
 #[tauri::command]
-pub fn set_view_name(state: State<AppState>, view: ViewId, name: &str) {
+pub fn set_view_name(state: State<AppState>, id: ViewId, name: &str) {
     let mut db = state.database.write().unwrap();
 
-    db.views.get_mut(&view).unwrap().name = name.into();
+    db.views.get_mut(&id).unwrap().name = name.into();
+}
+
+#[tauri::command]
+pub fn remove_view(state: State<AppState>, id: ViewId) {
+    let mut db = state.database.write().unwrap();
+
+    db.views.remove(&id);
 }
 
 #[tauri::command]

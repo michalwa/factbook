@@ -2,6 +2,14 @@
   display: flex;
   flex-flow: column nowrap;
   padding: 1rem;
+  overflow-y: auto;
+  height: 100%;
+}
+
+[data-orientation="horizontal"][data-collapsed]
+  ~ [data-corvu-resizable-panel]
+  .entry-list {
+  padding-left: 2rem;
 }
 
 .entry-list .transition-group-enter,

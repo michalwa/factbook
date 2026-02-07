@@ -7,6 +7,7 @@ input {
   font-family: inherit;
   font-size: 0.9rem;
   outline: none;
+  width: 100%;
 }
 
 input:focus {

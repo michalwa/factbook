@@ -30,6 +30,7 @@ pub fn run() {
             api::get_views,
             api::create_view,
             api::set_view_name,
+            api::remove_view,
             api::get_entries,
             api::set_entry_content,
             api::create_entry,

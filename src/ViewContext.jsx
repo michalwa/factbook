@@ -17,7 +17,7 @@ export function Provider(props) {
     invoke("get_views"),
   );
   const [selectedViewId, setSelectedViewId] = createSignal(VIEW_ALL);
-  const [viewJustCreated, setViewJustCreated] = createSignal(false);
+  const [viewJustCreated, setViewJustCreated] = createSignal(false, { equals: false });
 
   const viewsWithAll = () => [
     {
@@ -38,23 +38,30 @@ export function Provider(props) {
   }
 
   const setViewNameDebounced = debounce(
-    (id, name) => invoke("set_view_name", { view: id, name }),
+    (id, name) => invoke("set_view_name", { id, name }),
     200,
   );
 
   async function setViewName(name) {
-    const viewId = selectedViewId();
-    if (viewId === VIEW_ALL) return;
+    const id = selectedViewId();
+    if (id === VIEW_ALL) return;
 
     mutateViews(
       mapWhere(
-        (view) => view.id === viewId,
+        (view) => view.id === id,
         (view) => ({ ...view, name }),
       ),
     );
 
-    setViewJustCreated(false);
-    setViewNameDebounced(viewId, name);
+    setViewNameDebounced(id, name);
+  }
+
+  async function removeView() {
+    const id = selectedViewId();
+    if (id === VIEW_ALL) return;
+
+    await invoke("remove_view", { id });
+    mutateViews((views) => views.filter((view) => view.id !== id));
   }
 
   const context = {
@@ -63,8 +70,9 @@ export function Provider(props) {
     selectedViewId,
     setSelectedViewId,
     createView,
-    setViewName,
     viewJustCreated,
+    setViewName,
+    removeView,
   };
 
   return (
