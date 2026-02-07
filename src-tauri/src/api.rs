@@ -13,7 +13,8 @@ use tauri::{State, ipc};
 #[serde(rename_all = "camelCase")]
 struct View<'t> {
     id: ViewId,
-    name: &'t str,
+    #[serde(flatten)]
+    view: &'t crate::model::View,
     entry_count: usize,
 }
 
@@ -30,7 +31,7 @@ pub fn get_views(state: State<AppState>) -> ipc::Response {
     let db = state.database.read().unwrap();
     let views = db.views.iter().map(|(&id, view)| View {
         id,
-        name: &view.name,
+        view,
         entry_count: 0,
     });
 
@@ -57,6 +58,13 @@ pub fn set_view_name(state: State<AppState>, id: ViewId, name: &str) {
 }
 
 #[tauri::command]
+pub fn set_view_definition(state: State<AppState>, id: ViewId, definition: &str) {
+    let mut db = state.database.write().unwrap();
+
+    db.views.get_mut(&id).unwrap().definition = definition.into();
+}
+
+#[tauri::command]
 pub fn remove_view(state: State<AppState>, id: ViewId) {
     let mut db = state.database.write().unwrap();
 
@@ -76,27 +84,28 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
 
     let state = state.database.read().unwrap();
 
-    let entries: Box<dyn Iterator<Item = (EntryId, &crate::model::Entry)>> =
-        if let Some(view_id) = view {
-            let mut entry_ids = Vec::new();
-            let view = db.views.get(&view_id).unwrap();
-            let module_name = format!("view_{view_id}");
+    let entries: Box<dyn Iterator<Item = (EntryId, &crate::model::Entry)>> = if let Some(view_id) =
+        view
+    {
+        let mut entry_ids = Vec::new();
+        let view = db.views.get(&view_id).unwrap();
+        let module_name = format!("view_{view_id}");
 
-            pl.load_module_from_str(&module_name, &view.definition)
-                .unwrap();
+        pl.load_module_from_str(&module_name, &view.definition)
+            .unwrap();
 
-            if pl.predicate_defined::<2>("show", module_name.as_ref()) {
-                let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-                while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                    // TODO: impl Iterator for Query
-                    entry_ids.push(entry_id.get::<EntryId>().unwrap());
-                }
+        if pl.predicate_defined::<2>("show", module_name.as_ref()) {
+            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
+            while let Some([_, entry_id]) = query.next_solution().unwrap() {
+                // TODO: impl Iterator for Query
+                entry_ids.push(entry_id.get::<EntryId>().unwrap());
             }
+        }
 
-            Box::new(entry_ids.into_iter().map(|id| (id, &state.entries[&id])))
-        } else {
-            Box::new(state.entries.iter().map(|(id, entry)| (*id, entry)))
-        };
+        Box::new(entry_ids.into_iter().map(|id| (id, &state.entries[&id])))
+    } else {
+        Box::new(state.entries.iter().map(|(id, entry)| (*id, entry)))
+    };
 
     let entries = entries.map(|(id, entry)| Entry {
         id,
