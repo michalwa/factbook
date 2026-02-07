@@ -1,41 +1,14 @@
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-solid";
-import Resizable from "@corvu/resizable";
 import "./Sidebar.css";
-import { createSignal, Show } from "solid-js";
 import SidebarViewList from "./SidebarViewList";
+import PanelHeader from "./PanelHeader";
+import Panel from "./Panel";
 
 export default function Sidebar() {
-  const resizableContext = Resizable.usePanelContext();
-  const [selectedViewId, setSelectedViewId] = createSignal();
-
   return (
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-title">Views</span>
-        <button class="icon-button" onClick={() => resizableContext.collapse()}>
-          <PanelLeftCloseIcon />
-        </button>
-        <Show when={resizableContext.collapsed()}>
-          <div class="sidebar-collapsed-controls">
-            <button
-              class="icon-button"
-              onClick={() => resizableContext.expand()}
-            >
-              <PanelLeftOpenIcon />
-            </button>
-          </div>
-        </Show>
-      </div>
-      <SidebarViewList
-        views={[
-          { id: 1, name: "All", entryCount: 53 },
-          { id: 2, name: "To do", entryCount: 3 },
-          { id: 3, name: "Work", entryCount: 12 },
-          { id: 4, name: "Recommendations", entryCount: 12 },
-        ]}
-        selectedId={selectedViewId()}
-        setSelectedId={setSelectedViewId}
-      />
-    </div>
+    <Panel class="sidebar">
+      <PanelHeader title="Views" collapseIcon={<PanelLeftCloseIcon />} />
+      <SidebarViewList />
+    </Panel>
   );
 }

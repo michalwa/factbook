@@ -40,6 +40,16 @@ pub fn get_views(state: State<AppState>) -> ipc::Response {
 }
 
 #[tauri::command]
+pub fn create_view(state: State<AppState>, view: crate::model::View) -> ViewId {
+    let mut db = state.database.write().unwrap();
+    let mut cache = state.cache.write().unwrap();
+
+    let id = cache.next_view_id();
+    db.views.insert(id, view);
+    id
+}
+
+#[tauri::command]
 pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Response {
     let db = state.database.read().unwrap();
     let cache = state.cache.read().unwrap();
@@ -92,8 +102,6 @@ pub fn set_entry_content(state: State<AppState>, id: EntryId, content: &str) {
     let mut pl = state.swipl_session.engine();
     let mut cache = state.cache.write().unwrap();
     cache.update_entry(&mut pl.frame(), id, content);
-
-    log::debug!("updated entry {id:?}");
 }
 
 #[tauri::command]

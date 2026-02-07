@@ -16,6 +16,14 @@ body {
   color: var(--text-normal);
 }
 
+#app {
+  height: 100vh;
+}
+
+[data-corvu-resizable-root] {
+  height: 100%;
+}
+
 [data-corvu-resizable-panel] {
   overflow: hidden;
 }
@@ -24,8 +32,16 @@ body {
   background: none;
   border: none;
   padding: 0;
+}
+
+[data-corvu-resizable-handle][data-orientation="horizontal"] {
   width: 0.3rem;
   margin-inline: -0.15rem;
+}
+
+[data-corvu-resizable-handle][data-orientation="vertical"] {
+  height: 0.3rem;
+  margin-block: -0.15rem;
 }
 
 .icon-button {

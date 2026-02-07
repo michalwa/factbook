@@ -141,7 +141,7 @@ export default function TransitionGroup(props) {
           function endTransition(e) {
             if (e.target === el || /transform$/.test(e.propertyName)) {
               el.removeEventListener("transitionend", endTransition);
-              el.classList.remove(...classes.move);
+              el.classList.remove("transition-group-move");
             }
           }
         }

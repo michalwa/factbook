@@ -2,17 +2,21 @@ import Entry from "./Entry";
 import "./EntryList.css";
 import { createEffect, createResource, createSignal, For } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { useViewContext, VIEW_ALL } from "./ViewContext";
+import { useViewContext, VIEW_ALL, VIEW_NEW } from "./ViewContext";
 import { Key } from "@solid-primitives/keyed";
 import TransitionGroup from "./TransitionGroup";
 
 export default function EntryList() {
-  const [selectedViewId] = useViewContext();
+  const { selectedViewId } = useViewContext();
   const [entries, { refetch: refetchEntries }] = createResource(
-    selectedViewId,
+    () => viewIdIgnoreNew(selectedViewId()),
     (id) => invoke("get_entries", { view: id === VIEW_ALL ? undefined : id }),
   );
   const [selectedEntryId, setSelectedEntryId] = createSignal(null);
+
+  function viewIdIgnoreNew(id) {
+    return id === VIEW_NEW ? undefined : id;
+  }
 
   createEffect(() => {
     if (selectedEntryId() === null && entries()?.length)

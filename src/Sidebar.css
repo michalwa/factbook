@@ -1,31 +1,30 @@
 .sidebar {
   display: flex;
   flex-flow: column nowrap;
-  background: var(--bg-1);
-  height: 100vh;
 }
 
-.sidebar-header {
+.sidebar-button {
+  margin-block: 0.5em;
+  border: 0.15rem solid var(--text-dim);
+  border-radius: 0.2rem;
+  background: none;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
   display: flex;
   flex-flow: row nowrap;
-  align-items: center;
-  padding: 0.4rem;
-  color: var(--text-dim);
+  justify-content: center;
+  gap: 0.2em;
+  padding: 0.2em;
 }
 
-.sidebar-title {
-  flex-grow: 1;
-  font-weight: 700;
-  font-size: 8pt;
-  text-transform: uppercase;
-  margin-inline: 1em;
+.sidebar-button:hover {
+  background: var(--text-dim);
+  color: var(--bg-1);
 }
 
-.sidebar-collapsed-controls {
-  /*
-   * FIXME: Not proper positioning, only works because of the top-left placement.
-   * Proper absolute-in-relative positioning doesn't work with parent having a
-   * width of 0
-   */
-  position: absolute;
+.sidebar-button > .lucide-icon {
+  stroke-width: 2.5;
 }

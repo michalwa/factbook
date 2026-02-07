@@ -15,6 +15,7 @@ pub struct Database {
 pub struct Cache {
     pub entry_tags: BTreeMap<EntryId, Vec<factbook_swipl::Record>>,
     next_entry_id: EntryId,
+    next_view_id: ViewId,
 }
 
 impl Cache {
@@ -27,6 +28,13 @@ impl Cache {
                 .map(|(&id, _)| id)
                 .max()
                 .map(EntryId::next)
+                .unwrap_or_default(),
+            next_view_id: state
+                .views
+                .iter()
+                .map(|(&id, _)| id)
+                .max()
+                .map(ViewId::next)
                 .unwrap_or_default(),
         };
 
@@ -53,11 +61,23 @@ impl Cache {
         self.next_entry_id = self.next_entry_id.next();
         id
     }
+
+    pub fn next_view_id(&mut self) -> ViewId {
+        let id = self.next_view_id;
+        self.next_view_id = self.next_view_id.next();
+        id
+    }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ViewId(u64);
+
+impl ViewId {
+    pub fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
+}
 
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
