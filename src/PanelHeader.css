@@ -2,7 +2,6 @@
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
-  margin-inline: -1rem;
   padding: 0.4rem;
   color: var(--text-dim);
 }

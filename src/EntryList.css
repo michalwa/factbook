@@ -11,20 +11,3 @@
   .entry-list {
   padding-left: 2rem;
 }
-
-.entry-list .transition-group-enter,
-.entry-list .transition-group-exit {
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
-}
-
-.entry-list .transition-group-move {
-  transition: transform 0.2s;
-}
-
-.entry-list .transition-group-enter-from,
-.entry-list .transition-group-exit-to {
-  transform: translateX(-1rem);
-  opacity: 0;
-}

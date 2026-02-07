@@ -4,7 +4,7 @@
 }
 
 .sidebar-button {
-  margin-block: 0.5em;
+  margin: 0.4rem;
   border: 0.15rem solid var(--text-dim);
   border-radius: 0.2rem;
   background: none;

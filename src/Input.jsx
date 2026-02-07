@@ -7,7 +7,11 @@ export default function Input(props) {
   createEffect(() => props.focus && input.focus());
 
   return (
-    <form class="input-wrapper" action="#" onSubmit={() => input.blur()}>
+    <form
+      class="input-wrapper"
+      action="javascript:void(0)"
+      onSubmit={() => input.blur()}
+    >
       <input
         ref={input}
         value={props.value ?? ""}
