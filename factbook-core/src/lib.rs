@@ -1,6 +1,4 @@
 use crate::model::{Entry, EntryId, View, ViewId};
-use factbook_swipl::blob::ScopedBlob;
-use factbook_swipl::query::open_query;
 use factbook_swipl::{Context, EngineHandle};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -8,6 +6,7 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod lang;
 pub mod model;
+pub mod search;
 
 const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
@@ -22,7 +21,7 @@ impl State {
         let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
 
         let mut pl = swipl_session.engine();
-        pl.register_predicate::<crate::lang::predicates::Tag>();
+        pl.register_predicate::<crate::search::predicates::Tag>();
 
         let cache = Cache::init_from(&database, &mut pl);
 
@@ -120,33 +119,11 @@ impl Cache {
     }
 }
 
-pub fn get_entries<'d>(
-    database: &'d Database,
-    cache: &'_ Cache,
-    pl: &mut EngineHandle,
-    view: Option<ViewId>,
-) -> Box<dyn Iterator<Item = (EntryId, &'d Entry)> + 'd> {
-    let entry_tags = crate::lang::predicates::EntryTags::new(&cache.entry_tags);
-    let entry_tags_blob = ScopedBlob::new(&entry_tags);
+#[cfg(test)]
+mod test {
+    use factbook_swipl::Session;
+    use std::sync::LazyLock;
 
-    if let Some(view_id) = view {
-        let mut entry_ids = Vec::new();
-        let view = database.views.get(&view_id).unwrap();
-        let module_name = format!("view_{view_id}");
-
-        pl.load_module_from_str(&module_name, &view.definition)
-            .unwrap();
-
-        if pl.predicate_defined::<2>("show", module_name.as_ref()) {
-            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-            while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                // TODO: impl Iterator for Query
-                entry_ids.push(entry_id.get::<EntryId>().unwrap());
-            }
-        }
-
-        Box::new(entry_ids.into_iter().map(|id| (id, &database.entries[&id])))
-    } else {
-        Box::new(database.entries.iter().map(|(id, entry)| (*id, entry)))
-    }
+    pub(crate) static SESSION: LazyLock<Session<'static>> =
+        LazyLock::new(|| Session::init(crate::SWIPL_STATE).unwrap());
 }

@@ -54,6 +54,7 @@ pub fn predicate_macro_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     let item = parse_macro_input!(item as DeriveInput);
 
     let typename = &item.ident;
+    let (gen_impl, gen_ty, gen_where) = item.generics.split_for_impl();
     let arity = attr.args.len();
     let name_cstr = CString::new(attr.name.to_string()).unwrap();
     let (extern_name, extern_fn) = generate_extern_fn(&attr, &item);
@@ -65,8 +66,10 @@ pub fn predicate_macro_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     quote! {
         #item
 
-        unsafe impl ::factbook_swipl::foreign::Predicate for #typename {
-            type Args<'a> = [::factbook_swipl::term::Term<'a>; #arity];
+        unsafe impl #gen_impl ::factbook_swipl::foreign::Predicate for #typename #gen_ty
+        #gen_where
+        {
+            type Args<'_a> = [::factbook_swipl::term::Term<'_a>; #arity];
 
             const NAME: &'static ::std::ffi::CStr = #name_cstr;
             const EXTERN_FN: *const () = #extern_name as _;

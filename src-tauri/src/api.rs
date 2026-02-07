@@ -62,13 +62,14 @@ pub fn get_entries(state: State<factbook_core::State>, view: Option<ViewId>) -> 
     let database = state.database();
     let cache = state.cache();
 
-    let entries = factbook_core::get_entries(&database, &cache, &mut state.pl_engine(), view).map(
-        |(id, entry)| Entry {
-            id,
-            created_at: entry.created_at,
-            content: &entry.content,
-        },
-    );
+    let entries =
+        factbook_core::search::get_entries(&database, &cache, &mut state.pl_engine(), view).map(
+            |(id, entry)| Entry {
+                id,
+                created_at: entry.created_at,
+                content: &entry.content,
+            },
+        );
 
     // Return an `ipc::Response` directly to avoid allocations
     let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();

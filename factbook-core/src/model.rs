@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ViewId(u64);
+pub struct ViewId(pub(crate) u64);
 
 impl ViewId {
     pub fn next(self) -> Self {
@@ -20,7 +20,7 @@ impl fmt::Display for ViewId {
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct EntryId(u64);
+pub struct EntryId(pub(crate) u64);
 
 impl EntryId {
     pub fn next(self) -> Self {
