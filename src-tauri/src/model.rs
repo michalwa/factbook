@@ -108,7 +108,7 @@ impl factbook_swipl::term::FromTerm for EntryId {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct View {
     pub name: String,
@@ -122,8 +122,8 @@ pub struct Entry {
     pub content: String,
 }
 
-impl Entry {
-    pub fn new() -> Self {
+impl Default for Entry {
+    fn default() -> Self {
         Self {
             created_at: Local::now(),
             content: String::new(),

@@ -29,6 +29,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_views,
             api::create_view,
+            api::set_view_name,
             api::get_entries,
             api::set_entry_content,
             api::create_entry,

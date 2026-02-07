@@ -40,13 +40,20 @@ pub fn get_views(state: State<AppState>) -> ipc::Response {
 }
 
 #[tauri::command]
-pub fn create_view(state: State<AppState>, view: crate::model::View) -> ViewId {
+pub fn create_view(state: State<AppState>) -> ViewId {
     let mut db = state.database.write().unwrap();
     let mut cache = state.cache.write().unwrap();
 
     let id = cache.next_view_id();
-    db.views.insert(id, view);
+    db.views.insert(id, Default::default());
     id
+}
+
+#[tauri::command]
+pub fn set_view_name(state: State<AppState>, view: ViewId, name: &str) {
+    let mut db = state.database.write().unwrap();
+
+    db.views.get_mut(&view).unwrap().name = name.into();
 }
 
 #[tauri::command]
@@ -71,10 +78,12 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
             pl.load_module_from_str(&module_name, &view.definition)
                 .unwrap();
 
-            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-            while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                // TODO: impl Iterator for Query
-                entry_ids.push(entry_id.get::<EntryId>().unwrap());
+            if pl.predicate_defined::<2>("show", module_name.as_ref()) {
+                let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
+                while let Some([_, entry_id]) = query.next_solution().unwrap() {
+                    // TODO: impl Iterator for Query
+                    entry_ids.push(entry_id.get::<EntryId>().unwrap());
+                }
             }
 
             Box::new(entry_ids.into_iter().map(|id| (id, &state.entries[&id])))
@@ -110,7 +119,7 @@ pub fn create_entry(state: State<AppState>) -> EntryId {
     let mut cache = state.cache.write().unwrap();
 
     let id = cache.next_entry_id();
-    db.entries.insert(id, crate::model::Entry::new());
+    db.entries.insert(id, Default::default());
     id
 }
 

@@ -1,10 +1,10 @@
 import { For } from "solid-js";
 import "./SidebarViewList.css";
-import { useViewContext, VIEW_NEW } from "./ViewContext";
+import { useViewContext } from "./ViewContext";
 import { FunnelPlusIcon } from "lucide-solid";
 
 export default function SidebarViewList() {
-  const { views, selectedViewId, setSelectedViewId, beginCreateView } =
+  const { views, selectedViewId, setSelectedViewId, createView } =
     useViewContext();
 
   return (
@@ -20,8 +20,8 @@ export default function SidebarViewList() {
                 class="sidebar-view-list-item-link"
                 onClick={() => setSelectedViewId(view.id)}
               >
-                {view.name ?? "Untitled"}
-                <Show when={view.id !== VIEW_NEW}>
+                {view.name || "Untitled"}
+                <Show when={view.entryCount != null}>
                   <span class="badge">{view.entryCount ?? 0}</span>
                 </Show>
               </a>
@@ -33,7 +33,7 @@ export default function SidebarViewList() {
           )}
         </For>
       </ul>
-      <button class="sidebar-button" onClick={beginCreateView}>
+      <button class="sidebar-button" onClick={createView}>
         <FunnelPlusIcon size={16} /> New
       </button>
     </>

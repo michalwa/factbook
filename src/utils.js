@@ -28,3 +28,6 @@ export function keystroke(event, modifiers, keycodes) {
       keycodes.includes(event.code))
   );
 }
+
+export const mapWhere = (filterFn, mapFn) => (xs) =>
+  xs.map((x) => (filterFn(x) ? mapFn(x) : x));

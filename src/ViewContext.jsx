@@ -5,11 +5,12 @@ import {
   useContext,
 } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { debounce } from "@solid-primitives/scheduled";
+import { mapWhere } from "./utils";
 
 const ViewContext = createContext();
 
 export const VIEW_ALL = "all";
-export const VIEW_NEW = "new";
 
 export function Provider(props) {
   const [views, { mutate: mutateViews }] = createResource(() =>
@@ -26,31 +27,40 @@ export function Provider(props) {
     ...(views() || []),
   ];
 
-  function beginCreateView() {
-    if (!views()?.some((view) => view.id === VIEW_NEW))
-      mutateViews((views) => [...views, { id: VIEW_NEW }]);
+  const view = () => views()?.find((view) => view.id === selectedViewId());
 
-    setSelectedViewId(VIEW_NEW);
-  }
-
-  async function commitCreateView() {
-    const view = views()?.find((view) => view.id === VIEW_NEW);
-    if (!view) return;
-    view.id = await invoke("create_view", view);
-  }
-
-  function setSelectedViewIdDiscardingNew(id) {
+  async function createView() {
+    const id = await invoke("create_view");
+    mutateViews((views) => [...views, { id, entryCount: 0 }]);
     setSelectedViewId(id);
-    if (id !== VIEW_NEW)
-      mutateViews((views) => views.filter((view) => view.id !== VIEW_NEW));
+  }
+
+  const setViewNameDebounced = debounce(
+    (id, name) => invoke("set_view_name", { view: id, name }),
+    200,
+  );
+
+  async function setViewName(name) {
+    const viewId = selectedViewId();
+    if (viewId === VIEW_ALL) return;
+
+    mutateViews(
+      mapWhere(
+        (view) => view.id === viewId,
+        (view) => ({ ...view, name }),
+      ),
+    );
+
+    setViewNameDebounced(viewId, name);
   }
 
   const context = {
     views: viewsWithAll,
+    view,
     selectedViewId,
-    setSelectedViewId: setSelectedViewIdDiscardingNew,
-    beginCreateView,
-    commitCreateView,
+    setSelectedViewId,
+    createView,
+    setViewName,
   };
 
   return (
