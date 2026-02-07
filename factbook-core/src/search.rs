@@ -100,6 +100,7 @@ mod test {
     use crate::{Cache, Database};
     use factbook_swipl::Context;
     use std::sync::LazyLock;
+    use test_log::test;
 
     static FIXTURE_DATABASE: LazyLock<Database> = LazyLock::new(|| {
         let mut database = Database::default();
