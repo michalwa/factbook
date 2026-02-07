@@ -6,12 +6,16 @@ import "./ViewEditor.css";
 import { PanelBottomCloseIcon } from "lucide-solid";
 
 export default function ViewEditor() {
-  const { view, setViewName } = useViewContext();
+  const { view, setViewName, viewJustCreated } = useViewContext();
 
   return (
     <Panel class="view-editor">
       <PanelHeader title="Edit view" collapseIcon={<PanelBottomCloseIcon />} />
-      <Input value={view()?.name} onInput={setViewName} />
+      <Input
+        value={view()?.name}
+        onInput={setViewName}
+        focus={viewJustCreated()}
+      />
     </Panel>
   );
 }

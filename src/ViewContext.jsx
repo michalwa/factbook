@@ -17,6 +17,7 @@ export function Provider(props) {
     invoke("get_views"),
   );
   const [selectedViewId, setSelectedViewId] = createSignal(VIEW_ALL);
+  const [viewJustCreated, setViewJustCreated] = createSignal(false);
 
   const viewsWithAll = () => [
     {
@@ -33,6 +34,7 @@ export function Provider(props) {
     const id = await invoke("create_view");
     mutateViews((views) => [...views, { id, entryCount: 0 }]);
     setSelectedViewId(id);
+    setViewJustCreated(true);
   }
 
   const setViewNameDebounced = debounce(
@@ -51,6 +53,7 @@ export function Provider(props) {
       ),
     );
 
+    setViewJustCreated(false);
     setViewNameDebounced(viewId, name);
   }
 
@@ -61,6 +64,7 @@ export function Provider(props) {
     setSelectedViewId,
     createView,
     setViewName,
+    viewJustCreated,
   };
 
   return (

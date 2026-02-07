@@ -1,11 +1,14 @@
 .sidebar-view-list {
   list-style: none;
-  padding: 0;
+  padding: 0 0 1rem 0;
   margin: 0 -1rem;
+  overflow-y: scroll;
+  direction: rtl;
 }
 
 .sidebar-view-list-item {
   position: relative;
+  direction: ltr;
 }
 
 .sidebar-view-list-item-link {
@@ -37,7 +40,6 @@
   height: 0.5rem;
   position: absolute;
   right: 0;
-  z-index: 0;
 }
 
 .sidebar-view-list-item-corner-top::after,

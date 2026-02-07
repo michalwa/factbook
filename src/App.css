@@ -9,6 +9,11 @@
   --text-active: #7696ff;
 }
 
+* {
+  scrollbar-color: var(--bg-2) transparent;
+  scrollbar-width: thin;
+}
+
 body {
   margin: 0;
   font-family: "Inter Variable", sans-serif;

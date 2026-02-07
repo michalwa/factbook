@@ -1,7 +1,10 @@
+import { createEffect } from "solid-js";
 import "./Input.css";
 
 export default function Input(props) {
   let input;
+
+  createEffect(() => props.focus && input.focus());
 
   return (
     <form action="#" onSubmit={() => input.blur()}>
