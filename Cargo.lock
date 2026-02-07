@@ -1144,7 +1144,7 @@ name = "factbook"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "factbook-swipl",
+ "factbook-core",
  "factbook-swipl-state",
  "log",
  "serde",
@@ -1155,8 +1155,18 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tauri-plugin-prevent-default",
+]
+
+[[package]]
+name = "factbook-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "factbook-swipl",
+ "factbook-swipl-state",
+ "log",
+ "serde",
  "test-log",
- "thiserror 2.0.17",
 ]
 
 [[package]]

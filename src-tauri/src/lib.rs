@@ -1,23 +1,10 @@
-use crate::model::{Cache, Database};
-use factbook_swipl::Context;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::RwLock;
 use tauri::{App, Manager};
 use tauri_plugin_cli::CliExt;
 
 mod api;
-mod model;
-mod prolog;
 mod util;
-
-const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
-
-struct AppState {
-    database: RwLock<Database>,
-    cache: RwLock<Cache>,
-    swipl_session: factbook_swipl::Session<'static>,
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -63,18 +50,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         panic!("No journal file loaded");
     };
 
-    let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
-    let mut pl = swipl_session.engine();
-    pl.register_predicate::<prolog::predicates::Tag>();
-    let cache = Cache::init_from(&database, &mut pl.frame());
-
-    let state = AppState {
-        database: RwLock::new(database),
-        cache: RwLock::new(cache),
-        swipl_session,
-    };
-
-    app.manage(state);
+    app.manage(factbook_core::State::init_with(database));
 
     Ok(())
 }

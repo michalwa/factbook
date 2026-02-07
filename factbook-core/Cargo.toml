@@ -1,0 +1,16 @@
+[package]
+name = "factbook-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+factbook-swipl = { path = "../factbook-swipl" }
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+test-log = "0.2.18"
+
+[build-dependencies]
+factbook-swipl-state = { path = "../factbook-swipl-state" }

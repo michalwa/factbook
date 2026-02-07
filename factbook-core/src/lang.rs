@@ -152,13 +152,12 @@ impl<'c, C: Context> Parse<'_, 'c, C> {
 
 #[cfg(test)]
 mod test {
-    use crate::SWIPL_STATE;
     use factbook_swipl::{Context, Session};
     use std::sync::LazyLock;
     use test_log::test;
 
     pub(crate) static SESSION: LazyLock<Session<'static>> =
-        LazyLock::new(|| Session::init(SWIPL_STATE).unwrap());
+        LazyLock::new(|| Session::init(crate::SWIPL_STATE).unwrap());
 
     fn parse(input: &str, ctx: &impl Context) -> Vec<String> {
         super::parse(input, ctx).map(|t| t.to_string()).collect()

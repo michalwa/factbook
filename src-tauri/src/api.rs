@@ -1,11 +1,6 @@
-use crate::AppState;
-use crate::model::{EntryId, ViewId};
-use crate::prolog::predicates::EntryTags;
 use crate::util::SerializeIterOnce;
 use chrono::{DateTime, Local};
-use factbook_swipl::Context;
-use factbook_swipl::blob::ScopedBlob;
-use factbook_swipl::query::open_query;
+use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
 use tauri::{State, ipc};
 
@@ -14,7 +9,7 @@ use tauri::{State, ipc};
 struct View<'t> {
     id: ViewId,
     #[serde(flatten)]
-    view: &'t crate::model::View,
+    view: &'t model::View,
     entry_count: usize,
 }
 
@@ -27,8 +22,8 @@ struct Entry<'t> {
 }
 
 #[tauri::command]
-pub fn get_views(state: State<AppState>) -> ipc::Response {
-    let db = state.database.read().unwrap();
+pub fn get_views(state: State<factbook_core::State>) -> ipc::Response {
+    let db = state.database();
     let views = db.views.iter().map(|(&id, view)| View {
         id,
         view,
@@ -41,77 +36,39 @@ pub fn get_views(state: State<AppState>) -> ipc::Response {
 }
 
 #[tauri::command]
-pub fn create_view(state: State<AppState>) -> ViewId {
-    let mut db = state.database.write().unwrap();
-    let mut cache = state.cache.write().unwrap();
-
-    let id = cache.next_view_id();
-    db.views.insert(id, Default::default());
+pub fn create_view(state: State<factbook_core::State>) -> ViewId {
+    let id = state.cache_mut().next_view_id();
+    state.database_mut().views.insert(id, Default::default());
     id
 }
 
 #[tauri::command]
-pub fn set_view_name(state: State<AppState>, id: ViewId, name: &str) {
-    let mut db = state.database.write().unwrap();
-
-    db.views.get_mut(&id).unwrap().name = name.into();
+pub fn set_view_name(state: State<factbook_core::State>, id: ViewId, name: &str) {
+    state.database_mut().views.get_mut(&id).unwrap().name = name.into();
 }
 
 #[tauri::command]
-pub fn set_view_definition(state: State<AppState>, id: ViewId, definition: &str) {
-    let mut db = state.database.write().unwrap();
-
-    db.views.get_mut(&id).unwrap().definition = definition.into();
+pub fn set_view_definition(state: State<factbook_core::State>, id: ViewId, definition: &str) {
+    state.database_mut().views.get_mut(&id).unwrap().definition = definition.into();
 }
 
 #[tauri::command]
-pub fn remove_view(state: State<AppState>, id: ViewId) {
-    let mut db = state.database.write().unwrap();
-
-    db.views.remove(&id);
+pub fn remove_view(state: State<factbook_core::State>, id: ViewId) {
+    state.database_mut().views.remove(&id);
 }
 
 #[tauri::command]
-pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Response {
-    let db = state.database.read().unwrap();
-    let cache = state.cache.read().unwrap();
+pub fn get_entries(state: State<factbook_core::State>, view: Option<ViewId>) -> ipc::Response {
+    let database = state.database();
+    let cache = state.cache();
 
-    let mut engine = state.swipl_session.engine();
-    let mut pl = engine.frame();
-
-    let entry_tags = EntryTags::new(&cache.entry_tags);
-    let entry_tags_blob = ScopedBlob::new(&entry_tags);
-
-    let state = state.database.read().unwrap();
-
-    let entries: Box<dyn Iterator<Item = (EntryId, &crate::model::Entry)>> = if let Some(view_id) =
-        view
-    {
-        let mut entry_ids = Vec::new();
-        let view = db.views.get(&view_id).unwrap();
-        let module_name = format!("view_{view_id}");
-
-        pl.load_module_from_str(&module_name, &view.definition)
-            .unwrap();
-
-        if pl.predicate_defined::<2>("show", module_name.as_ref()) {
-            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-            while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                // TODO: impl Iterator for Query
-                entry_ids.push(entry_id.get::<EntryId>().unwrap());
-            }
-        }
-
-        Box::new(entry_ids.into_iter().map(|id| (id, &state.entries[&id])))
-    } else {
-        Box::new(state.entries.iter().map(|(id, entry)| (*id, entry)))
-    };
-
-    let entries = entries.map(|(id, entry)| Entry {
-        id,
-        created_at: entry.created_at,
-        content: &entry.content,
-    });
+    let entries = factbook_core::get_entries(&database, &cache, &mut state.pl_engine(), view).map(
+        |(id, entry)| Entry {
+            id,
+            created_at: entry.created_at,
+            content: &entry.content,
+        },
+    );
 
     // Return an `ipc::Response` directly to avoid allocations
     let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();
@@ -119,31 +76,22 @@ pub fn get_entries(state: State<AppState>, view: Option<ViewId>) -> ipc::Respons
 }
 
 #[tauri::command]
-pub fn set_entry_content(state: State<AppState>, id: EntryId, content: &str) {
-    let mut db = state.database.write().unwrap();
+pub fn set_entry_content(state: State<factbook_core::State>, id: EntryId, content: &str) {
+    state.database_mut().entries.get_mut(&id).unwrap().content = content.to_owned();
 
-    db.entries.get_mut(&id).unwrap().content = content.to_owned();
-
-    let mut pl = state.swipl_session.engine();
-    let mut cache = state.cache.write().unwrap();
-    cache.update_entry(&mut pl.frame(), id, content);
+    let mut pl = state.pl_engine();
+    state.cache_mut().update_entry(&mut pl, id, content);
 }
 
 #[tauri::command]
-pub fn create_entry(state: State<AppState>) -> EntryId {
-    let mut db = state.database.write().unwrap();
-    let mut cache = state.cache.write().unwrap();
-
-    let id = cache.next_entry_id();
-    db.entries.insert(id, Default::default());
+pub fn create_entry(state: State<factbook_core::State>) -> EntryId {
+    let id = state.cache_mut().next_entry_id();
+    state.database_mut().entries.insert(id, Default::default());
     id
 }
 
 #[tauri::command]
-pub fn remove_entry(state: State<AppState>, id: EntryId) {
-    let mut db = state.database.write().unwrap();
-    let mut cache = state.cache.write().unwrap();
-
-    db.entries.remove(&id);
-    cache.entry_tags.remove(&id);
+pub fn remove_entry(state: State<factbook_core::State>, id: EntryId) {
+    state.database_mut().entries.remove(&id);
+    state.cache_mut().entry_tags.remove(&id);
 }
