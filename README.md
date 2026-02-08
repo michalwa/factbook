@@ -2,6 +2,10 @@
 
 Programmer-friendly personal knowledge base based on logic programming
 
+<p align="center">
+  <img src="screenshot.png" alt="screenshot" />
+</p>
+
 ## Philosophy
 
 1. **Quick inbox** &ndash; Dump _anything_ into your knowledge base at any time, without any friction of organization. No need to think about which directory an entry belongs to. Write first, organize second.
