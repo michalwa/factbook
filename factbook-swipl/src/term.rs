@@ -488,6 +488,7 @@ impl FromTerm for f64 {
 #[cfg(test)]
 mod test {
     use crate::Context;
+    use test_log::test;
 
     #[test]
     fn fmt() {

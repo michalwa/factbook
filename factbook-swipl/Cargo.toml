@@ -10,3 +10,7 @@ factbook-swipl-state = { path = "../factbook-swipl-state" }
 factbook-swipl-macros = { path = "../factbook-swipl-macros" }
 paste = "1.0.15"
 swipl-fli = "0.3.6"
+log = "0.4"
+
+[dev-dependencies]
+test-log = "0.2.18"

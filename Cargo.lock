@@ -1175,8 +1175,10 @@ version = "0.1.0"
 dependencies = [
  "factbook-swipl-macros",
  "factbook-swipl-state",
+ "log",
  "paste",
  "swipl-fli",
+ "test-log",
 ]
 
 [[package]]

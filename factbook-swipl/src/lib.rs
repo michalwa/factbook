@@ -52,6 +52,10 @@ impl<'s> Session<'s> {
             panic!("failed to initialize SWI-Prolog: PL_initialise failed");
         }
 
+        if unsafe { pl::PL_thread_self() } == -2 {
+            log::warn!("SWI-Prolog version does not support threading");
+        }
+
         Some(Self {
             _state: Default::default(),
         })
@@ -70,6 +74,11 @@ impl<'s> Session<'s> {
     }
 
     fn attach_engine(&self) -> Engine {
+        log::debug!(
+            "PL_thread_attach_engine on {:?}",
+            std::thread::current().id()
+        );
+
         match unsafe {
             pl::PL_thread_attach_engine(&mut pl::PL_thread_attr_t {
                 stack_limit: 0,
@@ -94,8 +103,10 @@ impl<'s> Session<'s> {
 
 impl Drop for Session<'_> {
     fn drop(&mut self) {
+        log::debug!("PL_cleanup on {:?}", std::thread::current().id());
+
         if unsafe { pl::PL_cleanup(pl::PL_CLEANUP_NO_CANCEL as _) } != pl::PL_CLEANUP_SUCCESS as _ {
-            eprintln!("warning: PL_cleanup failed");
+            log::warn!("PL_cleanup failed");
         }
     }
 }
@@ -113,10 +124,15 @@ impl Drop for Engine {
         // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
         // called, otherwise it will hang. This can be the case if `Session` is dropped
         // before the `Engine`, e.g. when the thread holding the `Session` exits.
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0
-            && unsafe { pl::PL_thread_destroy_engine() } == 0
-        {
-            eprintln!("warning: PL_thread_destroy_engine failed");
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
+            log::debug!(
+                "PL_thread_destroy_engine on {:?}",
+                std::thread::current().id()
+            );
+
+            if unsafe { pl::PL_thread_destroy_engine() } == 0 {
+                log::warn!("PL_thread_destroy_engine failed");
+            }
         }
     }
 }
@@ -567,6 +583,7 @@ mod test {
     use super::*;
     use std::sync::LazyLock;
     use std::thread;
+    use test_log::test;
 
     const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
