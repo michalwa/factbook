@@ -1,13 +1,16 @@
-import { createCodeMirror, createEditorControlledValue } from "solid-codemirror";
+import {
+  createCodeMirror,
+  createEditorControlledValue,
+} from "solid-codemirror";
 import Input from "./Input";
 import Panel from "./Panel";
 import PanelHeader from "./PanelHeader";
 import { useViewContext } from "./ViewContext";
 import "./ViewEditor.css";
 import { PanelBottomCloseIcon, TrashIcon } from "lucide-solid";
-import { createEffect } from "solid-js";
-import { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { codeMirrorTheme } from "./codeMirror";
+import { lineNumbers } from "@codemirror/view";
 
 export default function ViewEditor() {
   const { view, setViewName, setViewDefinition, viewJustCreated, removeView } =
@@ -24,25 +27,8 @@ export default function ViewEditor() {
   createEditorControlledValue(editorView, () => view()?.definition);
 
   createEditorExtension(EditorView.lineWrapping);
-  createEditorExtension(
-    EditorView.theme(
-      {
-        "&": {
-          color: "var(--text-normal)",
-        },
-        "&.cm-focused": {
-          outline: "none",
-        },
-        "&.cm-focused .cm-cursor": {
-          borderLeftColor: "var(--text-normal)",
-        },
-        "& .cm-selectionBackground": {
-          backgroundColor: "var(--bg-selection) !important",
-        },
-      },
-      { dark: true },
-    ),
-  );
+  createEditorExtension(lineNumbers);
+  createEditorExtension(codeMirrorTheme);
 
   return (
     <Panel class="view-editor">
@@ -52,6 +38,7 @@ export default function ViewEditor() {
           <Input
             value={view().name}
             onInput={setViewName}
+            onBlur={() => editorView()?.focus()}
             focus={viewJustCreated()}
           />
           <button class="icon-button icon-button-danger" onClick={removeView}>

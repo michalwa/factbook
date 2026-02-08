@@ -56,6 +56,7 @@ export function Provider(props) {
     );
 
     setViewNameDebounced(id, name);
+    setViewJustCreated(false);
   }
 
   const setViewDefinitionDebounced = debounce(
@@ -75,6 +76,7 @@ export function Provider(props) {
     );
 
     setViewDefinitionDebounced(id, definition);
+    setViewJustCreated(false);
   }
 
   async function removeView() {
@@ -83,6 +85,7 @@ export function Provider(props) {
 
     await invoke("remove_view", { id });
     mutateViews((views) => views.filter((view) => view.id !== id));
+    setViewJustCreated(false);
   }
 
   const context = {

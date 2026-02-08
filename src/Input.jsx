@@ -16,6 +16,7 @@ export default function Input(props) {
         ref={input}
         value={props.value ?? ""}
         onInput={() => props.onInput?.(input.value)}
+        onBlur={props.onBlur}
       />
     </form>
   );

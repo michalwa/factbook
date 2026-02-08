@@ -1,5 +1,7 @@
 .view-editor {
   border-left: 0.2rem solid var(--bg-0);
+  display: flex;
+  flex-flow: column nowrap;
 }
 
 [data-orientation="horizontal"][data-collapsed]
@@ -19,4 +21,9 @@
 
 .view-editor-controls > form {
   flex-grow: 1;
+}
+
+.view-definition {
+  padding: 0.2rem 0.8rem;
+  min-height: 0;
 }

@@ -6,6 +6,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import { invoke } from "@tauri-apps/api/core";
 import { createEffect, createRoot, createSignal, onCleanup } from "solid-js";
 import { keystroke } from "./utils";
+import { codeMirrorTheme } from "./codeMirror";
 
 export default function Entry(props) {
   const [dirty, setDirty] = createSignal(false);
@@ -32,25 +33,7 @@ export default function Entry(props) {
     });
 
     createEditorExtension(EditorView.lineWrapping);
-    createEditorExtension(
-      EditorView.theme(
-        {
-          "&": {
-            color: "var(--text-normal)",
-          },
-          "&.cm-focused": {
-            outline: "none",
-          },
-          "&.cm-focused .cm-cursor": {
-            borderLeftColor: "var(--text-normal)",
-          },
-          "& .cm-selectionBackground": {
-            backgroundColor: "var(--bg-selection) !important",
-          },
-        },
-        { dark: true },
-      ),
-    );
+    createEditorExtension(codeMirrorTheme);
     createEditorExtension(
       EditorView.domEventHandlers({
         keydown(event, view) {
