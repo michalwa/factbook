@@ -2,6 +2,9 @@
 
 Programmer-friendly personal knowledge base based on logic programming
 
+> [!WARNING]
+> This is a work in progress
+
 <p align="center">
   <img src="screenshot.png" alt="screenshot" />
 </p>
