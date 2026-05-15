@@ -32,12 +32,12 @@ impl<'s> Session<'s> {
         }
 
         #[cfg(debug_assertions)]
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } {
             panic!("failed to initialize SWI-Prolog: already initialized");
         }
 
         if let Some(state) = state.into()
-            && unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) } == 0
+            && !unsafe { pl::PL_set_resource_db_mem(state.as_ptr(), state.len()) }
         {
             panic!("failed to initialize SWI-Prolog: PL_set_resource_db_mem failed");
         }
@@ -48,7 +48,7 @@ impl<'s> Session<'s> {
             std::ptr::null_mut(),
         ];
 
-        if unsafe { pl::PL_initialise((args.len() - 1) as _, args.as_mut_ptr()) } == 0 {
+        if !unsafe { pl::PL_initialise((args.len() - 1) as _, args.as_mut_ptr()) } {
             panic!("failed to initialize SWI-Prolog: PL_initialise failed");
         }
 
@@ -87,7 +87,8 @@ impl<'s> Session<'s> {
                 cancel: None,
                 flags: 0,
                 max_queue_size: 0,
-                reserved: [std::ptr::null_mut(); 3],
+                thread_class: std::ptr::null_mut(),
+                reserved: [std::ptr::null_mut(); _],
             } as _)
         } {
             -1 => panic!("failed to create Prolog engine: PL_thread_attach_engine failed"),
@@ -124,13 +125,13 @@ impl Drop for Engine {
         // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
         // called, otherwise it will hang. This can be the case if `Session` is dropped
         // before the `Engine`, e.g. when the thread holding the `Session` exits.
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } != 0 {
+        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } {
             log::debug!(
                 "PL_thread_destroy_engine on {:?}",
                 std::thread::current().id()
             );
 
-            if unsafe { pl::PL_thread_destroy_engine() } == 0 {
+            if !unsafe { pl::PL_thread_destroy_engine() } {
                 log::warn!("PL_thread_destroy_engine failed");
             }
         }
@@ -251,7 +252,7 @@ pub trait Context {
         term: Term,
         module: impl Into<Option<&'m str>>,
     ) -> Result<bool, Exception<'a>> {
-        if unsafe { pl::PL_call(term.ptr.get(), get_module(self, module.into())) } != 0 {
+        if unsafe { pl::PL_call(term.ptr.get(), get_module(self, module.into())) } {
             Ok(true)
         } else {
             match get_exception(self) {
@@ -262,7 +263,7 @@ pub trait Context {
     }
 
     fn assert(&self, term: Term, mode: Assert) {
-        if unsafe { pl::PL_assert(term.ptr.get(), std::ptr::null_mut(), mode as _) } == 0 {
+        if !unsafe { pl::PL_assert(term.ptr.get(), std::ptr::null_mut(), mode as _) } {
             panic!("PL_assert failed");
         }
     }
@@ -308,7 +309,7 @@ pub trait Context {
         module: impl Into<Option<&'m str>>,
     ) -> bool {
         let head = self.new_term();
-        if unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).ptr) } == 0 {
+        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).ptr) } {
             panic!("PL_put_functor failed");
         }
 
@@ -329,15 +330,14 @@ pub trait Context {
     }
 
     fn register_predicate<P: Predicate>(&self) {
-        if unsafe {
+        if !unsafe {
             pl::PL_register_foreign(
                 P::NAME.as_ptr(),
                 P::Args::ARITY as _,
-                std::mem::transmute::<*const (), Option<unsafe extern "C" fn() -> _>>(P::EXTERN_FN),
+                P::EXTERN_FN as _,
                 P::FLAGS as _,
             )
-        } == 0
-        {
+        } {
             panic!("PL_register_foreign failed");
         }
     }
@@ -420,7 +420,7 @@ unsafe impl Send for ExternalRecord {}
 
 impl Drop for ExternalRecord {
     fn drop(&mut self) {
-        if unsafe { pl::PL_erase_external(self.ptr.as_ptr()) } == 0 {
+        if !unsafe { pl::PL_erase_external(self.ptr.as_ptr()) } {
             panic!("PL_erase_external failed");
         }
     }

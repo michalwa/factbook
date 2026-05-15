@@ -145,15 +145,14 @@ pub unsafe trait ScopedBlobData {
 
 impl<T: BlobData> ToTerm for Blob<T> {
     fn put_in(self, term: Term) {
-        if unsafe {
+        if !unsafe {
             pl::PL_put_blob(
                 term.ptr.get(),
                 Box::leak(self.0) as *mut _ as _,
                 std::mem::size_of::<T>(),
                 T::SPEC as _,
             )
-        } == 0
-        {
+        } {
             panic!("PL_put_blob failed");
         }
     }
@@ -161,15 +160,14 @@ impl<T: BlobData> ToTerm for Blob<T> {
 
 impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     fn put_in(mut self, term: Term) {
-        if unsafe {
+        if !unsafe {
             pl::PL_put_blob(
                 term.ptr.get(),
                 &raw mut self.0 as _,
                 std::mem::size_of::<T>(),
                 T::SPEC as _,
             )
-        } == 0
-        {
+        } {
             panic!("PL_put_blob failed");
         }
     }
@@ -177,15 +175,14 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
 
 impl<T: ScopedBlobData> ToTerm for &ScopedBlob<'_, T> {
     fn put_in(self, term: Term) {
-        if unsafe {
+        if !unsafe {
             pl::PL_put_blob(
                 term.ptr.get(),
                 self.data as _,
                 std::mem::size_of::<ScopedBlobAlloc<T>>(),
                 T::SPEC as _,
             )
-        } == 0
-        {
+        } {
             panic!("PL_put_blob failed");
         }
     }
@@ -203,8 +200,7 @@ impl<T: CopyBlobData> FromTerm for CopyBlob<T> {
                 std::ptr::null_mut(),
                 &raw mut spec,
             )
-        } != 0
-            && std::ptr::eq(T::SPEC, spec as _)
+        } && std::ptr::eq(T::SPEC, spec as _)
         {
             Some(Self(unsafe { *(blob_ptr as *const T) }))
         } else {
