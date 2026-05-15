@@ -55,3 +55,10 @@ Programmer-friendly personal knowledge base based on logic programming
 ### Running in development
 
 Run the entire Tauri project with `pnpm tauri dev -- -- -f ../examples/journal.json`
+
+Run the release build with:
+
+```
+pnpm tauri build
+target/release/factbook -f examples/journal.json
+```
