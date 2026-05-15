@@ -17,9 +17,7 @@ pub struct Query<'a, const ARITY: usize> {
 
 impl<'a, const ARITY: usize> Query<'a, ARITY> {
     pub fn new<'m, C, F>(
-        // Take a mutable reference to the context to discourage opening multiple queries at once,
-        // which is not supported
-        ctx: &'a mut C,
+        ctx: &'a C,
         pred: &str,
         args_fn: F,
         module: impl Into<Option<&'m str>>,
@@ -28,6 +26,10 @@ impl<'a, const ARITY: usize> Query<'a, ARITY> {
         C: Context + ?Sized,
         F: FnOnce(&C, &[Term; ARITY]),
     {
+        // TODO: Statically prevent opening more than one query?
+        // We can't take `&mut C` because we want to allow using other `Term`s in the
+        // query, which borrow the context immutably
+
         let module = get_module(ctx, module.into());
         let predicate = unsafe { pl::PL_pred(ctx.functor::<ARITY>(pred).ptr, module) };
         let args = ctx.new_terms();

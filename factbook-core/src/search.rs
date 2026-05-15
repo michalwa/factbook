@@ -13,14 +13,14 @@ pub mod predicates {
     use std::collections::BTreeMap;
 
     #[derive(ScopedBlobData)]
-    pub struct EntryTagsRef<'a>(pub(crate) &'a BTreeMap<EntryId, Vec<factbook_swipl::Record>>);
+    pub struct EntryTagContext<'a>(pub(crate) &'a BTreeMap<EntryId, Vec<factbook_swipl::Record>>);
 
-    #[predicate(tag(entry_tags, entry, tag) nondet)]
-    pub struct Tag<'a> {
+    #[predicate(entry_tag(context, entry, tag) nondet)]
+    pub struct EntryTag<'a> {
         iter: Option<Box<dyn Iterator<Item = (EntryId, &'a factbook_swipl::Record)> + 'a>>,
     }
 
-    impl Nondet for Tag<'_> {
+    impl Nondet for EntryTag<'_> {
         fn init(_: &impl Context) -> Self {
             Self { iter: None }
         }
@@ -34,7 +34,7 @@ pub mod predicates {
                 let Some(entry_tags_atom) = entry_tags.get::<Atom>() else {
                     return false;
                 };
-                let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTagsRef>() else {
+                let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTagContext>() else {
                     return false;
                 };
                 self.iter = Some(Box::new(
@@ -67,25 +67,22 @@ pub fn get_entries<'d>(
     pl: &mut EngineHandle,
     view: Option<ViewId>,
 ) -> Box<dyn Iterator<Item = (EntryId, &'d Entry)> + 'd> {
-    let mut pl = pl.frame();
+    let pl = pl.frame();
 
-    let entry_tags = predicates::EntryTagsRef(&cache.entry_tags);
-    let entry_tags_blob = ScopedBlob::new(&entry_tags);
+    let context = predicates::EntryTagContext(&cache.entry_tags);
+    let context_blob = ScopedBlob::new(&context);
 
     if let Some(view_id) = view {
         let mut entry_ids = BTreeSet::new();
         let view = database.views.get(&view_id).unwrap();
-        let module_name = format!("view_{view_id}");
+        let view_term = pl.new_term().put_parsed(&view.definition).unwrap();
 
-        pl.load_module_from_str(&module_name, &view.definition)
-            .unwrap();
-
-        if pl.predicate_defined::<2>("show", module_name.as_ref()) {
-            let query = open_query! { pl => {&module_name}:show({&entry_tags_blob}, _) }.unwrap();
-            while let Some([_, entry_id]) = query.next_solution().unwrap() {
-                // TODO: impl Iterator for Query
-                entry_ids.insert(entry_id.get::<EntryId>().unwrap());
-            }
+        // `view_entry(Context: EntryTagContext, View, EntryId)` defined in
+        // ../prelude.pl
+        let query = open_query! { pl => view_entry({&context_blob}, {view_term}, _) }.unwrap();
+        while let Some([_, _, entry_id]) = query.next_solution().unwrap() {
+            // TODO: impl Iterator for Query
+            entry_ids.insert(entry_id.get::<EntryId>().unwrap());
         }
 
         Box::new(entry_ids.into_iter().map(|id| (id, &database.entries[&id])))
@@ -120,19 +117,31 @@ mod test {
 
         database.views.insert(ViewId(0), View {
             name: "foo".into(),
-            definition: "show(C, E) :- tag(C, E, foo).".into(),
+            definition: "@foo".into(),
         });
         database.views.insert(ViewId(1), View {
             name: "bar".into(),
-            definition: "show(C, E) :- tag(C, E, bar).".into(),
+            definition: "@bar".into(),
         });
         database.views.insert(ViewId(2), View {
             name: "foo and bar".into(),
-            definition: "show(C, E) :- tag(C, E, foo), tag(C, E, bar).".into(),
+            definition: "@foo, @bar".into(),
         });
         database.views.insert(ViewId(3), View {
             name: "foo or bar".into(),
-            definition: "show(C, E) :- tag(C, E, foo); tag(C, E, bar).".into(),
+            definition: "@foo; @bar".into(),
+        });
+        database.views.insert(ViewId(4), View {
+            name: "any".into(),
+            definition: "any".into(),
+        });
+        database.views.insert(ViewId(5), View {
+            name: "empty".into(),
+            definition: "".into(),
+        });
+        database.views.insert(ViewId(6), View {
+            name: "invalid".into(),
+            definition: "ajksdhkajshd".into(),
         });
 
         database
@@ -141,7 +150,7 @@ mod test {
     #[test]
     fn get_entries_all() {
         let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::Tag>();
+        pl.register_predicate::<super::predicates::EntryTag>();
         let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
 
         let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, None)
@@ -153,7 +162,7 @@ mod test {
     #[test]
     fn get_entries_single_tag() {
         let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::Tag>();
+        pl.register_predicate::<super::predicates::EntryTag>();
         let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
 
         let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(0)))
@@ -170,7 +179,7 @@ mod test {
     #[test]
     fn get_entries_conjunction() {
         let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::Tag>();
+        pl.register_predicate::<super::predicates::EntryTag>();
         let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
 
         let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(2)))
@@ -182,12 +191,48 @@ mod test {
     #[test]
     fn get_entries_disjunction() {
         let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::Tag>();
+        pl.register_predicate::<super::predicates::EntryTag>();
         let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
 
         let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(3)))
             .map(|(id, _)| id)
             .collect::<Vec<_>>();
         assert_eq!(entries, [EntryId(0), EntryId(1), EntryId(2)]);
+    }
+
+    #[test]
+    fn get_entries_any() {
+        let mut pl = crate::test::SESSION.engine();
+        pl.register_predicate::<super::predicates::EntryTag>();
+        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
+
+        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(4)))
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        assert_eq!(entries, [EntryId(0), EntryId(1), EntryId(2)]);
+    }
+
+    #[test]
+    fn get_entries_empty() {
+        let mut pl = crate::test::SESSION.engine();
+        pl.register_predicate::<super::predicates::EntryTag>();
+        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
+
+        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(5)))
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        assert_eq!(entries, []);
+    }
+
+    #[test]
+    fn get_entries_invalid() {
+        let mut pl = crate::test::SESSION.engine();
+        pl.register_predicate::<super::predicates::EntryTag>();
+        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
+
+        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(6)))
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        assert_eq!(entries, []);
     }
 }

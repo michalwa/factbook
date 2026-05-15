@@ -270,7 +270,7 @@ pub trait Context {
 
     /// Opens a new query over the specified predicate
     fn open_query<'a, 'm, F, const ARITY: usize>(
-        &'a mut self,
+        &'a self,
         pred: &str,
         args_fn: F,
         module: impl Into<Option<&'m str>>,

@@ -21,7 +21,7 @@ impl State {
         let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
 
         let mut pl = swipl_session.engine();
-        pl.register_predicate::<crate::search::predicates::Tag>();
+        pl.register_predicate::<crate::search::predicates::EntryTag>();
 
         let cache = Cache::init_from(&database, &mut pl);
 

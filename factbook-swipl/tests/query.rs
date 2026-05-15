@@ -8,7 +8,7 @@ static SESSION: LazyLock<Session<'static>> = LazyLock::new(|| Session::init(STAT
 
 #[test]
 fn query() {
-    let mut engine = SESSION.engine();
+    let engine = SESSION.engine();
     let mut solutions = Vec::new();
 
     let query = open_query! { engine => lists:member(_, [1, 2]) }.unwrap();

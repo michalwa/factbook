@@ -21,13 +21,18 @@ Programmer-friendly personal knowledge base based on logic programming
    <!-- TODO: The example should ideally use existing predicates once they are implemented -->
    ```prolog
    % Example only, specific available predicates and semantics may differ
-   show(E) :-
-     tag(E, todo),
-     tag(E, due(D)),
-     created(E, D0),
-     relative_datetime(D0, D, D1), % e.g. relative_datetime(2025-10-22, tomorrow, 2025-10-23).
-     now(N),
-     N #=< D1.
+   % 
+   % This would yield entries containing `@todo` and `@due(_)` with an argument
+   % describing a time in the past, i.e. overdue tasks
+   
+   { now(N) },                     % get current timestamp
+   @todo,                          % filter entries with `@todo` tag
+   @due(D),                        % filter entries with `@due(_)` tag and take the argument D
+   created(D0),                    % get the entry creation time D0
+   {
+     relative_datetime(D0, D, D1), % specify D1 as the threshold timestamp
+     D1 < N                        % compare with current timestamp
+   }
    ```
 
 ## Development
