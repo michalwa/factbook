@@ -103,15 +103,15 @@ mod test {
         let mut database = Database::default();
 
         database.entries.insert(EntryId(0), Entry {
-            content: "@foo".into(),
+            content: "@foo @id(0)".into(),
             ..Default::default()
         });
         database.entries.insert(EntryId(1), Entry {
-            content: "@bar".into(),
+            content: "@bar @ref(1)".into(),
             ..Default::default()
         });
         database.entries.insert(EntryId(2), Entry {
-            content: "@foo @bar".into(),
+            content: "@foo @bar @ref(0)".into(),
             ..Default::default()
         });
 
@@ -142,6 +142,10 @@ mod test {
         database.views.insert(ViewId(6), View {
             name: "invalid".into(),
             definition: "ajksdhkajshd".into(),
+        });
+        database.views.insert(ViewId(7), View {
+            name: "link".into(),
+            definition: "@ref(X), _: @id(X)".into(),
         });
 
         database
@@ -234,5 +238,17 @@ mod test {
             .map(|(id, _)| id)
             .collect::<Vec<_>>();
         assert_eq!(entries, []);
+    }
+
+    #[test]
+    fn get_entries_linked() {
+        let mut pl = crate::test::SESSION.engine();
+        pl.register_predicate::<super::predicates::EntryTag>();
+        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
+
+        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(7)))
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        assert_eq!(entries, [EntryId(2)]);
     }
 }
