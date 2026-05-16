@@ -63,6 +63,9 @@ importers:
       '@tauri-apps/cli':
         specifier: ^2
         version: 2.8.4
+      baseline-browser-mapping:
+        specifier: ^2.10.29
+        version: 2.10.29
       vite:
         specifier: ^6.0.3
         version: 6.4.1
@@ -719,8 +722,9 @@ packages:
       solid-js:
         optional: true
 
-  baseline-browser-mapping@2.8.18:
-    resolution: {integrity: sha512-UYmTpOBwgPScZpS4A+YbapwWuBwasxvO/2IOHArSsAhL/+ZdmATBXTex3t+l2hXwLVYK382ibr/nKoY9GKe86w==}
+  baseline-browser-mapping@2.10.29:
+    resolution: {integrity: sha512-Asa2krT+XTPZINCS+2QcyS8WTkObE77RwkydwF7h6DmnKqbvlalz93m/dnphUyCa6SWSP51VgtEUf2FN+gelFQ==}
+    engines: {node: '>=6.0.0'}
     hasBin: true
 
   better-path-resolve@1.0.0:
@@ -1853,7 +1857,7 @@ snapshots:
     optionalDependencies:
       solid-js: 1.9.9
 
-  baseline-browser-mapping@2.8.18: {}
+  baseline-browser-mapping@2.10.29: {}
 
   better-path-resolve@1.0.0:
     dependencies:
@@ -1865,7 +1869,7 @@ snapshots:
 
   browserslist@4.26.3:
     dependencies:
-      baseline-browser-mapping: 2.8.18
+      baseline-browser-mapping: 2.10.29
       caniuse-lite: 1.0.30001751
       electron-to-chromium: 1.5.237
       node-releases: 2.0.25
