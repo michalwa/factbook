@@ -66,11 +66,20 @@ impl<'s> Session<'s> {
     /// here: https://www.swi-prolog.org/pldoc/man?section=threadoneone
     /// with the additional constraint that `PL_thread_attach_engine` is only
     /// called once per thread on the first call to this method.
-    pub fn engine(&self) -> EngineHandle {
+    pub fn engine<'a>(&'a self) -> EngineHandle<'a> {
         thread_local! {
             static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
         }
-        ENGINE.with_borrow_mut(|e| (&*e.get_or_insert_with(|| self.attach_engine())).into())
+        ENGINE.with_borrow_mut(|e| {
+            e.get_or_insert_with(|| self.attach_engine());
+        });
+
+        // SAFETY: If an `Engine` exists then a handle can be created. It's enough for
+        // `EngineHandle` not to be `Send` to ensure that is is always valid (for the
+        // duration of the thread).
+        EngineHandle {
+            _marker: Default::default(),
+        }
     }
 
     fn attach_engine(&self) -> Engine {
@@ -139,29 +148,17 @@ impl Drop for Engine {
 }
 
 /// A handle/guard which, when held, statically guarantees that the current
-/// thread has an attached engine. It has a static lifetime, but is not `Send`,
-/// because engines are managed as thread-locals and are destroyed at the end of
-/// the thread.
-pub struct EngineHandle {
+/// thread has an attached engine.
+pub struct EngineHandle<'a> {
     // Not `Send` because it's only valid in the context of the current thread engine
-    _marker: PhantomData<*const ()>,
+    _marker: PhantomData<(*const (), &'a ())>,
 }
 
-impl EngineHandle {
+impl EngineHandle<'_> {
     pub(crate) unsafe fn assume_attached() -> Self {
         Self {
             _marker: Default::default(),
         }
-    }
-}
-
-impl From<&Engine> for EngineHandle {
-    fn from(_: &Engine) -> Self {
-        // SAFETY: If an `Engine` exists then an engine has been attached on the current
-        // thread (`Engine` is not `Send`) and a handle can be created. It's enough for
-        // `EngineHandle` not to be `Send` to ensure that is is always valid (for the
-        // duration of the thread).
-        unsafe { Self::assume_attached() }
     }
 }
 
@@ -343,7 +340,7 @@ pub trait Context {
     }
 }
 
-impl Context for EngineHandle {}
+impl Context for EngineHandle<'_> {}
 impl Context for Frame<'_> {}
 
 pub struct Atom {
