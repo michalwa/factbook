@@ -31,7 +31,7 @@ impl<'a, const ARITY: usize> Query<'a, ARITY> {
         // query, which borrow the context immutably
 
         let module = get_module(ctx, module.into());
-        let predicate = unsafe { pl::PL_pred(ctx.functor::<ARITY>(pred).ptr, module) };
+        let predicate = unsafe { pl::PL_pred(ctx.functor::<ARITY>(pred).0.ptr, module) };
         let args = ctx.new_terms();
         args_fn(ctx, &args);
 

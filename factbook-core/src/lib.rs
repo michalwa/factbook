@@ -1,129 +1,139 @@
 use crate::model::{Entry, EntryId, View, ViewId};
-use factbook_swipl::{Context, EngineHandle};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use factbook_swipl::{Context, RawFunctor, Record};
+use sparse_tags::{IndexedStore, Store};
+use stable_vec::StableVec;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod lang;
 pub mod model;
-pub mod search;
+mod search;
 
 const SWIPL_STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-pub struct State {
-    database: RwLock<Database>,
-    cache: RwLock<Cache>,
-    swipl_session: factbook_swipl::Session<'static>,
+pub struct Session(factbook_swipl::Session<'static>);
+
+impl Session {
+    pub fn new() -> Option<Self> {
+        factbook_swipl::Session::init(SWIPL_STATE).map(Self)
+    }
 }
 
-impl State {
-    pub fn init_with(database: Database) -> Self {
-        let swipl_session = factbook_swipl::Session::init(SWIPL_STATE).unwrap();
+pub struct State<'s> {
+    views: RwLock<ViewStorage>,
+    entries: RwLock<EntryStorage>,
+    session: &'s Session,
+}
 
-        let mut pl = swipl_session.engine();
-        pl.register_predicate::<crate::search::predicates::EntryTag>();
+type ViewStorage = StableVec<View>;
+type EntryStorage = IndexedStore<RawFunctor, Record, Entry>;
 
-        let cache = Cache::init_from(&database, &mut pl);
-
+impl<'a> State<'a> {
+    pub fn new(session: &'a Session) -> Self {
         Self {
-            database: RwLock::new(database),
-            cache: RwLock::new(cache),
-            swipl_session,
+            views: Default::default(),
+            entries: Default::default(),
+            session,
         }
     }
 
-    pub fn database<'a>(&'a self) -> RwLockReadGuard<'a, Database> {
-        self.database.read().unwrap()
+    pub fn views(&self) -> Views<'_> {
+        Views(self.views.read().unwrap())
     }
 
-    pub fn database_mut<'a>(&'a self) -> RwLockWriteGuard<'a, Database> {
-        self.database.write().unwrap()
+    pub fn views_mut(&self) -> ViewsMut<'_> {
+        ViewsMut(self.views.write().unwrap())
     }
 
-    pub fn cache<'a>(&'a self) -> RwLockReadGuard<'a, Cache> {
-        self.cache.read().unwrap()
+    pub fn entries(&self) -> Entries<'_> {
+        Entries(self.entries.read().unwrap())
     }
 
-    pub fn cache_mut<'a>(&'a self) -> RwLockWriteGuard<'a, Cache> {
-        self.cache.write().unwrap()
-    }
-
-    pub fn pl_engine(&self) -> EngineHandle {
-        self.swipl_session.engine()
+    pub fn entries_mut(&self) -> EntriesMut<'_> {
+        EntriesMut {
+            store: self.entries.write().unwrap(),
+            session: self.session,
+        }
     }
 }
 
-/// Holds persistent data that is saved across sessions
-#[derive(Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Database {
-    pub views: BTreeMap<ViewId, View>,
-    pub entries: BTreeMap<EntryId, Entry>,
+pub struct Views<'a>(RwLockReadGuard<'a, ViewStorage>);
+
+impl<'a> Views<'a> {
+    pub fn iter(&'a self) -> impl Iterator<Item = (ViewId, &'a View)> {
+        self.0.iter().map(|(id, view)| (ViewId(id), view))
+    }
 }
 
-/// Holds non-persistent data for the duration of the current session
-pub struct Cache {
-    pub entry_tags: BTreeMap<EntryId, Vec<factbook_swipl::Record>>,
-    next_entry_id: EntryId,
-    next_view_id: ViewId,
+pub struct ViewsMut<'a>(RwLockWriteGuard<'a, ViewStorage>);
+
+impl ViewsMut<'_> {
+    pub fn create(&mut self) -> ViewId {
+        ViewId(self.0.push(Default::default()))
+    }
+
+    pub fn remove(&mut self, id: ViewId) -> View {
+        self.0.remove(id.0).unwrap()
+    }
+
+    pub fn set_name(&mut self, id: ViewId, name: String) {
+        self.0[id.0].name = name;
+    }
+
+    pub fn set_definition(&mut self, id: ViewId, definition: String) {
+        self.0[id.0].definition = definition;
+
+        // TODO: Recompute `entry_count`
+    }
 }
 
-impl Cache {
-    pub fn init_from(database: &Database, pl: &mut impl factbook_swipl::Context) -> Self {
-        let mut cache = Self {
-            entry_tags: Default::default(),
-            next_entry_id: database
-                .entries
-                .iter()
-                .map(|(&id, _)| id)
-                .max()
-                .map(EntryId::next)
-                .unwrap_or_default(),
-            next_view_id: database
-                .views
-                .iter()
-                .map(|(&id, _)| id)
-                .max()
-                .map(ViewId::next)
-                .unwrap_or_default(),
-        };
+pub struct Entries<'a>(RwLockReadGuard<'a, EntryStorage>);
 
-        for (id, entry) in &database.entries {
-            cache.update_entry(pl, *id, &entry.content);
+impl<'a> Entries<'a> {
+    pub fn iter(&'a self) -> impl Iterator<Item = (EntryId, &'a Entry)> {
+        self.0.entries().map(|(id, entry)| (EntryId(id), entry))
+    }
+}
+
+pub struct EntriesMut<'a> {
+    session: &'a Session,
+    store: RwLockWriteGuard<'a, EntryStorage>,
+}
+
+impl<'a> EntriesMut<'a> {
+    pub fn create(&mut self) -> EntryId {
+        EntryId(self.store.insert_entry(Default::default()))
+    }
+
+    pub fn remove(&mut self, id: EntryId) -> Entry {
+        self.store.remove_entry(id.0)
+    }
+
+    pub fn set_content(&mut self, id: EntryId, content: String) {
+        self.store.clear_entry(id.0);
+
+        let mut engine = self.session.0.engine();
+        let pl = engine.frame();
+
+        for tag in lang::parse(&content, &pl) {
+            let key = tag.get::<RawFunctor>().unwrap();
+            self.store.insert_tag(id.0, key, tag.record());
         }
 
-        cache
-    }
+        // let debug_tags = self
+        //     .store
+        //     .tags_by_entry(id.0)
+        //     .map(|(k, _)| k)
+        //     .collect::<Vec<_>>();
+        // log::debug!("set entry {id:?} to {content:?}, parsed tags: {debug_tags:?}");
 
-    pub fn update_entry(
-        &mut self,
-        pl: &mut impl factbook_swipl::Context,
-        id: EntryId,
-        content: &str,
-    ) {
-        let tags = self.entry_tags.entry(id).or_default();
-        tags.clear();
-        tags.extend(crate::lang::parse(content, pl).map(|t| t.record()));
-    }
-
-    pub fn next_entry_id(&mut self) -> EntryId {
-        let id = self.next_entry_id;
-        self.next_entry_id = self.next_entry_id.next();
-        id
-    }
-
-    pub fn next_view_id(&mut self) -> ViewId {
-        let id = self.next_view_id;
-        self.next_view_id = self.next_view_id.next();
-        id
+        self.store.entry_data_mut(id.0).content = content;
     }
 }
 
 #[cfg(test)]
 mod test {
-    use factbook_swipl::Session;
+    use crate::Session;
     use std::sync::LazyLock;
 
-    pub(crate) static SESSION: LazyLock<Session<'static>> =
-        LazyLock::new(|| Session::init(crate::SWIPL_STATE).unwrap());
+    pub(crate) static SESSION: LazyLock<Session> = LazyLock::new(|| Session::new().unwrap());
 }

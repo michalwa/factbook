@@ -1,16 +1,11 @@
 use chrono::{DateTime, Local};
+use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ViewId(pub(crate) u64);
-
-impl ViewId {
-    pub fn next(self) -> Self {
-        Self(self.0 + 1)
-    }
-}
+pub struct ViewId(pub(crate) usize);
 
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -18,26 +13,21 @@ impl fmt::Display for ViewId {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, CopyBlobData,
+)]
 #[serde(transparent)]
-pub struct EntryId(pub(crate) u64);
-
-impl EntryId {
-    pub fn next(self) -> Self {
-        Self(self.0 + 1)
-    }
-}
+pub struct EntryId(pub(crate) sparse_tags::EntryId);
 
 impl factbook_swipl::term::ToTerm for EntryId {
     fn put_in(self, term: factbook_swipl::term::Term) {
-        // TODO: Make it an opaque blob
-        self.0.put_in(term);
+        term.put(CopyBlob(self));
     }
 }
 
 impl factbook_swipl::term::FromTerm for EntryId {
     fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
-        term.get().map(Self)
+        Some(term.get::<CopyBlob<Self>>()?.0)
     }
 }
 
@@ -46,6 +36,7 @@ impl factbook_swipl::term::FromTerm for EntryId {
 pub struct View {
     pub name: String,
     pub definition: String,
+    pub entry_count: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

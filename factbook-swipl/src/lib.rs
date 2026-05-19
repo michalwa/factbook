@@ -306,7 +306,7 @@ pub trait Context {
         module: impl Into<Option<&'m str>>,
     ) -> bool {
         let head = self.new_term();
-        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).ptr) } {
+        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).0.ptr) } {
             panic!("PL_put_functor failed");
         }
 
@@ -371,18 +371,33 @@ impl Atom {
     }
 
     pub fn to_functor<const ARITY: usize>(&self) -> Functor<ARITY> {
-        Functor {
+        Functor(RawFunctor {
             _marker: Default::default(),
             ptr: unsafe { pl::PL_new_functor_sz(self.ptr, ARITY) },
-        }
+        })
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct Functor<const ARITY: usize> {
+pub struct Functor<const ARITY: usize>(RawFunctor);
+
+/// Used to identify a functor, but cannot be used to instantiate it
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RawFunctor {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     ptr: pl::functor_t,
+}
+
+// SAFETY: `functor_t` returned from `PL_new_functor` is documented to be valid
+// for the entire Prolog session
+unsafe impl Send for RawFunctor {}
+unsafe impl Sync for RawFunctor {}
+
+impl fmt::Debug for RawFunctor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("<functor:{:p}>", self.ptr as *const ()))
+    }
 }
 
 /// A handle to a recorded term which can be shared between threads

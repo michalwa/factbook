@@ -103,43 +103,43 @@ mod test {
 
     #[test]
     fn parse_empty() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("", &engine), [] as [&str; _]);
     }
 
     #[test]
     fn parse_single_atom() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo", &engine), ["foo"]);
     }
 
     #[test]
     fn parse_single_atom_with_surrounding_content() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("bar @foo bar", &engine), ["foo"]);
     }
 
     #[test]
     fn parse_two_atoms() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo @bar", &engine), ["foo", "bar"]);
     }
 
     #[test]
     fn parse_two_adjacent_atoms() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo@bar", &engine), [] as [&str; _]);
     }
 
     #[test]
     fn parse_single_compound() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo(bar)", &engine), ["foo(bar)"]);
     }
 
     #[test]
     fn parse_two_compound() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo(bar) @bar(baz)", &engine), [
             "foo(bar)", "bar(baz)"
         ]);
@@ -147,26 +147,26 @@ mod test {
 
     #[test]
     fn parse_quoted() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@\"foo bar\"", &engine), ["\"foo bar\""]);
         assert_eq!(parse("@'foo bar'", &engine), ["'foo bar'"]);
     }
 
     #[test]
     fn parse_compound_with_string_argument_with_spaces() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo(\"foo bar\")", &engine), ["foo(\"foo bar\")"]);
     }
 
     #[test]
     fn parse_compound_with_numbers() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo(1, 2.3)", &engine), ["foo(1,2.3)"]);
     }
 
     #[test]
     fn parse_compound_nested() {
-        let engine = crate::test::SESSION.engine();
+        let engine = crate::test::SESSION.0.engine();
         assert_eq!(parse("@foo(bar(1, 2), 3, baz(4, 5))", &engine), [
             "foo(bar(1,2),3,baz(4,5))"
         ]);
