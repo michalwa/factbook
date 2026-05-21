@@ -49,6 +49,8 @@ fn foreign_context_concurrent() {
 
                 engine.register_predicate::<MyPredicate>();
                 engine.call(goal, None).unwrap();
+
+                println!("{context_t:?}");
             })
         });
 

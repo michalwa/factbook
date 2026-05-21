@@ -352,12 +352,14 @@ extern "C" fn scoped_blob_write<T>(
     let type_name = unsafe { CStr::from_ptr((&*spec).name) }.to_str().unwrap();
 
     let blob_lock = unsafe { &*(blob_ptr as *mut ScopedBlobAlloc<T>) };
-    let blob = blob_lock
-        .try_read()
-        .expect("ScopedBlob borrowed from another thread");
 
-    let valid = blob.as_ref().map(|_| "").unwrap_or(" (invalid)");
-    let string = CString::new(format!("<{type_name}{valid}>")).unwrap();
+    let valid = match blob_lock.try_read() {
+        Ok(data) => data.is_some(),
+        Err(_) => true, // if it's borrowed then it must be valid
+    };
+
+    let valid_msg = if valid { "" } else { " (invalid)" };
+    let string = CString::new(format!("<{type_name}{valid_msg}>")).unwrap();
 
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
 
