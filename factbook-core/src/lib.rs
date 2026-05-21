@@ -131,6 +131,7 @@ mod test {
     use crate::model::{EntryId, ViewId};
     use crate::{Session, State};
     use std::sync::LazyLock;
+    use test_log::test;
 
     pub(crate) static SESSION: LazyLock<Session> = LazyLock::new(|| Session::new().unwrap());
 
