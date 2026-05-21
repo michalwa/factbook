@@ -1,6 +1,7 @@
-use crate::{Context, EngineHandle, Term};
+use crate::{Context, Term};
 pub use factbook_swipl_macros::predicate;
 use std::ffi::CStr;
+use std::marker::PhantomData;
 use swipl_fli as pl;
 
 /// Re-exports for use by macros
@@ -72,6 +73,13 @@ pub trait Nondet: Predicate {
     fn next(&mut self, ctx: &mut impl Context, args: Self::Args<'_>) -> bool;
 }
 
+/// A context to statically grant foreign prediates access to an attached engine
+struct ForeignContext {
+    _marker: PhantomData<*const ()>, // !Send
+}
+
+unsafe impl Context for ForeignContext {}
+
 /// Generic wrapper implementation for semi-deterministic foreign predicates.
 /// Only meant to be used from the [`predicate`] macro.
 ///
@@ -81,7 +89,9 @@ pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
-    let mut ctx = unsafe { EngineHandle::assume_attached() };
+    let mut ctx = ForeignContext {
+        _marker: Default::default(),
+    };
 
     match P::call(&mut ctx, unsafe { P::Args::from_raw(args) }) {
         true => pl::TRUE as _,
@@ -108,7 +118,9 @@ pub unsafe fn nondet_impl<P: Nondet>(
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
-    let mut ctx = unsafe { EngineHandle::assume_attached() };
+    let mut ctx = ForeignContext {
+        _marker: Default::default(),
+    };
 
     match unsafe { pl::PL_foreign_control(ctrl) } as u32 {
         pl::PL_FIRST_CALL => {

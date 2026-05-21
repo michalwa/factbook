@@ -98,11 +98,11 @@ fn scoped_blob_with_foreign_predicate() {
 
     engine.register_predicate::<CustomPredicate>();
 
-    let xs = MyVec(RefCell::new(Vec::<i32>::new()));
+    let mut xs = MyVec(RefCell::new(Vec::<i32>::new()));
     let t = engine.new_term();
 
     {
-        let blob = ScopedBlob::new(&xs);
+        let blob = ScopedBlob::new(&mut xs);
         t.put(&blob);
         let goal = term! { &engine => custom_predicate({t}) };
         assert!(engine.call(goal, None).unwrap());

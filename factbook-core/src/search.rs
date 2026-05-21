@@ -23,8 +23,8 @@ impl State<'_> {
             .expect("invalid view");
 
         let entries = self.entries.read().unwrap();
-        let ctx = ViewContext { entries: &entries };
-        let ctx_blob = ScopedBlob::new(&ctx);
+        let mut ctx = ViewContext { entries: &entries };
+        let ctx_blob = ScopedBlob::new(&mut ctx);
 
         let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
         let mut visited = BTreeSet::new();
@@ -82,9 +82,13 @@ mod predicates {
             Self { iter: None }
         }
 
-        fn next(&mut self, pl: &mut impl Context, [ctx, entry_id, tag]: Self::Args<'_>) -> bool {
+        fn next(
+            &mut self,
+            pl: &mut impl Context,
+            [ctx_arg, entry_id, tag]: Self::Args<'_>,
+        ) -> bool {
             if self.iter.is_none() {
-                let Some(ctx_atom) = ctx.get::<Atom>() else {
+                let Some(ctx_atom) = ctx_arg.get::<Atom>() else {
                     return false;
                 };
                 let Some(ctx) = ctx_atom.scoped_blob::<ViewContext>() else {
@@ -95,7 +99,7 @@ mod predicates {
                     // Prioritize scanning the entry if the ID is instantiated,
                     // since there's likely less tags on a specific entry than
                     // tags with the same functor
-                    log::debug!("querying tags by entry_id: {entry_id:?}");
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by entry_id");
 
                     Some(Box::new(
                         ctx.entries
@@ -103,7 +107,7 @@ mod predicates {
                             .map(move |(_, tag)| (entry_id, tag)),
                     ))
                 } else if let Some(functor) = tag.get::<RawFunctor>() {
-                    log::debug!("querying tags by functor: {tag:?}");
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by functor");
 
                     Some(Box::new(
                         ctx.entries
@@ -111,7 +115,7 @@ mod predicates {
                             .map(move |(entry_id, tag)| (EntryId(entry_id), tag)),
                     ))
                 } else {
-                    log::debug!("querying all tags");
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query all");
 
                     Some(Box::new(
                         ctx.entries
