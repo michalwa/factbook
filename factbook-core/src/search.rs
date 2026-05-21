@@ -4,6 +4,7 @@ use factbook_swipl::Context;
 use factbook_swipl::blob::{CopyBlob, ScopedBlob, ScopedBlobData};
 use factbook_swipl::query::open_query;
 use sparse_tags::Store;
+use std::collections::BTreeSet;
 
 impl State<'_> {
     pub fn for_each_view_entry<F>(&self, view: ViewId, mut f: F)
@@ -26,13 +27,34 @@ impl State<'_> {
         let ctx_blob = ScopedBlob::new(&ctx);
 
         let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
+        let mut visited = BTreeSet::new();
 
         while let Some([_, _, entry_id]) = query.next_solution().unwrap() {
-            let CopyBlob(entry_id) = entry_id.get::<CopyBlob<EntryId>>().unwrap();
-            let entry = entries.entry_data(entry_id.0);
+            if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
+                if visited.contains(&entry_id) {
+                    continue;
+                }
 
-            f(entry_id, entry);
+                let entry = entries.entry_data(entry_id.0);
+
+                f(entry_id, entry);
+
+                visited.insert(entry_id);
+            } else {
+                // If the entry ID is uninstantiated, the user probably used a wildcard
+                // view like `any`, and we should iterate all entries
+                log::debug!("query returned uninstantiated entry ID, returning all entries");
+
+                for (entry_id, entry) in entries.entries() {
+                    f(EntryId(entry_id), entry);
+                }
+
+                // Ignore other solutions
+                break;
+            }
         }
+
+        query.close();
     }
 }
 

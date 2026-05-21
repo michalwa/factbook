@@ -13,11 +13,15 @@ impl fmt::Display for ViewId {
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, CopyBlobData,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, CopyBlobData)]
 #[serde(transparent)]
 pub struct EntryId(pub(crate) sparse_tags::EntryId);
+
+impl fmt::Debug for EntryId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl factbook_swipl::term::ToTerm for EntryId {
     fn put_in(self, term: factbook_swipl::term::Term) {
