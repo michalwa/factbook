@@ -13,9 +13,9 @@ const ViewContext = createContext();
 export const VIEW_ALL = "all";
 
 export function Provider(props) {
-  const [views, { mutate: mutateViews }] = createResource(() =>
-    invoke("get_views"),
-  );
+  const [views, { mutate: mutateViews, refetch: refetchViews }] =
+    createResource(() => invoke("get_views"));
+
   const [selectedViewId, setSelectedViewId] = createSignal(VIEW_ALL);
   const [viewJustCreated, setViewJustCreated] = createSignal(false, {
     equals: false,
@@ -60,20 +60,16 @@ export function Provider(props) {
   }
 
   const setViewDefinitionDebounced = debounce(
-    (id, definition) => invoke("set_view_definition", { id, definition }),
+    async (id, definition) => {
+      await invoke("set_view_definition", { id, definition })
+      refetchViews(); // Entry count may have changed
+    },
     200,
   );
 
   function setViewDefinition(definition) {
     const id = selectedViewId();
     if (id === VIEW_ALL) return;
-
-    mutateViews(
-      mapWhere(
-        (view) => view.id === id,
-        (view) => ({ ...view, definition }),
-      ),
-    );
 
     setViewDefinitionDebounced(id, definition);
     setViewJustCreated(false);

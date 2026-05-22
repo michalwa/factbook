@@ -9,7 +9,6 @@
     "main"
   ],
   "permissions": [
-    "cli:default",
     "log:default"
   ]
 }

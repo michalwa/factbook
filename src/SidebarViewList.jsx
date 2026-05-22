@@ -21,9 +21,7 @@ export default function SidebarViewList() {
                   onClick={() => setSelectedViewId(view().id)}
                 >
                   {view().name || "Untitled"}
-                  <Show when={view().entryCount != null}>
-                    <span class="badge">{view().entryCount ?? 0}</span>
-                  </Show>
+                  <span class="badge">{view().entryCount ?? 0}</span>
                 </a>
                 <Show when={view().id === selectedViewId()}>
                   <div class="sidebar-view-list-item-corner-top"></div>

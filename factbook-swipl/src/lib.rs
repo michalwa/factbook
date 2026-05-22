@@ -1,7 +1,6 @@
 use crate::foreign::{Predicate, PredicateArgs};
 use crate::query::Query;
 use crate::term::{Exception, Term, Terms};
-use std::cell::RefCell;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -61,51 +60,35 @@ impl<'s> Session<'s> {
         })
     }
 
-    /// Optionally attaches and returns an engine for the current thread.
-    /// Engines are managed according to the one-to-one strategy documented
-    /// here: https://www.swi-prolog.org/pldoc/man?section=threadoneone
-    /// with the additional constraint that `PL_thread_attach_engine` is only
-    /// called once per thread on the first call to this method.
-    pub fn engine<'a>(&'a self) -> EngineHandle<'a> {
-        thread_local! {
-            static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
-        }
-        ENGINE.with_borrow_mut(|e| {
-            e.get_or_insert_with(|| self.attach_engine());
-        });
+    /// Attaches and returns an engine for the current thread. Engines are
+    /// managed according to the one-to-one strategy documented here:
+    /// https://www.swi-prolog.org/pldoc/man?section=threadoneone
+    pub fn engine<'a>(&'a self) -> Engine<'a> {
+        static mut THREAD_ATTR: pl::PL_thread_attr_t = pl::PL_thread_attr_t {
+            stack_limit: 0,
+            table_space: 0,
+            alias: std::ptr::null_mut(),
+            cancel: None,
+            flags: 0,
+            max_queue_size: 0,
+            thread_class: std::ptr::null_mut(),
+            reserved: [std::ptr::null_mut(); _],
+        };
 
-        // SAFETY: If an `Engine` exists then a handle can be created. It's enough for
-        // `EngineHandle` not to be `Send` to ensure that is is always valid (for the
-        // duration of the thread).
-        EngineHandle {
-            _marker: Default::default(),
-        }
-    }
-
-    fn attach_engine(&self) -> Engine {
-        log::debug!(
-            "PL_thread_attach_engine on {:?}",
-            std::thread::current().id()
-        );
-
-        match unsafe {
-            pl::PL_thread_attach_engine(&mut pl::PL_thread_attr_t {
-                stack_limit: 0,
-                table_space: 0,
-                alias: std::ptr::null_mut(),
-                cancel: None,
-                flags: 0,
-                max_queue_size: 0,
-                thread_class: std::ptr::null_mut(),
-                reserved: [std::ptr::null_mut(); _],
-            } as _)
-        } {
+        match unsafe { pl::PL_thread_attach_engine(&raw mut THREAD_ATTR) } {
             -1 => panic!("failed to create Prolog engine: PL_thread_attach_engine failed"),
             -2 => panic!(
                 "failed to create Prolog engine: SWI-Prolog version does not support threads"
             ),
-            _ => Engine {
-                _marker: Default::default(),
+            id => {
+                log::debug!(
+                    "PL_thread_attach_engine on {:?} (id: {id})",
+                    std::thread::current().id()
+                );
+
+                Engine {
+                    _marker: Default::default(),
+                }
             },
         }
     }
@@ -121,43 +104,26 @@ impl Drop for Session<'_> {
     }
 }
 
-/// Internal engine handle which destroys the current engine on drop. We can't
-/// give out references to this, since we're storing it as a thread-local, so
-/// `EngineHandle` is used instead.
-struct Engine {
-    // Not `Send` because it's only valid in the context of the current thread engine
-    _marker: PhantomData<*const ()>,
-}
-
-impl Drop for Engine {
-    fn drop(&mut self) {
-        // Don't attempt to call `PL_thread_destroy_engine` if `PL_cleanup` was already
-        // called, otherwise it will hang. This can be the case if `Session` is dropped
-        // before the `Engine`, e.g. when the thread holding the `Session` exits.
-        if unsafe { pl::PL_is_initialised(std::ptr::null_mut(), std::ptr::null_mut()) } {
-            log::debug!(
-                "PL_thread_destroy_engine on {:?}",
-                std::thread::current().id()
-            );
-
-            if !unsafe { pl::PL_thread_destroy_engine() } {
-                log::warn!("PL_thread_destroy_engine failed");
-            }
-        }
-    }
-}
-
 /// A handle/guard which, when held, statically guarantees that the current
 /// thread has an attached engine.
-pub struct EngineHandle<'a> {
+pub struct Engine<'a> {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<(*const (), &'a ())>,
 }
 
-impl EngineHandle<'_> {
-    pub(crate) unsafe fn assume_attached() -> Self {
-        Self {
-            _marker: Default::default(),
+impl Drop for Engine<'_> {
+    fn drop(&mut self) {
+        log::debug!(
+            "PL_thread_destroy_engine on {:?} (id: {})",
+            std::thread::current().id(),
+            unsafe { pl::PL_thread_self() }
+        );
+
+        // NOTE: This is always safe to call because `Engine` is bound to the
+        // lifetime of the session, therefore when it is dropped, the session is
+        // guaranteed to still be live
+        if !unsafe { pl::PL_thread_destroy_engine() } {
+            log::warn!("PL_thread_destroy_engine failed");
         }
     }
 }
@@ -186,7 +152,12 @@ impl Drop for Frame<'_> {
 }
 
 /// Shared trait for types which allow constructing new terms
-pub trait Context {
+///
+/// ### Safety
+///
+/// Implementations must guarantee that Prolog API functions are safe to
+/// call as long as an instance of the type is valid
+pub unsafe trait Context {
     /// Opens a new foreign frame.
     ///
     /// Terms created within the frame are bound to its lifetime. The following
@@ -306,7 +277,7 @@ pub trait Context {
         module: impl Into<Option<&'m str>>,
     ) -> bool {
         let head = self.new_term();
-        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).ptr) } {
+        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).0.ptr) } {
             panic!("PL_put_functor failed");
         }
 
@@ -340,8 +311,8 @@ pub trait Context {
     }
 }
 
-impl Context for EngineHandle<'_> {}
-impl Context for Frame<'_> {}
+unsafe impl Context for Engine<'_> {}
+unsafe impl Context for Frame<'_> {}
 
 pub struct Atom {
     // Not `Send` because it's only valid in the context of the current thread engine
@@ -371,18 +342,33 @@ impl Atom {
     }
 
     pub fn to_functor<const ARITY: usize>(&self) -> Functor<ARITY> {
-        Functor {
+        Functor(RawFunctor {
             _marker: Default::default(),
             ptr: unsafe { pl::PL_new_functor_sz(self.ptr, ARITY) },
-        }
+        })
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct Functor<const ARITY: usize> {
+pub struct Functor<const ARITY: usize>(RawFunctor);
+
+/// Used to identify a functor, but cannot be used to instantiate it
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RawFunctor {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
     ptr: pl::functor_t,
+}
+
+// SAFETY: `functor_t` returned from `PL_new_functor` is documented to be valid
+// for the entire Prolog session
+unsafe impl Send for RawFunctor {}
+unsafe impl Sync for RawFunctor {}
+
+impl fmt::Debug for RawFunctor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("<functor:{:p}>", self.ptr as *const ()))
+    }
 }
 
 /// A handle to a recorded term which can be shared between threads
@@ -591,20 +577,22 @@ mod test {
         LazyLock::new(|| Session::init(STATE).unwrap());
 
     #[test]
-    fn threads() {
-        thread::spawn(|| {
+    fn database_across_threads() {
+        let thread = thread::spawn(|| {
             let engine = SESSION.engine();
-            let t = term! { &engine => foo(bar(baz), qux) };
+            let t = term! { &engine => foo(bar) };
 
             engine.assert(t, Default::default());
         });
 
         let engine = SESSION.engine();
         let t = engine.new_term();
-        let q = term! { &engine => foo(bar({t}), _) };
+        let q = term! { &engine => foo({t}) };
+
+        thread.join().unwrap();
 
         assert!(engine.call(q, None).unwrap());
-        assert_eq!(t.atom_chars(), Some("baz"));
+        assert_eq!(t.atom_chars(), Some("bar"));
     }
 
     #[test]

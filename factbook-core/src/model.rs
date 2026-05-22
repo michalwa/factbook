@@ -1,16 +1,11 @@
 use chrono::{DateTime, Local};
+use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ViewId(pub(crate) u64);
-
-impl ViewId {
-    pub fn next(self) -> Self {
-        Self(self.0 + 1)
-    }
-}
+pub struct ViewId(pub(crate) usize);
 
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -18,38 +13,40 @@ impl fmt::Display for ViewId {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, CopyBlobData)]
 #[serde(transparent)]
-pub struct EntryId(pub(crate) u64);
+pub struct EntryId(pub(crate) sparse_tags::EntryId);
 
-impl EntryId {
-    pub fn next(self) -> Self {
-        Self(self.0 + 1)
+impl fmt::Debug for EntryId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
 impl factbook_swipl::term::ToTerm for EntryId {
     fn put_in(self, term: factbook_swipl::term::Term) {
-        // TODO: Make it an opaque blob
-        self.0.put_in(term);
+        term.put(CopyBlob(self));
     }
 }
 
 impl factbook_swipl::term::FromTerm for EntryId {
     fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
-        term.get().map(Self)
+        Some(term.get::<CopyBlob<Self>>()?.0)
     }
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct View {
     pub name: String,
     pub definition: String,
+    pub entry_count: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct Entry {
     pub created_at: DateTime<Local>,
     pub content: String,
@@ -62,4 +59,11 @@ impl Default for Entry {
             content: String::new(),
         }
     }
+}
+
+/// Persistent save file
+#[derive(Serialize, Deserialize)]
+pub struct Journal {
+    pub(crate) entries: Vec<Entry>,
+    pub(crate) views: Vec<View>,
 }

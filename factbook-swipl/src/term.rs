@@ -1,4 +1,4 @@
-use crate::{Atom, Context, ExternalRecord, Functor, Record, term};
+use crate::{Atom, Context, ExternalRecord, Functor, RawFunctor, Record, term};
 use std::marker::PhantomData;
 use std::num::NonZero;
 use std::ops::Deref;
@@ -56,7 +56,7 @@ impl<'a> Term<'a> {
         functor: Functor<ARITY>,
         args: [Self; ARITY],
     ) -> Self {
-        if !unsafe { pl::PL_put_functor(self.ptr.get(), functor.ptr) } {
+        if !unsafe { pl::PL_put_functor(self.ptr.get(), functor.0.ptr) } {
             panic!("PL_put_functor failed");
         }
 
@@ -483,9 +483,23 @@ impl FromTerm for f64 {
     }
 }
 
+impl FromTerm for RawFunctor {
+    fn from_term(term: Term) -> Option<Self> {
+        let mut ptr: pl::functor_t = 0;
+        if unsafe { pl::PL_get_functor(term.ptr.get(), &raw mut ptr) } {
+            Some(RawFunctor {
+                _marker: Default::default(),
+                ptr,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::Context;
+    use crate::{Context, RawFunctor, term};
     use test_log::test;
 
     #[test]
@@ -496,5 +510,17 @@ mod test {
             .put_parsed("foo(bar, (1, 2), \"hello\")")
             .unwrap();
         assert_eq!(t.to_string(), "foo(bar,(1,2),\"hello\")");
+    }
+
+    #[test]
+    fn get_raw_functor() {
+        let engine = crate::test::SESSION.engine();
+        let func = engine.functor::<2>("foo");
+
+        let t1 = term! { &engine => foo(bar, baz) };
+        let t2 = term! { &engine => 42 };
+
+        assert_eq!(t1.get::<RawFunctor>(), Some(func.0));
+        assert_eq!(t2.get::<RawFunctor>(), None);
     }
 }

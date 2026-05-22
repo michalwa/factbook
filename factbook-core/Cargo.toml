@@ -8,6 +8,12 @@ chrono = { version = "0.4", features = ["serde"] }
 factbook-swipl = { path = "../factbook-swipl" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
+stable-vec = "0.4.2"
+
+[dependencies.sparse-tags]
+git = "https://github.com/michalwa/sparse-tags.git"
+rev = "a329ff43705727eb15de76fe81405486b9378df5"
+features = ["serde"]
 
 [dev-dependencies]
 test-log = "0.2.18"

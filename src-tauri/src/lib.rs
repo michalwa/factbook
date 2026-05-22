@@ -1,10 +1,12 @@
 use std::fs::File;
-use std::io::BufReader;
+use std::sync::LazyLock;
 use tauri::{App, Manager};
-use tauri_plugin_cli::CliExt;
 
 mod api;
 mod util;
+
+static SESSION: LazyLock<factbook_core::Session> =
+    LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,41 +18,27 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_views,
             api::create_view,
+            api::remove_view,
             api::set_view_name,
             api::set_view_definition,
-            api::remove_view,
             api::get_entries,
-            api::set_entry_content,
             api::create_entry,
             api::remove_entry,
+            api::set_entry_content,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(desktop)]
-    app.handle().plugin(tauri_plugin_cli::init())?;
+    let state = factbook_core::State::new(&SESSION);
 
-    let mut database = None;
+    // TODO: Add journal file picker
+    let journal_file = File::open("../examples/journal.json")?;
+    let journal = serde_json::from_reader(journal_file)?;
+    state.load_journal(journal);
 
-    if let Ok(matches) = app.cli().matches() {
-        if let Some(help) = matches.args.get("help") {
-            println!("{}", help.value.as_str().unwrap());
-            app.handle().exit(0);
-        }
-
-        if let Some(file) = matches.args.get("file") {
-            let file = File::open(file.value.as_str().unwrap())?;
-            database = Some(serde_json::from_reader(BufReader::new(file))?);
-        }
-    }
-
-    let Some(database) = database else {
-        panic!("No journal file loaded");
-    };
-
-    app.manage(factbook_core::State::init_with(database));
+    app.manage(state);
 
     Ok(())
 }

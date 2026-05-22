@@ -1,23 +1,84 @@
 use crate::model::{Entry, EntryId, ViewId};
-use crate::{Cache, Database};
-use factbook_swipl::blob::ScopedBlob;
+use crate::{EntryStorage, State};
+use factbook_swipl::Context;
+use factbook_swipl::blob::{CopyBlob, ScopedBlob, ScopedBlobData};
 use factbook_swipl::query::open_query;
-use factbook_swipl::{Context, EngineHandle};
+use sparse_tags::Store;
 use std::collections::BTreeSet;
 
-pub mod predicates {
+impl State<'_> {
+    pub fn for_each_view_entry<F>(&self, view: ViewId, mut f: F)
+    where
+        F: FnMut(EntryId, &Entry),
+    {
+        let mut engine = self.session.0.engine();
+        let pl = engine.frame();
+        pl.register_predicate::<predicates::EntryTag>();
+
+        let views = self.views.read().unwrap();
+        let view_definition = &views[view.0].definition;
+
+        let view_term = match pl.new_term().put_parsed(view_definition) {
+            Ok(view_term) => view_term,
+            Err(ex) => {
+                log::warn!("failed to parse view: {ex:?}");
+                return;
+            },
+        };
+
+        let entries = self.entries.read().unwrap();
+        let mut ctx = ViewContext { entries: &entries };
+        let ctx_blob = ScopedBlob::new(&mut ctx);
+
+        let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
+        let mut visited = BTreeSet::new();
+
+        while let Some([_, _, entry_id]) = query.next_solution().unwrap() {
+            if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
+                if visited.contains(&entry_id) {
+                    continue;
+                }
+
+                let entry = entries.entry_data(entry_id.0);
+
+                f(entry_id, entry);
+
+                visited.insert(entry_id);
+            } else {
+                // If the entry ID is uninstantiated, the user probably used a wildcard
+                // view like `any`, and we should iterate all entries
+                log::debug!("query returned uninstantiated entry ID, returning all entries");
+
+                for (entry_id, entry) in entries.entries() {
+                    f(EntryId(entry_id), entry);
+                }
+
+                // Ignore other solutions
+                break;
+            }
+        }
+
+        query.close();
+    }
+}
+
+/// The scoped blob passed to the Prolog execution for predicates to be able to
+/// query the state
+#[derive(ScopedBlobData)]
+struct ViewContext<'a> {
+    entries: &'a EntryStorage,
+}
+
+mod predicates {
     use crate::model::EntryId;
-    use factbook_swipl::blob::ScopedBlobData;
+    use crate::search::ViewContext;
     use factbook_swipl::foreign::{Nondet, predicate};
-    use factbook_swipl::{Atom, Context};
-    use std::collections::BTreeMap;
+    use factbook_swipl::{Atom, Context, RawFunctor, Record};
+    use sparse_tags::Store;
 
-    #[derive(ScopedBlobData)]
-    pub struct EntryTagContext<'a>(pub(crate) &'a BTreeMap<EntryId, Vec<factbook_swipl::Record>>);
-
-    #[predicate(entry_tag(context, entry, tag) nondet)]
-    pub struct EntryTag<'a> {
-        iter: Option<Box<dyn Iterator<Item = (EntryId, &'a factbook_swipl::Record)> + 'a>>,
+    #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
+    pub(super) struct EntryTag<'a> {
+        iter: Option<Box<dyn Iterator<Item = (EntryId, &'a Record)> + 'a>>,
     }
 
     impl Nondet for EntryTag<'_> {
@@ -28,29 +89,62 @@ pub mod predicates {
         fn next(
             &mut self,
             pl: &mut impl Context,
-            [entry_tags, arg_entry, arg_tag]: Self::Args<'_>,
+            [ctx_arg, entry_id, tag]: Self::Args<'_>,
         ) -> bool {
             if self.iter.is_none() {
-                let Some(entry_tags_atom) = entry_tags.get::<Atom>() else {
+                let Some(ctx_atom) = ctx_arg.get::<Atom>() else {
                     return false;
                 };
-                let Some(entry_tags) = entry_tags_atom.scoped_blob::<EntryTagContext>() else {
+                let Some(ctx) = ctx_atom.scoped_blob::<ViewContext>() else {
                     return false;
                 };
-                self.iter = Some(Box::new(
-                    entry_tags
-                        .0
-                        .iter()
-                        .flat_map(|(id, ts)| ts.iter().map(|t| (*id, t))),
-                ));
-            };
 
-            for (entry_id, tag) in self.iter.as_mut().unwrap() {
+                self.iter = if let Some(entry_id) = entry_id.get::<EntryId>() {
+                    // Prioritize scanning the entry if the ID is instantiated,
+                    // since there's likely less tags on a specific entry than
+                    // tags with the same functor
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by entry_id");
+
+                    Some(Box::new(
+                        ctx.entries
+                            .tags_by_entry(entry_id.0)
+                            .map(move |(_, tag)| (entry_id, tag)),
+                    ))
+                } else if let Some(functor) = tag.get::<RawFunctor>() {
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by functor");
+
+                    Some(Box::new(
+                        ctx.entries
+                            .tags_by_key(&functor)
+                            .map(move |(entry_id, tag)| (EntryId(entry_id), tag)),
+                    ))
+                } else {
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query all");
+
+                    Some(Box::new(
+                        ctx.entries
+                            .tags()
+                            .map(|(entry_id, _, tag)| (EntryId(entry_id), tag)),
+                    ))
+                };
+            }
+
+            for (found_entry_id, found_tag) in self.iter.as_mut().unwrap() {
                 let pl = pl.frame();
-                let entry_id = pl.new_term().put(entry_id);
-                let tag = pl.new_term().put(tag);
+                let found_tag = pl.new_term().put(found_tag);
 
-                if arg_entry.unify_with(entry_id) && arg_tag.unify_with(tag) {
+                // If `entry_id` is already instantiated, manually compare instead of
+                // unifying terms, because unifying blobs like this will always fail,
+                // even if they have the same contents
+                let entry_matched = match entry_id.get::<EntryId>() {
+                    Some(entry_id) => entry_id == found_entry_id,
+                    None => {
+                        let found_entry_id = pl.new_term().put(found_entry_id);
+                        entry_id.unify_with(found_entry_id)
+                    },
+                };
+
+                if entry_matched && tag.unify_with(found_tag) {
                     pl.close();
                     return true;
                 }
@@ -58,197 +152,5 @@ pub mod predicates {
 
             false
         }
-    }
-}
-
-pub fn get_entries<'d>(
-    database: &'d Database,
-    cache: &'_ Cache,
-    pl: &mut EngineHandle,
-    view: Option<ViewId>,
-) -> Box<dyn Iterator<Item = (EntryId, &'d Entry)> + 'd> {
-    let pl = pl.frame();
-
-    let context = predicates::EntryTagContext(&cache.entry_tags);
-    let context_blob = ScopedBlob::new(&context);
-
-    if let Some(view_id) = view {
-        let mut entry_ids = BTreeSet::new();
-        let view = database.views.get(&view_id).unwrap();
-        let view_term = pl.new_term().put_parsed(&view.definition).unwrap();
-
-        // `view_entry(Context: EntryTagContext, View, EntryId)` defined in
-        // ../prelude.pl
-        let query = open_query! { pl => view_entry({&context_blob}, {view_term}, _) }.unwrap();
-        while let Some([_, _, entry_id]) = query.next_solution().unwrap() {
-            // TODO: impl Iterator for Query
-            entry_ids.insert(entry_id.get::<EntryId>().unwrap());
-        }
-
-        Box::new(entry_ids.into_iter().map(|id| (id, &database.entries[&id])))
-    } else {
-        Box::new(database.entries.iter().map(|(id, entry)| (*id, entry)))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::model::{Entry, EntryId, View, ViewId};
-    use crate::{Cache, Database};
-    use factbook_swipl::Context;
-    use std::sync::LazyLock;
-    use test_log::test;
-
-    static FIXTURE_DATABASE: LazyLock<Database> = LazyLock::new(|| {
-        let mut database = Database::default();
-
-        database.entries.insert(EntryId(0), Entry {
-            content: "@foo @id(0)".into(),
-            ..Default::default()
-        });
-        database.entries.insert(EntryId(1), Entry {
-            content: "@bar @ref(1)".into(),
-            ..Default::default()
-        });
-        database.entries.insert(EntryId(2), Entry {
-            content: "@foo @bar @ref(0)".into(),
-            ..Default::default()
-        });
-
-        database.views.insert(ViewId(0), View {
-            name: "foo".into(),
-            definition: "@foo".into(),
-        });
-        database.views.insert(ViewId(1), View {
-            name: "bar".into(),
-            definition: "@bar".into(),
-        });
-        database.views.insert(ViewId(2), View {
-            name: "foo and bar".into(),
-            definition: "@foo, @bar".into(),
-        });
-        database.views.insert(ViewId(3), View {
-            name: "foo or bar".into(),
-            definition: "@foo; @bar".into(),
-        });
-        database.views.insert(ViewId(4), View {
-            name: "any".into(),
-            definition: "any".into(),
-        });
-        database.views.insert(ViewId(5), View {
-            name: "empty".into(),
-            definition: "".into(),
-        });
-        database.views.insert(ViewId(6), View {
-            name: "invalid".into(),
-            definition: "ajksdhkajshd".into(),
-        });
-        database.views.insert(ViewId(7), View {
-            name: "link".into(),
-            definition: "@ref(X), _: @id(X)".into(),
-        });
-
-        database
-    });
-
-    #[test]
-    fn get_entries_all() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, None)
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(0), EntryId(1), EntryId(2)]);
-    }
-
-    #[test]
-    fn get_entries_single_tag() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(0)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(0), EntryId(2)]);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(1)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(1), EntryId(2)]);
-    }
-
-    #[test]
-    fn get_entries_conjunction() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(2)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(2)]);
-    }
-
-    #[test]
-    fn get_entries_disjunction() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(3)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(0), EntryId(1), EntryId(2)]);
-    }
-
-    #[test]
-    fn get_entries_any() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(4)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(0), EntryId(1), EntryId(2)]);
-    }
-
-    #[test]
-    fn get_entries_empty() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(5)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, []);
-    }
-
-    #[test]
-    fn get_entries_invalid() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(6)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, []);
-    }
-
-    #[test]
-    fn get_entries_linked() {
-        let mut pl = crate::test::SESSION.engine();
-        pl.register_predicate::<super::predicates::EntryTag>();
-        let cache = Cache::init_from(&FIXTURE_DATABASE, &mut pl);
-
-        let entries = super::get_entries(&FIXTURE_DATABASE, &cache, &mut pl, Some(ViewId(7)))
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>();
-        assert_eq!(entries, [EntryId(2)]);
     }
 }

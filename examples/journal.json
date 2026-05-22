@@ -1,30 +1,30 @@
 {
-  "views": {
-    "1": {
-      "name": "To do",
-      "definition": "@todo"
-    },
-    "2": {
-      "name": "Work",
-      "definition": "@work"
-    },
-    "3": {
-      "name": "Recommendations",
-      "definition": "@recommended"
-    }
-  },
-  "entries": {
-    "1": {
+  "entries": [
+    {
       "createdAt": "2025-10-17T22:24:00Z",
       "content": "this is a random @thought and it's a longer entry that wraps around into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
     },
-    "2": {
+    {
       "createdAt": "2025-10-16T15:12:00Z",
       "content": "@todo walk the dog"
     },
-    "3": {
+    {
       "createdAt": "2025-10-16T12:30:00Z",
       "content": "@todo buy milk @due(tomorrow)"
     }
-  }
+  ],
+  "views": [
+    {
+      "name": "To do",
+      "definition": "@todo"
+    },
+    {
+      "name": "Work",
+      "definition": "@work"
+    },
+    {
+      "name": "Recommendations",
+      "definition": "@recommended"
+    }
+  ]
 }
