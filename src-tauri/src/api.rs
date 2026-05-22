@@ -49,7 +49,7 @@ pub fn set_view_name(state: State<factbook_core::State>, id: ViewId, name: Strin
 
 #[tauri::command]
 pub fn set_view_definition(state: State<factbook_core::State>, id: ViewId, definition: String) {
-    state.views_mut().set_definition(id, definition);
+    state.set_view_definition(id, definition);
 }
 
 #[tauri::command]

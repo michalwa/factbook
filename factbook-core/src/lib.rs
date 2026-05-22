@@ -57,6 +57,18 @@ impl<'a> State<'a> {
             session: self.session,
         }
     }
+
+    pub fn set_view_definition(&self, id: ViewId, definition: String) {
+        let mut views = self.views.write().unwrap();
+        views[id.0].definition = definition;
+        drop(views); // can't hold `views` while calling `for_each_view_entry`
+
+        let mut entry_count = 0;
+        self.for_each_view_entry(id, |_, _| entry_count += 1);
+
+        let mut views = self.views.write().unwrap();
+        views[id.0].entry_count = entry_count;
+    }
 }
 
 pub struct Views<'a>(RwLockReadGuard<'a, ViewStorage>);
@@ -80,12 +92,6 @@ impl ViewsMut<'_> {
 
     pub fn set_name(&mut self, id: ViewId, name: String) {
         self.0[id.0].name = name;
-    }
-
-    pub fn set_definition(&mut self, id: ViewId, definition: String) {
-        self.0[id.0].definition = definition;
-
-        // TODO: Recompute `entry_count`
     }
 }
 
@@ -168,9 +174,8 @@ mod test {
     }
 
     fn create_view(state: &State, definition: impl Into<String>) -> ViewId {
-        let mut views = state.views_mut();
-        let view = views.create();
-        views.set_definition(view, definition.into());
+        let view = state.views_mut().create();
+        state.set_view_definition(view, definition.into());
         view
     }
 

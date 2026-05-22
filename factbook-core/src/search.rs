@@ -17,10 +17,14 @@ impl State<'_> {
 
         let views = self.views.read().unwrap();
         let view_definition = &views[view.0].definition;
-        let view_term = pl
-            .new_term()
-            .put_parsed(view_definition)
-            .expect("invalid view");
+
+        let view_term = match pl.new_term().put_parsed(view_definition) {
+            Ok(view_term) => view_term,
+            Err(ex) => {
+                log::warn!("failed to parse view: {ex:?}");
+                return;
+            },
+        };
 
         let entries = self.entries.read().unwrap();
         let mut ctx = ViewContext { entries: &entries };
