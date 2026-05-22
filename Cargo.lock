@@ -3924,8 +3924,8 @@ dependencies = [
 
 [[package]]
 name = "sparse-tags"
-version = "0.1.0"
-source = "git+https://github.com/michalwa/sparse-tags.git?rev=46217a01d8db817904bda64f16b23081a2a3c76f#46217a01d8db817904bda64f16b23081a2a3c76f"
+version = "0.1.1"
+source = "git+https://github.com/michalwa/sparse-tags.git?rev=a329ff43705727eb15de76fe81405486b9378df5#a329ff43705727eb15de76fe81405486b9378df5"
 dependencies = [
  "indexmap 2.14.0",
  "serde",

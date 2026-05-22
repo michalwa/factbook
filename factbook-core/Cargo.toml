@@ -12,7 +12,7 @@ stable-vec = "0.4.2"
 
 [dependencies.sparse-tags]
 git = "https://github.com/michalwa/sparse-tags.git"
-rev = "46217a01d8db817904bda64f16b23081a2a3c76f"
+rev = "a329ff43705727eb15de76fe81405486b9378df5"
 features = ["serde"]
 
 [dev-dependencies]

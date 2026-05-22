@@ -37,6 +37,7 @@ impl factbook_swipl::term::FromTerm for EntryId {
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct View {
     pub name: String,
     pub definition: String,
@@ -45,6 +46,7 @@ pub struct View {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct Entry {
     pub created_at: DateTime<Local>,
     pub content: String,
@@ -57,4 +59,11 @@ impl Default for Entry {
             content: String::new(),
         }
     }
+}
+
+/// Persistent save file
+#[derive(Serialize, Deserialize)]
+pub struct Journal {
+    pub(crate) entries: Vec<Entry>,
+    pub(crate) views: Vec<View>,
 }

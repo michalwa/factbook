@@ -12,6 +12,5 @@
       "args": ["tauri", "build", "--debug"],
     },
     "program": "target/debug/factbook.exe",
-    "args": ["-f", "examples/journal.json"],
   },
 ]

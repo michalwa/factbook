@@ -1,4 +1,4 @@
-use crate::model::{Entry, EntryId, View, ViewId};
+use crate::model::{Entry, EntryId, Journal, View, ViewId};
 use factbook_swipl::{Context, RawFunctor, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
@@ -63,6 +63,28 @@ impl<'a> State<'a> {
         views[id.0].definition = definition;
         drop(views); // can't hold `views` while calling `for_each_view_entry`
 
+        self.update_view(id);
+    }
+
+    pub fn load_journal(&self, journal: Journal) {
+        for entry in journal.entries {
+            self.entries_mut().insert(entry);
+        }
+
+        for view in journal.views {
+            self.insert_view(view);
+        }
+    }
+
+    fn insert_view(&self, view: View) {
+        let mut views = self.views_mut();
+        let id = ViewId(views.0.push(view));
+        drop(views);
+
+        self.update_view(id);
+    }
+
+    fn update_view(&self, id: ViewId) {
         let mut entry_count = 0;
         self.for_each_view_entry(id, |_, _| entry_count += 1);
 
@@ -118,17 +140,27 @@ impl<'a> EntriesMut<'a> {
     }
 
     pub fn set_content(&mut self, id: EntryId, content: String) {
+        self.store.entry_data_mut(id.0).content = content;
+        self.update_entry(id);
+    }
+
+    fn insert(&mut self, entry: Entry) {
+        let id = EntryId(self.store.insert_entry(entry));
+        self.update_entry(id);
+    }
+
+    fn update_entry(&mut self, id: EntryId) {
         self.store.clear_entry(id.0);
+
+        let content = &self.store.entry_data(id.0).content;
 
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
 
-        for tag in lang::parse(&content, &pl) {
+        for tag in lang::parse(content, &pl).collect::<Vec<_>>() {
             let key = tag.get::<RawFunctor>().unwrap();
             self.store.insert_tag(id.0, key, tag.record());
         }
-
-        self.store.entry_data_mut(id.0).content = content;
     }
 }
 

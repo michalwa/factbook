@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::sync::LazyLock;
 use tauri::{App, Manager};
 
@@ -32,12 +33,10 @@ pub fn run() {
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let state = factbook_core::State::new(&SESSION);
 
-    // TODO: Load journal file
-    {
-        let mut entries = state.entries_mut();
-        let e1 = entries.create();
-        entries.set_content(e1, "@todo walk the dog @due(today)".into());
-    }
+    // TODO: Add journal file picker
+    let journal_file = File::open("../examples/journal.json")?;
+    let journal = serde_json::from_reader(journal_file)?;
+    state.load_journal(journal);
 
     app.manage(state);
 
