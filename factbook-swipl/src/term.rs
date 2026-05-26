@@ -56,7 +56,7 @@ impl<'a> Term<'a> {
         functor: Functor<ARITY>,
         args: [Self; ARITY],
     ) -> Self {
-        if !unsafe { pl::PL_put_functor(self.ptr.get(), functor.0.ptr) } {
+        if !unsafe { pl::PL_put_functor(self.ptr.get(), functor.0.ptr.get()) } {
             panic!("PL_put_functor failed");
         }
 
@@ -284,8 +284,8 @@ impl fmt::Display for Canonical<'_> {
 impl fmt::Debug for Term<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
-            "<term:{:p} {}>",
-            self.ptr.get() as *const (),
+            "<term:{} {}>",
+            self.ptr.get(),
             self.canonical()
         ))
     }
@@ -489,7 +489,7 @@ impl FromTerm for RawFunctor {
         if unsafe { pl::PL_get_functor(term.ptr.get(), &raw mut ptr) } {
             Some(RawFunctor {
                 _marker: Default::default(),
-                ptr,
+                ptr: NonZero::new(ptr).unwrap(),
             })
         } else {
             None

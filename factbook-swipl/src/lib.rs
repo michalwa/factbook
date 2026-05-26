@@ -3,6 +3,7 @@ use crate::query::Query;
 use crate::term::{Exception, Term, Terms};
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
+use std::num::NonZero;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
 
@@ -277,7 +278,7 @@ pub unsafe trait Context {
         module: impl Into<Option<&'m str>>,
     ) -> bool {
         let head = self.new_term();
-        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).0.ptr) } {
+        if !unsafe { pl::PL_put_functor(head.ptr.get(), self.functor::<ARITY>(name).0.ptr.get()) } {
             panic!("PL_put_functor failed");
         }
 
@@ -344,7 +345,7 @@ impl Atom {
     pub fn to_functor<const ARITY: usize>(&self) -> Functor<ARITY> {
         Functor(RawFunctor {
             _marker: Default::default(),
-            ptr: unsafe { pl::PL_new_functor_sz(self.ptr, ARITY) },
+            ptr: NonZero::new(unsafe { pl::PL_new_functor_sz(self.ptr, ARITY) }).unwrap(),
         })
     }
 }
@@ -357,7 +358,7 @@ pub struct Functor<const ARITY: usize>(RawFunctor);
 pub struct RawFunctor {
     // Not `Send` because it's only valid in the context of the current thread engine
     _marker: PhantomData<*const ()>,
-    ptr: pl::functor_t,
+    ptr: NonZero<pl::functor_t>,
 }
 
 // SAFETY: `functor_t` returned from `PL_new_functor` is documented to be valid
@@ -367,7 +368,7 @@ unsafe impl Sync for RawFunctor {}
 
 impl fmt::Debug for RawFunctor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("<functor:{:p}>", self.ptr as *const ()))
+        f.write_fmt(format_args!("<functor:{}>", self.ptr))
     }
 }
 

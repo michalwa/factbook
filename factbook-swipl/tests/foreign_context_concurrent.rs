@@ -1,63 +1,69 @@
 use factbook_swipl::blob::ScopedBlob;
-use factbook_swipl::foreign::Semidet;
-use factbook_swipl::{Atom, Context, Session, term};
-use factbook_swipl_macros::{ScopedBlobData, predicate};
-use std::collections::BTreeSet;
-use std::sync::RwLock;
+use factbook_swipl::foreign::Nondet;
+use factbook_swipl::{Atom, Context, Session};
+use factbook_swipl_macros::{ScopedBlobData, open_query, predicate};
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
 #[derive(ScopedBlobData)]
-struct State(RwLock<BTreeSet<i64>>);
+struct MyContext {
+    start: i64,
+}
 
-#[predicate(my_predicate(ctx, value) semidet)]
-struct MyPredicate;
+#[predicate(my_predicate(ctx, value) nondet)]
+struct MyPredicate {
+    iter: Option<Box<dyn Iterator<Item = i64>>>,
+}
 
-impl Semidet for MyPredicate {
-    fn call(_: &mut impl Context, [ctx, value]: Self::Args<'_>) -> bool {
-        let ctx_atom = ctx.get::<Atom>().unwrap();
-        let ctx = ctx_atom.scoped_blob::<State>().unwrap();
+impl Nondet for MyPredicate {
+    fn init(_: &impl Context) -> Self {
+        Self { iter: None }
+    }
 
-        if let Some(value) = value.get::<i64>() {
-            ctx.0.write().unwrap().insert(value);
+    fn next(&mut self, pl: &mut impl Context, [ctx, value]: Self::Args<'_>) -> bool {
+        if self.iter.is_none() {
+            let ctx_atom = ctx.get::<Atom>().unwrap();
+            let ctx = ctx_atom.scoped_blob::<MyContext>().unwrap();
+
+            self.iter = Some(Box::new(ctx.start..))
         }
 
-        true
+        value.unify_with(
+            pl.new_term()
+                .put(self.iter.as_mut().unwrap().next().unwrap()),
+        )
     }
 }
 
 #[test]
-fn foreign_context_concurrent() {
+fn foreign_concurrent() {
     let session = Session::init(STATE).unwrap();
 
-    let state = State(RwLock::new(BTreeSet::new()));
-    let state_blob = ScopedBlob::new(state);
+    let ctx_blob = ScopedBlob::new(MyContext { start: 7 });
+
+    let engine = session.engine();
+    engine.register_predicate::<MyPredicate>();
 
     std::thread::scope(|s| {
-        let threads = [1, 2, 3].map(|i| {
-            let state_blob = &state_blob;
+        let threads: [_; 8] = std::array::from_fn(|_| {
             let session = &session;
+            let ctx_blob = &ctx_blob;
 
             s.spawn(move || {
                 let engine = session.engine();
+                let query = open_query! { engine => my_predicate({ctx_blob}, _) }.unwrap();
 
-                let context_t = engine.new_term().put(state_blob);
-                let goal = term! { &engine => my_predicate({context_t}, {i}) };
+                let solutions: [_; 3] = std::array::from_fn(|_| {
+                    let [_, value] = query.next_solution().unwrap().unwrap();
+                    value.get::<i64>().unwrap()
+                });
 
-                engine.register_predicate::<MyPredicate>();
-                engine.call(goal, None).unwrap();
-
-                println!("{context_t:?}");
+                solutions
             })
         });
 
         for thread in threads {
-            thread.join().unwrap();
+            assert_eq!(thread.join().unwrap(), [7, 8, 9]);
         }
     });
-
-    let state = state_blob.into_inner().unwrap();
-    let items = state.0.into_inner().unwrap();
-
-    assert_eq!(items, BTreeSet::from([1, 2, 3]));
 }
