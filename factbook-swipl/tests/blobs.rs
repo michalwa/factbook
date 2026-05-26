@@ -2,6 +2,7 @@ use factbook_swipl::blob::{Blob, BlobData, CopyBlob, CopyBlobData, ScopedBlob};
 use factbook_swipl::foreign::Semidet;
 use factbook_swipl::{Atom, Context, Session, term};
 use factbook_swipl_macros::{ScopedBlobData, predicate};
+use std::cell::RefCell;
 use std::sync::LazyLock;
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
@@ -75,7 +76,7 @@ fn copy_blob() {
 #[test]
 fn scoped_blob_with_foreign_predicate() {
     #[derive(ScopedBlobData)]
-    struct MyVec(Vec<i32>);
+    struct MyVec(RefCell<Vec<i32>>);
 
     #[predicate(custom_predicate(t_blob) semidet)]
     struct CustomPredicate;
@@ -85,10 +86,10 @@ fn scoped_blob_with_foreign_predicate() {
             let Some(atom) = t_blob.get::<Atom>() else {
                 return false;
             };
-            let Some(mut xs) = atom.scoped_blob_mut::<MyVec>() else {
+            let Some(xs) = atom.scoped_blob::<MyVec>() else {
                 return false;
             };
-            xs.0.push(1);
+            xs.0.borrow_mut().push(1);
             true
         }
     }
@@ -97,18 +98,21 @@ fn scoped_blob_with_foreign_predicate() {
 
     engine.register_predicate::<CustomPredicate>();
 
-    let mut xs = MyVec(Vec::<i32>::new());
+    let xs = MyVec(RefCell::new(Vec::<i32>::new()));
     let t = engine.new_term();
 
-    {
-        let blob = ScopedBlob::new(&mut xs);
+    let xs = {
+        let blob = ScopedBlob::new(xs);
         t.put(&blob);
+
         let goal = term! { &engine => custom_predicate({t}) };
         assert!(engine.call(goal, None).unwrap());
         assert_eq!(t.to_string(), "<MyVec>");
-    }
 
-    assert_eq!(xs.0, [1]);
+        blob.into_inner().unwrap()
+    };
+
+    assert_eq!(xs.0.into_inner(), [1]);
 
     // Blob is dropped and references cannot be obtained anymore
     let goal = term! { &engine => custom_predicate({t}) };

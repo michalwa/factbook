@@ -27,8 +27,7 @@ impl State<'_> {
         };
 
         let entries = self.entries.read().unwrap();
-        let mut ctx = ViewContext { entries: &entries };
-        let ctx_blob = ScopedBlob::new(&mut ctx);
+        let ctx_blob = ScopedBlob::new(ViewContext { entries: &entries });
 
         let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
         let mut visited = BTreeSet::new();

@@ -3,8 +3,8 @@ use crate::term::{FromTerm, Term, ToTerm};
 pub use factbook_swipl_macros::{BlobData, CopyBlobData, ScopedBlobData};
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::ops::Deref;
+use std::sync::{Arc, Weak};
 use swipl_fli as pl;
 
 /// A static set of metadata used by Prolog to distinguish blob types and call
@@ -40,6 +40,7 @@ impl BlobSpec {
             magic: pl::PL_BLOB_MAGIC as _,
             flags: pl::PL_BLOB_NOCOPY as _,
             name: name.as_ptr(),
+            release: Some(scoped_blob_release::<T>),
             write: Some(scoped_blob_write::<T>),
             ..Self::zeroed()
         })
@@ -64,45 +65,21 @@ pub struct BlobRef<'a, T: BlobData>(&'a T);
 pub struct CopyBlob<T: CopyBlobData>(pub T);
 
 /// A non-copyable blob which borrows non-`'static` data for the duration of its
-/// lifetime. It may be put in a term by reference. While it's held, shared
-/// references to the data may obtained via [`Atom::scoped_blob`] and mutable
-/// references via [`Atom::scoped_blob_mut`]. Borrow rules are dynamically
-/// checked using an [`RwLock`].
+/// lifetime. The de-facto way to borrow data into the Prolog runtime. It may be
+/// put in a term by reference. While it's held, shared references to
+/// the data may obtained via [`Atom::scoped_blob`]. Unlike a [`Blob`], the
+/// inner type is dropped when the last handle is dropped, not when the blob is
+/// released by Prolog.
 ///
-/// It's not safe to share the terms holding references to scoped blobs between
-/// threads. Dropping the original scoped blob while borrowed in another thread
-/// will panic.
-///
-/// Unlike a [`Blob`], the inner type is dropped when this handle is dropped,
-/// not when the blob is released by Prolog.
-pub struct ScopedBlob<'a, T: ScopedBlobData> {
-    // We store the raw heap allocation, because the handle needs to be held and potentially give
-    // out more than one reference to it. We cannot own a `Box` since we can't leak it multiple
-    // times.
-    data: *const ScopedBlobAlloc<'a, T>,
-}
-
-// SAFETY: `RwLock` is `Send + Sync`, we're just using a raw pointer instead of
-// a reference
-unsafe impl<T: ScopedBlobData + Sync> Send for ScopedBlob<'_, T> {}
-unsafe impl<T: ScopedBlobData + Sync> Sync for ScopedBlob<'_, T> {}
-
-type ScopedBlobAlloc<'a, T> = RwLock<Option<&'a mut T>>;
-
-/// A reference to a value stored in a [`ScopedBlob`]. When held, the blob data
-/// is guaranteed to be alive.
-pub struct ScopedBlobRef<'a, T: ScopedBlobData> {
-    // The `Option` is ensured to be `Some` before construction
-    // TODO: Would be nice to use https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html
-    guard: RwLockReadGuard<'a, Option<&'a mut T>>,
-}
-
-/// Same as [`ScopedBlobRef`], but mutable
-pub struct ScopedBlobMut<'a, T: ScopedBlobData> {
-    // The `Option` is ensured to be `Some` before construction
-    // TODO: Would be nice to use https://doc.rust-lang.org/std/sync/struct.MappedRwLockWriteGuard.html
-    guard: RwLockWriteGuard<'a, Option<&'a mut T>>,
-}
+/// It may be shared between threads, provided the inner type is `Send + Sync`.
+/// References become invalid after the last blob handle is dropped and calling
+/// [`Atom::scoped_blob`] will return `None`.
+pub struct ScopedBlob<T: ScopedBlobData>(
+    /// The blob handle holds a strong `Arc`, while all Prolog instances (terms
+    /// referencing this blob) hold a `Weak` raw pointer, until they are
+    /// upgraded to another [`ScopedBlob`]
+    Arc<T>,
+);
 
 impl<T: BlobData> Blob<T> {
     pub fn new(value: T) -> Self {
@@ -118,33 +95,21 @@ impl<T: BlobData> Deref for BlobRef<'_, T> {
     }
 }
 
-impl<'a, T: ScopedBlobData> ScopedBlob<'a, T> {
-    pub fn new(value: &'a mut T) -> Self {
-        Self {
-            data: Box::leak(Box::new(RwLock::new(Some(value)))),
-        }
+impl<T: ScopedBlobData> ScopedBlob<T> {
+    pub fn new(value: T) -> Self {
+        Self(Arc::new(value))
+    }
+
+    pub fn into_inner(self) -> Option<T> {
+        Arc::into_inner(self.0)
     }
 }
 
-impl<T: ScopedBlobData> Deref for ScopedBlobRef<'_, T> {
+impl<T: ScopedBlobData> Deref for ScopedBlob<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.guard.as_ref().unwrap()
-    }
-}
-
-impl<T: ScopedBlobData> Deref for ScopedBlobMut<'_, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.guard.as_ref().unwrap()
-    }
-}
-
-impl<T: ScopedBlobData> DerefMut for ScopedBlobMut<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.guard.as_mut().unwrap()
+        &self.0
     }
 }
 
@@ -210,13 +175,13 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
     }
 }
 
-impl<T: ScopedBlobData> ToTerm for &ScopedBlob<'_, T> {
+impl<T: ScopedBlobData> ToTerm for &ScopedBlob<T> {
     fn put_in(self, term: Term) {
         if !unsafe {
             pl::PL_put_blob(
                 term.ptr.get(),
-                self.data as _,
-                std::mem::size_of::<ScopedBlobAlloc<T>>(),
+                Arc::downgrade(&self.0).into_raw() as _,
+                std::mem::size_of::<T>(), // TODO: does this matter?
                 T::SPEC as _,
             )
         } {
@@ -261,49 +226,15 @@ impl Atom {
         }
     }
 
-    pub fn scoped_blob<'a, T: ScopedBlobData>(&'a self) -> Option<ScopedBlobRef<'a, T>> {
+    pub fn scoped_blob<T: ScopedBlobData>(&self) -> Option<ScopedBlob<T>> {
         let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
         let blob_ptr = unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
 
         if std::ptr::eq(T::SPEC, spec as _) {
-            let lock = unsafe { &*(blob_ptr as *const ScopedBlobAlloc<T>) };
-            let guard = lock
-                .try_read()
-                .expect("ScopedBlob borrowed from another thread");
-
-            guard.as_ref()?; // ensure the reference is still there
-
-            Some(ScopedBlobRef { guard })
+            unsafe { upgrade_raw_weak(blob_ptr as *const T) }.map(ScopedBlob)
         } else {
             None
         }
-    }
-
-    pub fn scoped_blob_mut<'a, T: ScopedBlobData>(&'a self) -> Option<ScopedBlobMut<'a, T>> {
-        let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
-        let blob_ptr = unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
-
-        if std::ptr::eq(T::SPEC, spec as _) {
-            let lock = unsafe { &*(blob_ptr as *const ScopedBlobAlloc<T>) };
-            let guard = lock
-                .try_write()
-                .expect("ScopedBlob borrowed from another thread");
-
-            guard.as_ref()?; // ensure the reference is still there
-
-            Some(ScopedBlobMut { guard })
-        } else {
-            None
-        }
-    }
-}
-
-impl<T: ScopedBlobData> Drop for ScopedBlob<'_, T> {
-    fn drop(&mut self) {
-        unsafe { &*self.data }
-            .try_write()
-            .expect("ScopedBlob borrowed from another thread")
-            .take();
     }
 }
 
@@ -313,7 +244,7 @@ extern "C" fn blob_write<T: BlobData>(
     _flags: std::ffi::c_int,
 ) -> std::ffi::c_int {
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
-    let blob = unsafe { &*(blob_ptr as *mut T) };
+    let blob = unsafe { &*(blob_ptr as *const T) };
 
     let string = CString::new(format!("<{blob:?}>")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
@@ -334,10 +265,18 @@ extern "C" fn copy_blob_write<T: CopyBlobData>(
     _flags: std::ffi::c_int,
 ) -> std::ffi::c_int {
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
-    let blob = unsafe { *(blob_ptr as *mut T) };
+    let blob = unsafe { *(blob_ptr as *const T) };
 
     let string = CString::new(format!("<{blob:?}>")).unwrap();
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
+
+    pl::TRUE as _
+}
+
+extern "C" fn scoped_blob_release<T>(atom: pl::atom_t) -> std::ffi::c_int {
+    let blob = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), std::ptr::null_mut()) };
+    // Only drop the `Weak` when the atom is being released
+    let _weak = unsafe { Weak::from_raw(blob as *const T) };
 
     pl::TRUE as _
 }
@@ -351,17 +290,26 @@ extern "C" fn scoped_blob_write<T>(
     let blob_ptr = unsafe { pl::PL_blob_data(atom, std::ptr::null_mut(), &raw mut spec) };
     let type_name = unsafe { CStr::from_ptr((&*spec).name) }.to_str().unwrap();
 
-    let blob_lock = unsafe { &*(blob_ptr as *mut ScopedBlobAlloc<T>) };
-
-    let valid = match blob_lock.try_read() {
-        Ok(data) => data.is_some(),
-        Err(_) => true, // if it's borrowed then it must be valid
-    };
-
+    let valid = unsafe { upgrade_raw_weak(blob_ptr as *const T) }.is_some();
     let valid_msg = if valid { "" } else { " (invalid)" };
     let string = CString::new(format!("<{type_name}{valid_msg}>")).unwrap();
 
     unsafe { pl::Sfputs(string.as_ptr(), stream) };
 
     pl::TRUE as _
+}
+
+/// Tries to upgrade the raw [`Weak`] pointer to an [`Arc`] without changing the
+/// weak count
+///
+/// SAFETY: The pointer must point to a valid [`Arc`] allocation as returned
+/// from [`Weak::into_raw`]
+unsafe fn upgrade_raw_weak<T>(ptr: *const T) -> Option<Arc<T>> {
+    let weak = unsafe { Weak::from_raw(ptr) };
+    let arc = weak.upgrade();
+    // Don't drop the `Weak`, regardless of whether it still points to a valid
+    // allocation or not to keep the `Weak` raw pointer valid and allow subsequent
+    // checks
+    std::mem::forget(weak);
+    arc
 }
