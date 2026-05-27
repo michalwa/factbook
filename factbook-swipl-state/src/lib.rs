@@ -5,7 +5,7 @@ use std::process::Command;
 pub fn build(input_filename: &str, output_filename: &str) {
     println!("cargo::rerun-if-changed={input_filename}");
 
-    Command::new("swipl")
+    let output = match Command::new("swipl")
         .arg("-o")
         .arg(PathBuf::from(env::var("OUT_DIR").unwrap()).join(output_filename))
         .args([
@@ -16,6 +16,21 @@ pub fn build(input_filename: &str, output_filename: &str) {
             "-c",
             input_filename,
         ])
-        .status()
-        .expect("could not build Prolog state");
+        .output()
+    {
+        Ok(output) => output,
+        Err(e) => {
+            println!("cargo::error=failed to run swipl: {e}");
+            return;
+        },
+    };
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+        println!("cargo::error=could not build Prolog state:");
+        for line in stderr.lines() {
+            println!("cargo::error={line}");
+        }
+    }
 }
