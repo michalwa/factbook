@@ -44,11 +44,12 @@ impl Drop for MyNondetPred {
 
 #[test]
 fn foreign_nondet() {
-    let session = Session::init(STATE).unwrap();
-    let engine = session.engine();
+    let session = Session::init(STATE)
+        .unwrap()
+        .register_predicate::<MySemidetPred>()
+        .register_predicate::<MyNondetPred>();
 
-    engine.register_predicate::<MySemidetPred>();
-    engine.register_predicate::<MyNondetPred>();
+    let engine = session.engine();
 
     assert!(engine.predicate_defined::<2>(MySemidetPred::NAME.to_str().unwrap(), None));
     assert!(engine.predicate_defined::<1>(MyNondetPred::NAME.to_str().unwrap(), None));

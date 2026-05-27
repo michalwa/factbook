@@ -1,6 +1,7 @@
 use crate::foreign::{Predicate, PredicateArgs};
 use crate::query::Query;
 use crate::term::{Exception, Term, Terms};
+use std::ffi::CStr;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::num::NonZero;
@@ -92,6 +93,31 @@ impl<'s> Session<'s> {
                 }
             },
         }
+    }
+
+    /// Registers a foreign predicate in the Prolog runtime
+    ///
+    /// NOTE: For safety reasons, this method consumes and returns `Self` and
+    /// thus may only be called immediately after session initialization.
+    /// Registering the same foreign predicate concurrently from multiple
+    /// threads causes undefined behavior.
+    pub fn register_predicate<P: Predicate>(self) -> Self {
+        // Attached engine is still required!
+        let _engine = self.engine();
+
+        if !unsafe {
+            pl::PL_register_foreign(
+                P::NAME.as_ptr(),
+                P::Args::ARITY as _,
+                P::EXTERN_FN as _,
+                P::FLAGS as _,
+            )
+        } {
+            panic!("PL_register_foreign failed");
+        }
+
+        drop(_engine);
+        self
     }
 }
 
@@ -297,19 +323,6 @@ pub unsafe trait Context {
         )
         .unwrap()
     }
-
-    fn register_predicate<P: Predicate>(&self) {
-        if !unsafe {
-            pl::PL_register_foreign(
-                P::NAME.as_ptr(),
-                P::Args::ARITY as _,
-                P::EXTERN_FN as _,
-                P::FLAGS as _,
-            )
-        } {
-            panic!("PL_register_foreign failed");
-        }
-    }
 }
 
 unsafe impl Context for Engine<'_> {}
@@ -369,6 +382,22 @@ unsafe impl Sync for RawFunctor {}
 impl fmt::Debug for RawFunctor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("<functor:{}>", self.ptr))
+    }
+}
+
+impl fmt::Display for RawFunctor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let atom = unsafe { pl::PL_functor_name(self.ptr.get()) };
+        let name = unsafe { CStr::from_ptr(pl::PL_atom_chars(atom)) }.to_string_lossy();
+        let arity = unsafe { pl::PL_functor_arity_sz(self.ptr.get()) };
+
+        f.write_fmt(format_args!("{name}/{arity}"))
+    }
+}
+
+impl<const ARITY: usize> fmt::Display for Functor<ARITY> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

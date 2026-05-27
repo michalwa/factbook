@@ -37,12 +37,11 @@ impl Nondet for MyPredicate {
 
 #[test]
 fn foreign_concurrent() {
-    let session = Session::init(STATE).unwrap();
+    let session = Session::init(STATE)
+        .unwrap()
+        .register_predicate::<MyPredicate>();
 
     let ctx_blob = ScopedBlob::new(MyContext { start: 7 });
-
-    let engine = session.engine();
-    engine.register_predicate::<MyPredicate>();
 
     std::thread::scope(|s| {
         let threads: [_; 8] = std::array::from_fn(|_| {

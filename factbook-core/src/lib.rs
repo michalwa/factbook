@@ -14,7 +14,10 @@ pub struct Session(factbook_swipl::Session<'static>);
 
 impl Session {
     pub fn new() -> Option<Self> {
-        factbook_swipl::Session::init(SWIPL_STATE).map(Self)
+        Some(Self(
+            factbook_swipl::Session::init(SWIPL_STATE)?
+                .register_predicate::<search::predicates::EntryTag>(),
+        ))
     }
 }
 

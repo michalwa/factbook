@@ -7,7 +7,30 @@ use std::sync::LazyLock;
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-static SESSION: LazyLock<Session<'static>> = LazyLock::new(|| Session::init(STATE).unwrap());
+static SESSION: LazyLock<Session<'static>> = LazyLock::new(|| {
+    Session::init(STATE)
+        .unwrap()
+        .register_predicate::<CustomPredicate>()
+});
+
+#[derive(ScopedBlobData)]
+struct MyVec(RefCell<Vec<i32>>);
+
+#[predicate(custom_predicate(t_blob) semidet)]
+struct CustomPredicate;
+
+impl Semidet for CustomPredicate {
+    fn call(_: &mut impl Context, [t_blob]: Self::Args<'_>) -> bool {
+        let Some(atom) = t_blob.get::<Atom>() else {
+            return false;
+        };
+        let Some(xs) = atom.scoped_blob::<MyVec>() else {
+            return false;
+        };
+        xs.0.borrow_mut().push(1);
+        true
+    }
+}
 
 #[test]
 fn blob() {
@@ -75,28 +98,7 @@ fn copy_blob() {
 
 #[test]
 fn scoped_blob_with_foreign_predicate() {
-    #[derive(ScopedBlobData)]
-    struct MyVec(RefCell<Vec<i32>>);
-
-    #[predicate(custom_predicate(t_blob) semidet)]
-    struct CustomPredicate;
-
-    impl Semidet for CustomPredicate {
-        fn call(_: &mut impl Context, [t_blob]: Self::Args<'_>) -> bool {
-            let Some(atom) = t_blob.get::<Atom>() else {
-                return false;
-            };
-            let Some(xs) = atom.scoped_blob::<MyVec>() else {
-                return false;
-            };
-            xs.0.borrow_mut().push(1);
-            true
-        }
-    }
-
     let engine = SESSION.engine();
-
-    engine.register_predicate::<CustomPredicate>();
 
     let xs = MyVec(RefCell::new(Vec::<i32>::new()));
     let t = engine.new_term();

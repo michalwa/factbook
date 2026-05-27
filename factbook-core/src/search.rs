@@ -11,9 +11,7 @@ impl State<'_> {
     where
         F: FnMut(EntryId, &Entry),
     {
-        let mut engine = self.session.0.engine();
-        let pl = engine.frame();
-        pl.register_predicate::<predicates::EntryTag>();
+        let pl = self.session.0.engine();
 
         let views = self.views.read().unwrap();
         let view_definition = &views[view.0].definition;
@@ -68,7 +66,7 @@ struct ViewContext<'a> {
     entries: &'a EntryStorage,
 }
 
-mod predicates {
+pub(crate) mod predicates {
     use crate::model::EntryId;
     use crate::search::ViewContext;
     use factbook_swipl::foreign::{Nondet, predicate};
@@ -76,7 +74,7 @@ mod predicates {
     use sparse_tags::Store;
 
     #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
-    pub(super) struct EntryTag<'a> {
+    pub(crate) struct EntryTag<'a> {
         iter: Option<Box<dyn Iterator<Item = (EntryId, &'a Record)> + 'a>>,
     }
 
@@ -98,34 +96,36 @@ mod predicates {
                     return false;
                 };
 
-                self.iter = if let Some(entry_id) = entry_id.get::<EntryId>() {
+                self.iter = Some(if let Some(entry_id) = entry_id.get::<EntryId>() {
                     // Prioritize scanning the entry if the ID is instantiated,
                     // since there's likely less tags on a specific entry than
                     // tags with the same functor
                     log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by entry_id");
 
-                    Some(Box::new(
+                    Box::new(
                         ctx.entries
                             .tags_by_entry(entry_id.0)
                             .map(move |(_, tag)| (entry_id, tag)),
-                    ))
+                    )
                 } else if let Some(functor) = tag.get::<RawFunctor>() {
-                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by functor");
+                    log::debug!(
+                        "entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by functor {functor}"
+                    );
 
-                    Some(Box::new(
+                    Box::new(
                         ctx.entries
                             .tags_by_key(&functor)
                             .map(move |(entry_id, tag)| (EntryId(entry_id), tag)),
-                    ))
+                    )
                 } else {
                     log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query all");
 
-                    Some(Box::new(
+                    Box::new(
                         ctx.entries
                             .tags()
                             .map(|(entry_id, _, tag)| (EntryId(entry_id), tag)),
-                    ))
-                };
+                    )
+                });
             }
 
             for (found_entry_id, found_tag) in self.iter.as_mut().unwrap() {
