@@ -1,5 +1,6 @@
 use factbook_swipl::foreign::{Nondet, Predicate, Semidet, predicate};
 use factbook_swipl::{Context, Session, assert_unify, term};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
@@ -33,6 +34,14 @@ impl Nondet for MyNondetPred {
     }
 }
 
+static MY_NONDET_PRED_DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+impl Drop for MyNondetPred {
+    fn drop(&mut self) {
+        MY_NONDET_PRED_DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
 #[test]
 fn foreign_nondet() {
     let session = Session::init(STATE).unwrap();
@@ -57,6 +66,8 @@ fn foreign_nondet() {
     assert!(engine.call(goal, None).unwrap());
     assert_unify!(solutions, term! { &engine => [1, 2, 3] });
 
+    assert_eq!(MY_NONDET_PRED_DROP_COUNT.swap(0, Ordering::SeqCst), 1);
+
     // Each invocation of a foreign predicate should be its own instance
     solutions.put_variable();
     let goal = term! { &engine => findall("-"({t1}, {t2}), ","(my_nondet_pred({t1}), my_nondet_pred({t2})), {solutions}) };
@@ -67,4 +78,7 @@ fn foreign_nondet() {
         "-"(2, 1), "-"(2, 2), "-"(2, 3),
         "-"(3, 1), "-"(3, 2), "-"(3, 3)
     ] });
+
+    // 1 (first invocation) + 3 (second invocation for each solution of the first)
+    assert_eq!(MY_NONDET_PRED_DROP_COUNT.swap(0, Ordering::SeqCst), 4);
 }

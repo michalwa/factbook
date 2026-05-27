@@ -122,6 +122,10 @@ pub unsafe fn nondet_impl<P: Nondet>(
         _marker: Default::default(),
     };
 
+    // NOTE: If a non-deterministic foreign function returns using PL_succeed() or
+    // PL_fail(), Prolog assumes the foreign function has cleaned its environment.
+    // No call with control argument PL_PRUNED will follow.
+    // * https://www.swi-prolog.org/pldoc/man?section=foreignnondet
     match unsafe { pl::PL_foreign_control(ctrl) } as u32 {
         pl::PL_FIRST_CALL => {
             let mut state = P::init(&ctx);
@@ -130,6 +134,7 @@ pub unsafe fn nondet_impl<P: Nondet>(
                 let boxed = Box::leak(Box::new(State(state)));
                 unsafe { pl::_PL_retry_address(boxed as *mut _ as _) }
             } else {
+                drop(state);
                 pl::FALSE as _
             }
         },
@@ -140,6 +145,8 @@ pub unsafe fn nondet_impl<P: Nondet>(
             if state.0.next(&mut ctx, unsafe { P::Args::from_raw(args) }) {
                 unsafe { pl::_PL_retry_address(state_ptr) }
             } else {
+                // Double drop is prevented because PL_PRUNED will never be called again
+                drop(unsafe { (state_ptr as *mut State<P>).read() });
                 pl::FALSE as _
             }
         },
