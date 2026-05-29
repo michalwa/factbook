@@ -5,7 +5,8 @@ export default function Button(props) {
   const merged = mergeProps({ style: "outline", iconPlacement: "left" }, props);
 
   const Icon = () => (
-    <merged.icon
+    <Dynamic
+      component={merged.icon}
       class={`${styles.icon} ${styles[`iconPlacement-${merged.iconPlacement}`]}`}
     />
   );
