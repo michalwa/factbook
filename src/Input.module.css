@@ -1,0 +1,16 @@
+.input {
+  border: none;
+  outline: none;
+  background: var(--theme-inner-background);
+  color: var(--theme-foreground);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--round-default);
+  box-shadow: inset 0 0 0 0.1rem var(--theme-outline);
+  font-family: inherit;
+  font-size: 11pt;
+  transition: all 0.1s;
+}
+
+.input:focus {
+  box-shadow: inset 0 0 0 0.1rem var(--theme-accent-foreground);
+}

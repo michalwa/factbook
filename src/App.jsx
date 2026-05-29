@@ -1,67 +1,150 @@
-import Resizable from "@corvu/resizable";
-import "@fontsource-variable/inter/wght.css";
-import { makePersisted } from "@solid-primitives/storage";
-import Sidebar from "./Sidebar";
-import "./App.css";
-import EntryList from "./EntryList";
-import * as ViewContext from "./ViewContext";
-import { createStore } from "solid-js/store";
-import ViewEditor from "./ViewEditor";
-import CollapsiblePanel from "./CollapsiblePanel";
-import { PanelBottomOpenIcon, PanelLeftOpenIcon } from "lucide-solid";
+import Entries from "./Entries";
+import Panel from "./Panel";
+import Workspace from "./Workspace";
+import styles from "./App.module.css";
+import Label from "./Label";
+import {
+  ArrowRight,
+  Banana,
+  CircleQuestionMark,
+  PanelBottomClose,
+  PanelBottomOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PenLine,
+  Plus,
+  Settings,
+  Trash,
+  TriangleAlert,
+} from "lucide-solid";
+import Button from "./Button";
+import IconButton from "./IconButton";
+import Input from "./Input";
+import Tabs from "./Tabs";
+import Tab from "./Tab";
+import Badge from "./Badge";
+import TabControls from "./TabControls";
+import EntriesContainer from "./EntriesContainer";
+import PanelControls from "./PanelControls";
+import { createToggle } from "./utils";
+import { Show } from "solid-js";
+import EntriesHeader from "./EntriesHeader";
+import PanelBottomContainer from "./PanelBottomContainer";
+import PanelControlsSpacer from "./PanelControlsSpacer";
 
 export default function App() {
-  const [sizes, setSizes] = makePersisted(
-    createStore({
-      root: [],
-      main: [],
-    }),
-    { name: "panel-sizes" },
-  );
+  const [leftPanelExpanded, toggleLeftPanelExpanded] = createToggle();
+  const [bottomPanelExpanded, toggleBottomPanelExpanded] = createToggle();
 
   return (
-    <div id="app">
-      <ViewContext.Provider>
-        <Resizable
+    <div id="app" class={styles.app}>
+      <Workspace>
+        <Panel
           orientation="horizontal"
-          sizes={sizes.root}
-          onSizesChange={(sizes) => setSizes("root", sizes)}
+          expanded={leftPanelExpanded()}
+          controls={
+            <>
+              <PanelControls placement="top" sticky="right">
+                <IconButton
+                  icon={leftPanelExpanded() ? PanelLeftClose : PanelLeftOpen}
+                  onClick={toggleLeftPanelExpanded}
+                />
+              </PanelControls>
+              <PanelControls placement="bottom" sticky="right">
+                <IconButton icon={CircleQuestionMark} />
+                <IconButton icon={Settings} />
+              </PanelControls>
+            </>
+          }
         >
-          <CollapsiblePanel
-            initialSize={0.3}
-            minSize={0.2}
-            maxSize={0.5}
-            expandIcon={<PanelLeftOpenIcon />}
-            expandButtonHorizontalAlign="left"
-            expandButtonVerticalAlign="top"
-          >
-            <Sidebar />
-          </CollapsiblePanel>
-          <Resizable.Handle />
-          <Resizable.Panel initialSize={0.7}>
-            <Resizable
+          <Label style="panel">Side panel</Label>
+          Hello, world!
+          <Label style="form">Buttons</Label>
+          {/* TODO: For testing only, remove inline-styled elements afterwards */}
+          <div style="display: flex; flex-flow: row nowrap; gap: 1rem">
+            <div style="display: flex; flex-flow: column nowrap; gap: 0.5rem; width: fit-content">
+              <Button style="primary" icon={ArrowRight} iconPlacement="right">
+                Primary
+              </Button>
+              <Button style="danger" icon={TriangleAlert} iconPlacement="left">
+                Danger
+              </Button>
+              <Button icon={Plus}>Default</Button>
+            </div>
+            <div style="display: flex; flex-flow: column nowrap; gap: 0.5rem; width: fit-content">
+              <IconButton icon={Banana} />
+              <IconButton style="danger" icon={Banana} />
+            </div>
+          </div>
+          <Label style="form">Buttons</Label>
+          <Input value="Lorem ipsum dolor sit amet" />
+          <Tabs>
+            <Tab id={0} title="First tab">
+              <TabControls>
+                <IconButton size="small" icon={PenLine} />
+                <IconButton size="small" style="danger" icon={Trash} />
+              </TabControls>
+              <Badge size="small" fixedWidth>
+                1
+              </Badge>
+            </Tab>
+            <Tab id={1} title="Second tab">
+              <TabControls>
+                <IconButton size="small" icon={PenLine} />
+                <IconButton size="small" style="danger" icon={Trash} />
+              </TabControls>
+              <Badge size="small" fixedWidth>
+                42
+              </Badge>
+            </Tab>
+            <Tab id={2} title="Third tab">
+              <TabControls>
+                <IconButton size="small" icon={PenLine} />
+                <IconButton size="small" style="danger" icon={Trash} />
+              </TabControls>
+              <Badge size="small" fixedWidth>
+                123
+              </Badge>
+            </Tab>
+          </Tabs>
+          <PanelBottomContainer>
+            <Button size="wide" icon={Plus}>
+              Create
+            </Button>
+          </PanelBottomContainer>
+          <PanelControlsSpacer />
+        </Panel>
+        <EntriesContainer
+          after={
+            <Panel
               orientation="vertical"
-              sizes={sizes.main}
-              onSizesChange={(sizes) => setSizes("main", sizes)}
+              expanded={bottomPanelExpanded()}
+              controls={
+                <PanelControls placement="right" sticky="top">
+                  <IconButton
+                    icon={
+                      bottomPanelExpanded() ? PanelBottomClose : PanelBottomOpen
+                    }
+                    onClick={toggleBottomPanelExpanded}
+                  />
+                </PanelControls>
+              }
             >
-              <Resizable.Panel initialSize={0.6}>
-                <EntryList />
-              </Resizable.Panel>
-              <Resizable.Handle />
-              <CollapsiblePanel
-                initialSize={0.4}
-                minSize={0.2}
-                maxSize={0.8}
-                expandIcon={<PanelBottomOpenIcon />}
-                expandButtonHorizontalAlign="right"
-                expandButtonVerticalAlign="bottom"
-              >
-                <ViewEditor />
-              </CollapsiblePanel>
-            </Resizable>
-          </Resizable.Panel>
-        </Resizable>
-      </ViewContext.Provider>
+              <Label style="panel">Bottom panel</Label>
+              Hello, world!
+              <PanelControlsSpacer when={!leftPanelExpanded()} />
+            </Panel>
+          }
+        >
+          <Show when={!leftPanelExpanded()}>
+            <EntriesHeader>
+              Header
+              <Badge size="large">42</Badge>
+            </EntriesHeader>
+          </Show>
+          <Entries />
+        </EntriesContainer>
+      </Workspace>
     </div>
   );
 }

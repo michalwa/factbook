@@ -1,0 +1,26 @@
+.panel {
+  position: relative;
+  background: var(--theme-panel-background);
+}
+
+.orientation-horizontal:not([data-expanded]) {
+  width: 0;
+}
+
+.orientation-vertical:not([data-expanded]) {
+  height: 0;
+}
+
+.content {
+  display: flex;
+  flex-flow: column nowrap;
+  padding: var(--padding-panel);
+  width: 100%;
+  height: 100%;
+}
+
+.panel:not([data-expanded]) .content {
+  padding: 0;
+  overflow: clip;
+  overflow-clip-margin: content-box;
+}

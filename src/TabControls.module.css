@@ -1,0 +1,12 @@
+.container {
+  display: flex;
+  flex-flow: row nowrap;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+:hover > .container,
+.container:has(:focus-visible) {
+  opacity: 1;
+}

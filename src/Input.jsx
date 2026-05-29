@@ -1,23 +1,5 @@
-import { createEffect } from "solid-js";
-import "./Input.css";
+import styles from "./Input.module.css";
 
 export default function Input(props) {
-  let input;
-
-  createEffect(() => props.focus && input.focus());
-
-  return (
-    <form
-      class="input-wrapper"
-      action="javascript:void(0)"
-      onSubmit={() => input.blur()}
-    >
-      <input
-        ref={input}
-        value={props.value ?? ""}
-        onInput={() => props.onInput?.(input.value)}
-        onBlur={props.onBlur}
-      />
-    </form>
-  );
+  return <input class={styles.input} type="text" value={props.value} />;
 }

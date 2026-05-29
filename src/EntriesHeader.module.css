@@ -1,0 +1,20 @@
+.header {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1.2rem 10.25rem; /* aligned with entry content */
+  font-size: 28pt;
+  font-weight: 700;
+  animation: slide-down 0.3s forwards var(--translation-curve);
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-1rem);
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

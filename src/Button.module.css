@@ -1,0 +1,61 @@
+.icon {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.iconPlacement-left {
+  margin-left: -0.2rem;
+  margin-right: 0.3rem;
+}
+
+.iconPlacement-right {
+  margin-left: 0.3rem;
+  margin-right: -0.2rem;
+}
+
+.style-primary {
+  background: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}
+
+.style-primary:hover {
+  background: var(--theme-accent-hover);
+}
+
+.style-primary:active {
+  background: var(--theme-accent-click);
+}
+
+.style-danger {
+  background: var(--theme-danger);
+  color: var(--theme-danger-contrast);
+}
+
+.style-danger:hover {
+  background: var(--theme-danger-hover);
+}
+
+.style-danger:active {
+  background: var(--theme-danger-click);
+}
+
+.style-outline {
+  background: none;
+  color: var(--theme-outline);
+  box-shadow: inset 0 0 0 0.1rem var(--theme-outline);
+}
+
+.style-outline:hover {
+  background: var(--theme-outline);
+  color: var(--theme-outline-foreground-hover);
+  box-shadow: none;
+}
+
+.style-outline:active {
+  background: var(--theme-outline-click);
+}
+
+.size-wide {
+  flex-grow: 1;
+  justify-content: center;
+}

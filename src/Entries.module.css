@@ -1,0 +1,5 @@
+.entries {
+  flex-grow: 1;
+  /* TODO: For debugging only */
+  border: 1px dashed midnightblue;
+}
