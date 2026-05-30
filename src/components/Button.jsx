@@ -1,5 +1,5 @@
 import { mergeProps, Show } from "solid-js";
-import styles from "./Button.module.css";
+import styles from "@/styles/Button";
 
 export default function Button(props) {
   const merged = mergeProps({ style: "outline", iconPlacement: "left" }, props);

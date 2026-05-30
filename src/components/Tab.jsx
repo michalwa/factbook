@@ -1,6 +1,6 @@
 import { useContext } from "solid-js";
-import styles from "./Tab.module.css";
-import { TabsContext } from "./Tabs";
+import styles from "@/styles/Tab";
+import { TabsContext } from "@/components/Tabs";
 
 export default function Tab(props) {
   const { name, activeId, setActiveId } = useContext(TabsContext);

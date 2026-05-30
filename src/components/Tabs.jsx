@@ -1,5 +1,5 @@
 import { createContext, createSignal, createUniqueId } from "solid-js";
-import styles from "./Tabs.module.css";
+import styles from "@/styles/Tabs";
 
 export const TabsContext = createContext();
 

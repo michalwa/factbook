@@ -1,4 +1,4 @@
-import styles from "./EntriesContainer.module.css";
+import styles from "@/styles/EntriesContainer";
 
 export default function EntriesContainer(props) {
   return (

@@ -1,10 +1,11 @@
-import { mergeProps, Show } from "solid-js";
-import styles from "./Panel.module.css";
-import Label from "./Label";
+import { Show } from "solid-js";
+import styles from "@/styles/Panel";
+import Label from "@/components/Label";
 
 export default function Panel(props) {
   const styleClass = () => props.style && styles[`style-${props.style}`];
-  const orientationClass = () => props.orientation && styles[`orientation-${props.orientation}`];
+  const orientationClass = () =>
+    props.orientation && styles[`orientation-${props.orientation}`];
 
   return (
     <div

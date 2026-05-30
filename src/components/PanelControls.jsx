@@ -1,4 +1,4 @@
-import styles from "./PanelControls.module.css";
+import styles from "@/styles/PanelControls";
 
 export default function PanelControls(props) {
   const placementClasses = () =>

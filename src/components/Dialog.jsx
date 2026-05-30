@@ -1,4 +1,4 @@
-import styles from "./Dialog.module.css";
+import styles from "@/styles/Dialog";
 
 export default function createDialog() {
   let el;

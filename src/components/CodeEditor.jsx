@@ -1,5 +1,5 @@
 import { createCodeMirror } from "solid-codemirror";
-import styles from "./CodeEditor.module.css";
+import styles from "@/styles/CodeEditor";
 import { EditorView } from "@codemirror/view";
 import { onCleanup } from "solid-js";
 

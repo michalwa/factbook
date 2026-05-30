@@ -1,4 +1,4 @@
-import styles from "./Label.module.css";
+import styles from "@/styles/Label";
 
 export default function Label(props) {
   return (

@@ -1,6 +1,6 @@
 import { mergeProps } from "solid-js";
-import styles from "./IconButton.module.css";
 import { Dynamic } from "solid-js/web";
+import styles from "@/styles/IconButton";
 
 export default function IconButton(props) {
   const merged = mergeProps({ style: "default" }, props);

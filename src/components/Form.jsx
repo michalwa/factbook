@@ -1,4 +1,4 @@
-import styles from "./Form.module.css";
+import styles from "@/styles/Form";
 
 export default function Form(props) {
   return (

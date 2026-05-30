@@ -1,6 +1,6 @@
 import { createRoot, onCleanup } from "solid-js";
-import CodeEditor from "./CodeEditor";
-import styles from "./Entry.module.css";
+import CodeEditor from "@/components/CodeEditor";
+import styles from "@/styles/Entry";
 
 export default function Entry(props) {
   return (

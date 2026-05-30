@@ -1,4 +1,4 @@
-import styles from "./Badge.module.css";
+import styles from "@/styles/Badge";
 
 export default function Badge(props) {
   return (

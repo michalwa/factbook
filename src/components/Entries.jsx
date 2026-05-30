@@ -1,5 +1,5 @@
-import styles from "./Entries.module.css";
-import TransitionGroup from "./TransitionGroup";
+import styles from "@/styles/Entries";
+import TransitionGroup from "@/components/TransitionGroup";
 
 export default function Entries(props) {
   return (

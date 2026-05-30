@@ -27,7 +27,7 @@
 
 import { createListTransition } from "@solid-primitives/transition-group";
 import { resolveElements } from "@solid-primitives/refs";
-import styles from "./TransitionGroup.module.css";
+import styles from "@/styles/TransitionGroup";
 
 // https://github.com/solidjs-community/solid-transition-group/issues/12
 // for the css transition be triggered properly on firefox

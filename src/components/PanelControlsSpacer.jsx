@@ -1,4 +1,4 @@
-import styles from "./PanelControlsSpacer.module.css";
+import styles from "@/styles/PanelControlsSpacer";
 
 export default function PanelControlsSpacer(props) {
   return (
