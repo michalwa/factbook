@@ -192,7 +192,6 @@ export default function App() {
             <Key each={entries()} by="id">
               {(entry) => (
                 <Entry
-                  mode="editor"
                   timestamp={entry().timestamp}
                   content={entry().content}
                 />
