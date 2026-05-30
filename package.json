@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "format": "prettier src --write",
+    "format-check": "prettier src --check"
   },
   "license": "MIT",
   "dependencies": {
@@ -30,6 +32,7 @@
     "@tauri-apps/cli": "^2",
     "baseline-browser-mapping": "^2.10.29",
     "path": "^0.12.7",
+    "prettier": "^3.8.3",
     "vite": "^6.0.3",
     "vite-plugin-solid": "^2.11.0"
   }
