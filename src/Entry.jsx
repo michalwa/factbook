@@ -1,4 +1,4 @@
-import { Match, Switch } from "solid-js";
+import { createRoot, onCleanup } from "solid-js";
 import CodeEditor from "./CodeEditor";
 import styles from "./Entry.module.css";
 
@@ -9,14 +9,19 @@ export default function Entry(props) {
         {props.timestamp}
       </time>
       <div class={styles.divider}></div>
-      <Switch>
-        <Match when={props.mode === "static"}>
-          <p class={styles.content}>{props.content}</p>
-        </Match>
-        <Match when={props.mode === "editor"}>
-          <CodeEditor class={styles.content} value={props.content} />
-        </Match>
-      </Switch>
+      {() => {
+        const { editor, dispose } = createRoot((dispose) => {
+          return {
+            editor: <CodeEditor class={styles.content} value={props.content} />,
+            dispose,
+          };
+        });
+
+        // Delay disposing the editor to prevent height changes ruining the list transition
+        onCleanup(() => queueMicrotask(dispose));
+
+        return editor;
+      }}
     </div>
   );
 }

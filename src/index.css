@@ -21,6 +21,7 @@
   --theme-outline-foreground-hover: #101521;
   --theme-outline: #2c4171;
   --theme-panel-background: #101521;
+  --theme-scrollbar-foreground: #2c4171;
   --theme-selection-background: #1e3261;
   --round-default: 0.3rem;
   --round-full: 9999px;
@@ -45,12 +46,15 @@
     --theme-outline-foreground-hover: #dce8f7;
     --theme-outline: #7c93ca;
     --theme-panel-background: #e4eefa;
+    --theme-scrollbar-foreground: #7c93ca;
     --theme-selection-background: #99b0ff;
   }
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--theme-scrollbar-foreground) transparent;
+  scrollbar-width: thin;
 }
 
 body {

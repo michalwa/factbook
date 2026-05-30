@@ -59,6 +59,8 @@
 
 .title {
   flex-grow: 1;
+  flex-shrink: 0;
+  margin-right: 1rem;
 }
 
 .radio {

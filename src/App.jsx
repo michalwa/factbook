@@ -31,7 +31,7 @@ import TabControls from "./TabControls";
 import EntriesContainer from "./EntriesContainer";
 import PanelControls from "./PanelControls";
 import { createToggle } from "./utils";
-import { onMount, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import EntriesHeader from "./EntriesHeader";
 import PanelBottomContainer from "./PanelBottomContainer";
 import PanelControlsSpacer from "./PanelControlsSpacer";
@@ -40,6 +40,8 @@ import createDialog from "./Dialog";
 import Form from "./Form";
 import FormField from "./FormField";
 import FormControls from "./FormControls";
+import { Key } from "@solid-primitives/keyed";
+import { format as formatDate } from "date-fns";
 
 export default function App() {
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
@@ -47,7 +49,49 @@ export default function App() {
 
   const { Dialog, open: openDialog } = createDialog();
 
-  const [entryMode, toggleEntryMode] = createToggle("editor", "static");
+  const [entries, setEntries] = createSignal([
+    {
+      id: 0,
+      timestamp: "2025-01-02 13:45",
+      content:
+        "this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet",
+    },
+    {
+      id: 1,
+      timestamp: "2025-02-03 14:56",
+      content: "this is an example entry",
+    },
+  ]);
+  const [nextEntryId, setNextEntryId] = createSignal(2);
+
+  const insertEntry = () => {
+    const content = [
+      "this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet",
+      "this is an example entry",
+      "lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet",
+    ];
+    const entry = {
+      id: nextEntryId(),
+      timestamp: formatDate(new Date(), "yyyy-MM-dd hh:mm"),
+      content: content[Math.floor(Math.random() * content.length)],
+    };
+    setEntries(
+      entries().toSpliced(
+        Math.floor(Math.random() * entries().length),
+        0,
+        entry,
+      ),
+    );
+    setNextEntryId(entry.id + 1);
+  };
+
+  const deleteEntry = () => {
+    if (entries().length) {
+      setEntries(
+        entries().toSpliced(Math.floor(Math.random() * entries().length), 1),
+      );
+    }
+  };
 
   return (
     <div id="app" class={styles.app}>
@@ -72,30 +116,6 @@ export default function App() {
         >
           <Label style="panel">Side panel</Label>
           Hello, world!
-          <Label style="form">Buttons</Label>
-          {/* TODO: For testing only, remove inline-styled elements afterwards */}
-          <div style="display: flex; flex-flow: row nowrap; gap: 1rem">
-            <div style="display: flex; flex-flow: column nowrap; gap: 0.5rem; width: fit-content">
-              <Button
-                style="primary"
-                icon={ArrowRight}
-                iconPlacement="right"
-                onClick={openDialog}
-              >
-                Primary
-              </Button>
-              <Button style="danger" icon={TriangleAlert} iconPlacement="left">
-                Danger
-              </Button>
-              <Button icon={Plus}>Default</Button>
-            </div>
-            <div style="display: flex; flex-flow: column nowrap; gap: 0.5rem; width: fit-content">
-              <IconButton icon={Banana} />
-              <IconButton style="danger" icon={Banana} />
-            </div>
-          </div>
-          <Label style="form">Input field</Label>
-          <Input value="Lorem ipsum dolor sit amet" />
           <Tabs>
             <Tab id={0} title="First tab">
               <TabControls>
@@ -125,12 +145,11 @@ export default function App() {
               </Badge>
             </Tab>
           </Tabs>
-          <Button
-            size="wide"
-            icon={entryMode() === "static" ? Lock : LockOpen}
-            onClick={toggleEntryMode}
-          >
-            Toggle editable entries
+          <Button size="wide" icon={Plus} onClick={insertEntry}>
+            Insert entry
+          </Button>
+          <Button size="wide" icon={Trash} onClick={deleteEntry}>
+            Delete entry
           </Button>
           <PanelBottomContainer>
             <Button size="wide" icon={Plus}>
@@ -170,16 +189,15 @@ export default function App() {
             </EntriesHeader>
           </Show>
           <Entries>
-            <Entry
-              mode={entryMode()}
-              timestamp="2025-01-02 13:45"
-              content="this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
-            />
-            <Entry
-              mode={entryMode()}
-              timestamp="2025-02-03 14:56"
-              content="this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
-            />
+            <Key each={entries()} by="id">
+              {(entry) => (
+                <Entry
+                  mode="editor"
+                  timestamp={entry().timestamp}
+                  content={entry().content}
+                />
+              )}
+            </Key>
           </Entries>
         </EntriesContainer>
       </Workspace>

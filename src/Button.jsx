@@ -13,7 +13,7 @@ export default function Button(props) {
 
   return (
     <button
-      class={`${styles[`style-${merged.style}`]} ${merged.size && styles[`size-${merged.size}`]}`}
+      class={`${styles.button} ${styles[`style-${merged.style}`]} ${merged.size && styles[`size-${merged.size}`]}`}
       type={props.type ?? "button"}
       onClick={props.onClick}
     >

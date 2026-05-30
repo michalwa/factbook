@@ -1,3 +1,4 @@
 .tabs {
+  width: max-content;
   margin-block: 1rem;
 }
