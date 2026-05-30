@@ -11,6 +11,7 @@
   font-family: "Iosevka Custom", monospace;
   font-size: 12pt;
   line-height: normal;
+  caret-color: var(--theme-foreground) !important;
 }
 
 .editor :global(.cm-line) {
