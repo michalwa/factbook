@@ -7,37 +7,37 @@
 }
 
 .placement-top,
-[data-expanded] > .sticky-top {
+:not([data-collapsed]) > .sticky-top {
   top: 0;
 }
 
 .placement-right,
-[data-expanded] > .sticky-right {
+:not([data-collapsed]) > .sticky-right {
   right: 0;
 }
 
 .placement-bottom,
-[data-expanded] > .sticky-bottom {
+:not([data-collapsed]) > .sticky-bottom {
   bottom: 0;
 }
 
 .placement-left,
-[data-expanded] > .sticky-left {
+:not([data-collapsed]) > .sticky-left {
   left: 0;
 }
 
-:not([data-expanded]) > .sticky-top {
+[data-collapsed] > .sticky-top {
   bottom: 100%;
 }
 
-:not([data-expanded]) > .sticky-right {
+[data-collapsed] > .sticky-right {
   left: 100%;
 }
 
-:not([data-expanded]) > .sticky-bottom {
+[data-collapsed] > .sticky-bottom {
   top: 100%;
 }
 
-:not([data-expanded]) > .sticky-left {
+[data-collapsed] > .sticky-left {
   right: 100%;
 }

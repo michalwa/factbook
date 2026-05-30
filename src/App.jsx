@@ -6,6 +6,7 @@ import Label from "./Label";
 import {
   ArrowRight,
   Banana,
+  Check,
   CircleQuestionMark,
   PanelBottomClose,
   PanelBottomOpen,
@@ -16,6 +17,7 @@ import {
   Settings,
   Trash,
   TriangleAlert,
+  X,
 } from "lucide-solid";
 import Button from "./Button";
 import IconButton from "./IconButton";
@@ -27,27 +29,37 @@ import TabControls from "./TabControls";
 import EntriesContainer from "./EntriesContainer";
 import PanelControls from "./PanelControls";
 import { createToggle } from "./utils";
-import { Show } from "solid-js";
+import { onMount, Show } from "solid-js";
 import EntriesHeader from "./EntriesHeader";
 import PanelBottomContainer from "./PanelBottomContainer";
 import PanelControlsSpacer from "./PanelControlsSpacer";
+import Entry from "./Entry";
+import createDialog from "./Dialog";
+import Form from "./Form";
+import FormField from "./FormField";
+import FormControls from "./FormControls";
 
 export default function App() {
-  const [leftPanelExpanded, toggleLeftPanelExpanded] = createToggle();
-  const [bottomPanelExpanded, toggleBottomPanelExpanded] = createToggle();
+  const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
+  const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
+
+  const { Dialog, open: openDialog } = createDialog();
+
+  // TODO: For debugging only
+  onMount(() => openDialog());
 
   return (
     <div id="app" class={styles.app}>
       <Workspace>
         <Panel
           orientation="horizontal"
-          expanded={leftPanelExpanded()}
+          collapsed={leftPanelCollapsed()}
           controls={
             <>
               <PanelControls placement="top" sticky="right">
                 <IconButton
-                  icon={leftPanelExpanded() ? PanelLeftClose : PanelLeftOpen}
-                  onClick={toggleLeftPanelExpanded}
+                  icon={leftPanelCollapsed() ? PanelLeftOpen : PanelLeftClose}
+                  onClick={toggleLeftPanelCollapsed}
                 />
               </PanelControls>
               <PanelControls placement="bottom" sticky="right">
@@ -63,7 +75,12 @@ export default function App() {
           {/* TODO: For testing only, remove inline-styled elements afterwards */}
           <div style="display: flex; flex-flow: row nowrap; gap: 1rem">
             <div style="display: flex; flex-flow: column nowrap; gap: 0.5rem; width: fit-content">
-              <Button style="primary" icon={ArrowRight} iconPlacement="right">
+              <Button
+                style="primary"
+                icon={ArrowRight}
+                iconPlacement="right"
+                onClick={openDialog}
+              >
                 Primary
               </Button>
               <Button style="danger" icon={TriangleAlert} iconPlacement="left">
@@ -76,7 +93,7 @@ export default function App() {
               <IconButton style="danger" icon={Banana} />
             </div>
           </div>
-          <Label style="form">Buttons</Label>
+          <Label style="form">Input field</Label>
           <Input value="Lorem ipsum dolor sit amet" />
           <Tabs>
             <Tab id={0} title="First tab">
@@ -118,33 +135,75 @@ export default function App() {
           after={
             <Panel
               orientation="vertical"
-              expanded={bottomPanelExpanded()}
+              collapsed={bottomPanelCollapsed()}
               controls={
                 <PanelControls placement="right" sticky="top">
                   <IconButton
                     icon={
-                      bottomPanelExpanded() ? PanelBottomClose : PanelBottomOpen
+                      bottomPanelCollapsed()
+                        ? PanelBottomOpen
+                        : PanelBottomClose
                     }
-                    onClick={toggleBottomPanelExpanded}
+                    onClick={toggleBottomPanelCollapsed}
                   />
                 </PanelControls>
               }
             >
               <Label style="panel">Bottom panel</Label>
               Hello, world!
-              <PanelControlsSpacer when={!leftPanelExpanded()} />
+              <PanelControlsSpacer when={leftPanelCollapsed()} />
             </Panel>
           }
         >
-          <Show when={!leftPanelExpanded()}>
+          <Show when={leftPanelCollapsed()}>
             <EntriesHeader>
               Header
               <Badge size="large">42</Badge>
             </EntriesHeader>
           </Show>
-          <Entries />
+          <Entries>
+            <Entry
+              timestamp="2025-01-02 13:45"
+              content="this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
+            />
+            <Entry timestamp="2025-02-03 14:56" content="@todo walk the dog" />
+          </Entries>
         </EntriesContainer>
       </Workspace>
+      <Dialog>
+        {({ close: closeDialog }) => (
+          <Panel
+            style="rounded"
+            controls={
+              <PanelControls placement="top" sticky="right">
+                <IconButton style="danger" icon={X} onClick={closeDialog} />
+              </PanelControls>
+            }
+          >
+            <Label style="panel">Dialog</Label>
+            <Form onSubmit={closeDialog}>
+              <FormField>
+                <Label style="form">First input field</Label>
+                <Input />
+              </FormField>
+              <FormField>
+                <Label style="form">Second input field</Label>
+                <Input />
+              </FormField>
+              <FormControls>
+                <Button
+                  type="submit"
+                  style="primary"
+                  icon={Check}
+                  iconPlacement="right"
+                >
+                  OK
+                </Button>
+              </FormControls>
+            </Form>
+          </Panel>
+        )}
+      </Dialog>
     </div>
   );
 }

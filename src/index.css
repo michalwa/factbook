@@ -12,7 +12,7 @@
   --theme-danger-foreground: #ed6c6c;
   --theme-danger-hover: #dd5757;
   --theme-danger: #ed6c6c;
-  --theme-dialog-background: rgba(0 0 0 / 50%);
+  --theme-dialog-background: rgba(0 0 0 / 20%);
   --theme-foreground: #c5d1e2;
   --theme-highlight-1: #d972f8;
   --theme-inner-background: #090c13;
@@ -38,7 +38,6 @@
     --theme-badge-foreground: #7c93ca;
     --theme-danger-contrast: #ecf4fe;
     --theme-danger-foreground: #ee5050;
-    --theme-dialog-background: rgba(0 0 0 / 30%);
     --theme-foreground: #101521;
     --theme-highlight-1: #cb3ef5;
     --theme-inner-background: #ecf4fe;
@@ -47,7 +46,7 @@
     --theme-outline-foreground-hover: #dce8f7;
     --theme-outline: #7c93ca;
     --theme-panel-background: #e4eefa;
-    --theme-selection-background: #829bef;
+    --theme-selection-background: #99b0ff;
     --font-weight-accent-foreground: 450;
   }
 }

@@ -1,0 +1,41 @@
+.entry {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 1rem;
+  --label-color: var(--theme-label-foreground);
+}
+
+.timestamp {
+  color: var(--theme-label-foreground);
+  font-size: 9pt;
+  font-weight: 400;
+  flex: 0 0 8rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry:focus-within > .timestamp {
+  color: var(--theme-accent-foreground);
+  font-weight: var(--font-weight-accent-foreground);
+}
+
+.divider {
+  background: var(--theme-label-foreground);
+  flex: 0 0 0.2rem;
+  align-self: stretch;
+  border-radius: var(--round-full);
+}
+
+.entry:focus-within > .divider {
+  background: var(--theme-accent-foreground);
+}
+
+.content {
+  flex-grow: 1;
+  margin: 0;
+  padding: 0.2rem 0;
+  font-family: "Iosevka Custom", monospace;
+  font-size: 12pt;
+  user-select: text;
+}

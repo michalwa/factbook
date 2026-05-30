@@ -8,5 +8,5 @@
   display: flex;
   flex-flow: column nowrap;
   flex-grow: 1;
-  padding: 2rem;
+  padding: 2rem 1rem;
 }

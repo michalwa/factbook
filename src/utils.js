@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
 /**
  * @returns {[Getter<boolean>, Toggler]}
  */
-export function createToggle(initial = true) {
+export function createToggle(initial = false) {
   const [get, set] = createSignal(initial);
 
   /** @type {Toggler} */

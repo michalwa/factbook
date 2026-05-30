@@ -2,10 +2,11 @@ import styles from "./Label.module.css";
 
 export default function Label(props) {
   return (
-    <label
+    <Dynamic
+      component={props.style === "form" ? "label" : "span"}
       class={`${styles.label} ${props.style && styles[`style-${props.style}`]} ${props.class}`}
     >
       {props.children}
-    </label>
+    </Dynamic>
   );
 }
