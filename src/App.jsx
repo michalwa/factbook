@@ -175,7 +175,7 @@ export default function App() {
           <Panel
             style="rounded"
             controls={
-              <PanelControls placement="top" sticky="right">
+              <PanelControls placement="top right">
                 <IconButton style="danger" icon={X} onClick={closeDialog} />
               </PanelControls>
             }
