@@ -8,6 +8,8 @@ import {
   Banana,
   Check,
   CircleQuestionMark,
+  Lock,
+  LockOpen,
   PanelBottomClose,
   PanelBottomOpen,
   PanelLeftClose,
@@ -45,8 +47,7 @@ export default function App() {
 
   const { Dialog, open: openDialog } = createDialog();
 
-  // TODO: For debugging only
-  onMount(() => openDialog());
+  const [entryMode, toggleEntryMode] = createToggle("editor", "static");
 
   return (
     <div id="app" class={styles.app}>
@@ -124,6 +125,13 @@ export default function App() {
               </Badge>
             </Tab>
           </Tabs>
+          <Button
+            size="wide"
+            icon={entryMode() === "static" ? Lock : LockOpen}
+            onClick={toggleEntryMode}
+          >
+            Toggle editable entries
+          </Button>
           <PanelBottomContainer>
             <Button size="wide" icon={Plus}>
               Create
@@ -163,10 +171,15 @@ export default function App() {
           </Show>
           <Entries>
             <Entry
+              mode={entryMode()}
               timestamp="2025-01-02 13:45"
               content="this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
             />
-            <Entry timestamp="2025-02-03 14:56" content="@todo walk the dog" />
+            <Entry
+              mode={entryMode()}
+              timestamp="2025-02-03 14:56"
+              content="this is a longer entry which wraps into multiple lines. lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet"
+            />
           </Entries>
         </EntriesContainer>
       </Workspace>

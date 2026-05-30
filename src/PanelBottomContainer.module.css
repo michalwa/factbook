@@ -2,4 +2,5 @@
   margin-top: auto;
   align-self: stretch;
   display: flex;
+  flex-flow: column nowrap;
 }

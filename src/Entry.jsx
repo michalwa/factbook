@@ -1,3 +1,5 @@
+import { Match, Switch } from "solid-js";
+import CodeEditor from "./CodeEditor";
 import styles from "./Entry.module.css";
 
 export default function Entry(props) {
@@ -7,7 +9,14 @@ export default function Entry(props) {
         {props.timestamp}
       </time>
       <div class={styles.divider}></div>
-      <p class={styles.content}>{props.content}</p>
+      <Switch>
+        <Match when={props.mode === "static"}>
+          <p class={styles.content}>{props.content}</p>
+        </Match>
+        <Match when={props.mode === "editor"}>
+          <CodeEditor class={styles.content} value={props.content} />
+        </Match>
+      </Switch>
     </div>
   );
 }

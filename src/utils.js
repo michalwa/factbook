@@ -5,11 +5,11 @@ import { createSignal } from "solid-js";
 /**
  * @returns {[Getter<boolean>, Toggler]}
  */
-export function createToggle(initial = false) {
-  const [get, set] = createSignal(initial);
+export function createToggle(firstValue = false, secondValue = true) {
+  const [get, set] = createSignal(firstValue);
 
   /** @type {Toggler} */
-  const toggle = () => set(!get());
+  const toggle = () => set(get() === firstValue ? secondValue : firstValue);
 
   return [get, toggle];
 }

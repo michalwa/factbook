@@ -22,7 +22,6 @@
   --theme-outline: #2c4171;
   --theme-panel-background: #101521;
   --theme-selection-background: #1e3261;
-  --font-weight-accent-foreground: 400;
   --round-default: 0.3rem;
   --round-full: 9999px;
   --padding-panel: 1.2rem;
@@ -47,7 +46,6 @@
     --theme-outline: #7c93ca;
     --theme-panel-background: #e4eefa;
     --theme-selection-background: #99b0ff;
-    --font-weight-accent-foreground: 450;
   }
 }
 

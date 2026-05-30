@@ -17,7 +17,6 @@
 
 .entry:focus-within > .timestamp {
   color: var(--theme-accent-foreground);
-  font-weight: var(--font-weight-accent-foreground);
 }
 
 .divider {

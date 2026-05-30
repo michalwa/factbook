@@ -15,7 +15,6 @@
 .tab:has(:checked) {
   background: var(--theme-background);
   color: var(--theme-accent-foreground);
-  font-weight: var(--font-weight-accent-foreground);
 }
 
 .tab:has(:checked)::before {

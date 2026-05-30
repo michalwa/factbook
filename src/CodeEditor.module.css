@@ -1,0 +1,18 @@
+.editor :global(.cm-editor) {
+  padding: 0;
+}
+
+.editor :global(.cm-focused) {
+  outline: none;
+}
+
+.editor :global(.cm-content) {
+  padding: 0;
+  font-family: "Iosevka Custom", monospace;
+  font-size: 12pt;
+  line-height: normal;
+}
+
+.editor :global(.cm-line) {
+  padding: 0;
+}
