@@ -1,3 +1,7 @@
 .app {
   height: 100vh;
 }
+
+.entryContentMargin {
+  margin-left: 10rem; /* aligned with entry content */
+}

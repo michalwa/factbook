@@ -34,6 +34,7 @@ export function useViews() {
 
   return {
     views,
+    refetchViews,
     getView,
     setViewDefinition,
     createView,

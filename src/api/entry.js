@@ -10,5 +10,15 @@ export function useEntries(viewId) {
   const setEntryContent = (id, content) =>
     invoke("set_entry_content", { id, content });
 
-  return { entries, refetchEntries, setEntryContent };
+  const createEntry = async () => {
+    await invoke("create_entry");
+    await refetchEntries();
+  };
+
+  return {
+    entries,
+    refetchEntries,
+    setEntryContent,
+    createEntry,
+  };
 }

@@ -26,6 +26,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PenLine,
+  Plus,
   Trash,
 } from "lucide-solid";
 
@@ -41,7 +42,7 @@ export default function App() {
   const [currentViewId, setCurrentViewId] = createSignal(null);
   const currentView = createMemo(() => getView(currentViewId()));
 
-  const { entries, refetchEntries, setEntryContent } =
+  const { entries, refetchEntries, setEntryContent, createEntry } =
     useEntries(currentViewId);
 
   const setViewDefinition = async (...args) => {
@@ -137,10 +138,13 @@ export default function App() {
             </Show>
           }
         >
-          <Show when={leftPanelCollapsed()}>
+          {/* TODO: Show total entry count */}
+          <Show
+            when={leftPanelCollapsed() && currentViewId() !== defaultView.id}
+          >
             <EntriesHeader>
-              Header
-              <Badge size="large">42</Badge>
+              {currentView().name}
+              <Badge size="large">{currentView().entryCount}</Badge>
             </EntriesHeader>
           </Show>
           <Entries>
@@ -155,6 +159,12 @@ export default function App() {
                 />
               )}
             </Key>
+            {/* TODO: Not sure if I want this button here */}
+            <IconButton
+              icon={Plus}
+              class={styles.entryContentMargin}
+              onClick={createEntry}
+            />
           </Entries>
         </EntriesContainer>
       </Workspace>
