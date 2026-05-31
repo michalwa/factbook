@@ -15,7 +15,12 @@ export default function Tab(props) {
         checked={props.id === activeId()}
         onClick={() => setActiveId(props.id)}
       />
-      <span class={styles.title}>{props.title}</span>
+      <span class={styles.title}>
+        {props.title}
+        <span class={styles.controls}>
+          {props.controls}
+        </span>
+      </span>
       {props.children}
     </label>
   );

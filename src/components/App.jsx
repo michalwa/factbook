@@ -1,26 +1,38 @@
+import Badge from "@/components/Badge";
+import Button from "@/components/Button";
 import Entries from "@/components/Entries";
-import Panel from "@/components/Panel";
-import Workspace from "@/components/Workspace";
-import styles from "@/styles/App";
+import EntriesContainer from "@/components/EntriesContainer";
+import EntriesHeader from "@/components/EntriesHeader";
+import Entry from "@/components/Entry";
+import IconButton from "@/components/IconButton";
 import Label from "@/components/Label";
+import Panel from "@/components/Panel";
+import PanelBottomContainer from "@/components/PanelBottomContainer";
+import PanelControls from "@/components/PanelControls";
+import styles from "@/styles/App";
+import Tab from "@/components/Tab";
+import Tabs from "@/components/Tabs";
+import { useEntries } from "@/api/entry";
+import { useViews, defaultView } from "@/api/view";
+import Workspace from "@/components/Workspace";
+import { createSignal, Show } from "solid-js";
+import { createToggle } from "@/utils";
+import { Key } from "@solid-primitives/keyed";
 import {
   FunnelPlus,
   PanelBottomClose,
   PanelBottomOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  PenLine,
+  Trash,
 } from "lucide-solid";
-import Button from "@/components/Button";
-import IconButton from "@/components/IconButton";
-import Badge from "@/components/Badge";
-import EntriesContainer from "@/components/EntriesContainer";
-import PanelControls from "@/components/PanelControls";
-import { createToggle } from "@//utils";
-import { Show } from "solid-js";
-import EntriesHeader from "@/components/EntriesHeader";
-import PanelBottomContainer from "@/components/PanelBottomContainer";
 
 export default function App() {
+  const { views } = useViews();
+  const [currentViewId, setCurrentViewId] = createSignal(null);
+  const { entries } = useEntries(currentViewId);
+
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
   const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
 
@@ -40,35 +52,29 @@ export default function App() {
           }
         >
           <Label style="panel">Views</Label>
-          {/* <Tabs>
-            <Tab id={0} title="First tab">
-              <TabControls>
-                <IconButton size="small" icon={PenLine} />
-                <IconButton size="small" style="danger" icon={Trash} />
-              </TabControls>
-              <Badge size="small" fixedWidth>
-                1
-              </Badge>
-            </Tab>
-            <Tab id={1} title="Second tab">
-              <TabControls>
-                <IconButton size="small" icon={PenLine} />
-                <IconButton size="small" style="danger" icon={Trash} />
-              </TabControls>
-              <Badge size="small" fixedWidth>
-                42
-              </Badge>
-            </Tab>
-            <Tab id={2} title="Third tab">
-              <TabControls>
-                <IconButton size="small" icon={PenLine} />
-                <IconButton size="small" style="danger" icon={Trash} />
-              </TabControls>
-              <Badge size="small" fixedWidth>
-                123
-              </Badge>
-            </Tab>
-          </Tabs> */}
+          <Tabs activeId={[currentViewId, setCurrentViewId]}>
+            <Key each={views()} by="id">
+              {(view) => (
+                <Tab
+                  id={view().id}
+                  title={view().name}
+                  controls={
+                    <Show when={view().id !== defaultView.id}>
+                      <IconButton size="small" icon={PenLine} />
+                      <IconButton size="small" style="danger" icon={Trash} />
+                    </Show>
+                  }
+                >
+                  {/* TODO: Show total entry count */}
+                  <Show when={view().id !== defaultView.id}>
+                    <Badge size="small" fixedWidth>
+                      {view().entryCount}
+                    </Badge>
+                  </Show>
+                </Tab>
+              )}
+            </Key>
+          </Tabs>
           <PanelBottomContainer>
             <Button size="wide" icon={FunnelPlus}>
               New
@@ -104,14 +110,14 @@ export default function App() {
             </EntriesHeader>
           </Show>
           <Entries>
-            {/* <Key each={entries()} by="id">
+            <Key each={entries()} by="id">
               {(entry) => (
                 <Entry
-                  timestamp={entry().timestamp}
+                  timestamp={entry().createdAt}
                   content={entry().content}
                 />
               )}
-            </Key>*/}
+            </Key>
           </Entries>
         </EntriesContainer>
       </Workspace>

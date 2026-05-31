@@ -10,7 +10,5 @@ export default function CodeEditor(props) {
 
   createExtension(EditorView.lineWrapping);
 
-  onCleanup(() => console.log("editor dispose"));
-
   return <div ref={editorRef} class={`${styles.editor} ${props.class}`} />;
 }
