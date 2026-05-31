@@ -1,0 +1,11 @@
+.spacer {
+  transition: flex-basis 0.1s var(--translation-curve);
+}
+
+.expanded {
+  flex: 0 0 1.4rem;
+}
+
+.collapsed {
+  flex: 0 0 0;
+}

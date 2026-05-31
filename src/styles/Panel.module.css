@@ -1,0 +1,30 @@
+.panel {
+  position: relative;
+  background: var(--theme-panel-background);
+}
+
+.orientation-horizontal[data-collapsed] {
+  width: 0;
+}
+
+.orientation-vertical[data-collapsed] {
+  height: 0;
+}
+
+.style-rounded {
+  border-radius: var(--round-default);
+}
+
+.content {
+  display: flex;
+  flex-flow: column nowrap;
+  padding: var(--padding-panel);
+  width: 100%;
+  height: 100%;
+}
+
+.panel[data-collapsed] .content {
+  padding: 0;
+  overflow: clip;
+  overflow-clip-margin: content-box;
+}

@@ -1,0 +1,24 @@
+.button {
+  padding: 0;
+  background: none;
+  color: var(--theme-label-foreground);
+}
+
+.icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.style-default:hover {
+  color: var(--theme-accent-foreground);
+}
+
+.style-danger:hover {
+  color: var(--theme-danger-foreground);
+}
+
+.size-small > .icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}

@@ -1,0 +1,23 @@
+.dialog {
+  border: none;
+  background: none;
+  padding: 0;
+  outline: none;
+  user-select: inherit;
+  color: inherit;
+}
+
+.dialog::backdrop {
+  animation: dialog-backdrop-blur 0.1s forwards ease-out;
+}
+
+@keyframes dialog-backdrop-blur {
+  from {
+    background: transparent;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    background: var(--theme-dialog-background);
+    backdrop-filter: blur(5px);
+  }
+}
