@@ -16,10 +16,9 @@ export default function Tab(props) {
         onClick={() => setCurrentId(props.id)}
       />
       <span class={styles.title}>
-        {props.title}
-        <span class={styles.controls}>
-          {props.controls}
-        </span>
+        {/* In case of empty names, put a zero-width space to maintain height */}
+        {props.title || "\u200b"}
+        <span class={styles.controls}>{props.controls}</span>
       </span>
       {props.children}
     </label>

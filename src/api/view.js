@@ -16,8 +16,27 @@ export function useViews() {
 
   const setViewDefinition = async (id, definition) => {
     await invoke("set_view_definition", { id, definition });
-    refetchViews();
+    await refetchViews();
   };
 
-  return { views, getView, setViewDefinition };
+  const createView = async () => {
+    const id = await invoke("create_view");
+    await invoke("set_view_name", { id, name: "(untitled)" });
+    await invoke("set_view_definition", { id, definition: "any" });
+    await refetchViews();
+    return id;
+  };
+
+  const removeView = async (id) => {
+    await invoke("remove_view", { id });
+    await refetchViews();
+  };
+
+  return {
+    views,
+    getView,
+    setViewDefinition,
+    createView,
+    removeView,
+  };
 }

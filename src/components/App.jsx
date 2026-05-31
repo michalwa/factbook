@@ -30,14 +30,28 @@ import {
 } from "lucide-solid";
 
 export default function App() {
-  const { views, getView, setViewDefinition: setViewDefinitionImpl } = useViews();
+  const {
+    views,
+    getView,
+    setViewDefinition: setViewDefinitionImpl,
+    createView: createViewImpl,
+    removeView: removeViewImpl,
+  } = useViews();
+
   const [currentViewId, setCurrentViewId] = createSignal(null);
-  const { entries, refetchEntries, setEntryContent } = useEntries(currentViewId);
   const currentView = createMemo(() => getView(currentViewId()));
+
+  const { entries, refetchEntries, setEntryContent } =
+    useEntries(currentViewId);
 
   const setViewDefinition = async (...args) => {
     await setViewDefinitionImpl(...args);
     refetchEntries();
+  };
+  const createView = async () => setCurrentViewId(await createViewImpl());
+  const removeView = (...args) => {
+    setCurrentViewId(defaultView.id);
+    return removeViewImpl(...args);
   };
 
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
@@ -68,7 +82,12 @@ export default function App() {
                   controls={
                     <Show when={view().id !== defaultView.id}>
                       <IconButton size="small" icon={PenLine} />
-                      <IconButton size="small" style="danger" icon={Trash} />
+                      <IconButton
+                        size="small"
+                        style="danger"
+                        icon={Trash}
+                        onClick={() => removeView(view().id)}
+                      />
                     </Show>
                   }
                 >
@@ -83,7 +102,7 @@ export default function App() {
             </Key>
           </Tabs>
           <PanelBottomContainer>
-            <Button size="wide" icon={FunnelPlus}>
+            <Button size="wide" icon={FunnelPlus} onClick={createView}>
               New
             </Button>
           </PanelBottomContainer>
