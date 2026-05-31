@@ -6,6 +6,7 @@ import { onCleanup } from "solid-js";
 export default function CodeEditor(props) {
   const { ref: editorRef, createExtension } = createCodeMirror({
     value: props.value,
+    onValueChange: props.onChange,
   });
 
   createExtension(EditorView.lineWrapping);

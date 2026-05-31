@@ -31,7 +31,7 @@ import {
 export default function App() {
   const { views } = useViews();
   const [currentViewId, setCurrentViewId] = createSignal(null);
-  const { entries } = useEntries(currentViewId);
+  const { entries, setEntryContent } = useEntries(currentViewId);
 
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
   const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
@@ -52,7 +52,7 @@ export default function App() {
           }
         >
           <Label style="panel">Views</Label>
-          <Tabs activeId={[currentViewId, setCurrentViewId]}>
+          <Tabs currentId={currentViewId()} onCurrentChange={setCurrentViewId}>
             <Key each={views()} by="id">
               {(view) => (
                 <Tab
@@ -115,6 +115,9 @@ export default function App() {
                 <Entry
                   timestamp={entry().createdAt}
                   content={entry().content}
+                  onContentChange={(content) =>
+                    setEntryContent(entry().id, content)
+                  }
                 />
               )}
             </Key>

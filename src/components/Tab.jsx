@@ -3,7 +3,7 @@ import styles from "@/styles/Tab";
 import { TabsContext } from "@/components/Tabs";
 
 export default function Tab(props) {
-  const { name, activeId, setActiveId } = useContext(TabsContext);
+  const { name, currentId, setCurrentId } = useContext(TabsContext);
 
   return (
     <label class={styles.tab}>
@@ -12,8 +12,8 @@ export default function Tab(props) {
         type="radio"
         name={name}
         value={props.id}
-        checked={props.id === activeId()}
-        onClick={() => setActiveId(props.id)}
+        checked={props.id === currentId()}
+        onClick={() => setCurrentId(props.id)}
       />
       <span class={styles.title}>
         {props.title}

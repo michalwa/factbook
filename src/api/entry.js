@@ -7,5 +7,8 @@ export function useEntries(viewId) {
     ({ viewId }) => invoke("get_entries", { view: viewId }),
   );
 
-  return { entries };
+  const setEntryContent = (id, content) =>
+    invoke("set_entry_content", { id, content });
+
+  return { entries, setEntryContent };
 }
