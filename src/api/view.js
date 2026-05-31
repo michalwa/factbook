@@ -7,8 +7,17 @@ export const defaultView = {
 };
 
 export function useViews() {
-  const [createdViews] = createResource(() => invoke("get_views"));
+  const [createdViews, { refetch: refetchViews }] = createResource(() =>
+    invoke("get_views"),
+  );
   const views = () => [defaultView, ...(createdViews() ?? [])];
 
-  return { views };
+  const getView = (id) => views().find((view) => view.id === id);
+
+  const setViewDefinition = async (id, definition) => {
+    await invoke("set_view_definition", { id, definition });
+    refetchViews();
+  };
+
+  return { views, getView, setViewDefinition };
 }

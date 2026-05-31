@@ -15,7 +15,8 @@ import Tabs from "@/components/Tabs";
 import { useEntries } from "@/api/entry";
 import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
-import { createSignal, Show } from "solid-js";
+import ViewEditor from "@/components/ViewEditor";
+import { createMemo, createSignal, Show } from "solid-js";
 import { createToggle } from "@/utils";
 import { Key } from "@solid-primitives/keyed";
 import {
@@ -29,9 +30,15 @@ import {
 } from "lucide-solid";
 
 export default function App() {
-  const { views } = useViews();
+  const { views, getView, setViewDefinition: setViewDefinitionImpl } = useViews();
   const [currentViewId, setCurrentViewId] = createSignal(null);
-  const { entries, setEntryContent } = useEntries(currentViewId);
+  const { entries, refetchEntries, setEntryContent } = useEntries(currentViewId);
+  const currentView = createMemo(() => getView(currentViewId()));
+
+  const setViewDefinition = async (...args) => {
+    await setViewDefinitionImpl(...args);
+    refetchEntries();
+  };
 
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
   const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
@@ -83,24 +90,32 @@ export default function App() {
         </Panel>
         <EntriesContainer
           after={
-            <Panel
-              orientation="vertical"
-              collapsed={bottomPanelCollapsed()}
-              controls={
-                <PanelControls placement="right" sticky="top">
-                  <IconButton
-                    icon={
-                      bottomPanelCollapsed()
-                        ? PanelBottomOpen
-                        : PanelBottomClose
-                    }
-                    onClick={toggleBottomPanelCollapsed}
-                  />
-                </PanelControls>
-              }
-            >
-              <Label style="panel">Edit view</Label>
-            </Panel>
+            <Show when={currentViewId() !== defaultView.id}>
+              <Panel
+                orientation="vertical"
+                collapsed={bottomPanelCollapsed()}
+                controls={
+                  <PanelControls placement="right" sticky="top">
+                    <IconButton
+                      icon={
+                        bottomPanelCollapsed()
+                          ? PanelBottomOpen
+                          : PanelBottomClose
+                      }
+                      onClick={toggleBottomPanelCollapsed}
+                    />
+                  </PanelControls>
+                }
+              >
+                <Label style="panel">Edit view</Label>
+                <ViewEditor
+                  definition={currentView().definition}
+                  onDefinitionChange={(definition) =>
+                    setViewDefinition(currentViewId(), definition)
+                  }
+                />
+              </Panel>
+            </Show>
           }
         >
           <Show when={leftPanelCollapsed()}>
