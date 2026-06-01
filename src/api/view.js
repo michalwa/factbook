@@ -7,21 +7,22 @@ export const defaultView = {
 };
 
 export function useViews() {
-  const [createdViews, { refetch: refetchViews }] = createResource(() =>
-    invoke("get_views"),
-  );
+  const [createdViews, { refetch: refetchViews, mutate: mutateViews }] =
+    createResource(() => invoke("get_views"));
   const views = () => [defaultView, ...(createdViews() ?? [])];
 
   const getView = (id) => views().find((view) => view.id === id);
 
   const setViewName = async (id, name) => {
     await invoke("set_view_name", { id, name });
-    await refetchViews();
+    mutateViews((views) =>
+      views.map((view) => (view.id === id ? { ...view, name } : view)),
+    );
   };
 
   const setViewDefinition = async (id, definition) => {
     await invoke("set_view_definition", { id, definition });
-    await refetchViews();
+    await refetchViews(); // update entry counts
   };
 
   const createView = async () => {
@@ -34,7 +35,7 @@ export function useViews() {
 
   const removeView = async (id) => {
     await invoke("remove_view", { id });
-    await refetchViews();
+    mutateViews((views) => views.filter((view) => view.id !== id));
   };
 
   return {
