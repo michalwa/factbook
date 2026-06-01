@@ -1,3 +1,8 @@
 .editable {
   cursor: text;
 }
+
+.editable[contenteditable="true"] {
+  outline: none;
+  color: var(--theme-accent-foreground);
+}

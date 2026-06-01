@@ -2,6 +2,7 @@ import { useContext } from "solid-js";
 import styles from "@/styles/Tab";
 import { TabsContext } from "@/components/Tabs";
 import createEditable from "@/components/Editable";
+import { clickOutside } from "@/utils";
 
 export default function Tab(props) {
   const { name, currentId, setCurrentId } = useContext(TabsContext);
@@ -25,7 +26,7 @@ export default function Tab(props) {
   };
 
   return (
-    <label class={styles.tab}>
+    <label class={styles.tab} use:clickOutside={resetTitle}>
       <input
         class={styles.radio}
         type="radio"
@@ -35,7 +36,10 @@ export default function Tab(props) {
         onClick={() => setCurrentId(props.id)}
       />
       <div class={styles.titleContainer}>
-        <EditableTitle class={styles.title} />
+        <EditableTitle
+          class={styles.title}
+          editingClass={styles.titleEditing}
+        />
         <div class={styles.controls}>{props.controls(childrenContext)}</div>
       </div>
       {props.children(childrenContext)}

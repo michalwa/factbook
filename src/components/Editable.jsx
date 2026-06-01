@@ -2,6 +2,11 @@ import { ContentEditable } from "@bigmistqke/solid-contenteditable";
 import { createSignal } from "solid-js";
 import styles from "@/styles/Editable";
 
+/**
+ * NOTE: The returned component does not handle discarding the edit on blur to
+ * allow submitting via buttons. Use `use:clickOutside` on an outer element
+ * and call `reset` to implement this behavior manually.
+ */
 export default function createEditable(props) {
   const [editing, setEditing] = createSignal(false);
   const [editedValue, setEditedValue] = createSignal(props.value());
@@ -42,25 +47,12 @@ export default function createEditable(props) {
     queueMicrotask(() => scrollToCursor());
   };
 
-  const onBlur = () => {
-    reset();
-    ref.scrollLeft = 0;
-  };
-
+  // TODO: Consider reimplementing this component as a seamless <input> to maybe
+  // reduce the need for some of the manual handling and scrolling
   const onKeyDown = (event) => {
     if (event.key === "Enter") save();
-    if (event.key === "Escape") reset();
-    if (
-      [
-        "ArrowLeft",
-        "ArrowRight",
-        "ArrowUp",
-        "ArrowDown",
-        "Home",
-        "End",
-      ].includes(event.key)
-    )
-      scrollToCursor();
+    else if (event.key === "Escape") reset();
+    else scrollToCursor();
   };
 
   const scrollToCursor = () => {
@@ -81,13 +73,14 @@ export default function createEditable(props) {
   const Editable = (props) => (
     <ContentEditable
       ref={ref}
-      class={`${styles.editable} ${props.class}`}
+      class={`${styles.editable} ${props.class} ${editing() && props.editingClass}`}
       editable={editing()}
       textContent={editedValue()}
       onTextContent={onValueChange}
-      onBlur={onBlur}
+      onBlur={() => (ref.scrollLeft = 0)}
       onKeyDown={onKeyDown}
       onKeyUp={scrollToCursor}
+      onClick={(e) => e.preventDefault()}
       singleline
       tabindex="-1"
     />

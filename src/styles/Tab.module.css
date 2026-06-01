@@ -78,8 +78,11 @@
   transition: box-shadow 0.1s;
 }
 
-.title:focus {
-  outline: none;
+.title {
+  width: 100%;
+}
+
+.titleEditing {
   color: var(--theme-accent-foreground);
 }
 
