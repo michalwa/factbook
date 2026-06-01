@@ -193,7 +193,6 @@ export default function App() {
                 />
               )}
             </Key>
-            {/* TODO: Not sure if I want this button here */}
             <IconButton
               icon={Plus}
               class={styles.entryContentMargin}
