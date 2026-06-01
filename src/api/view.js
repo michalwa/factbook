@@ -14,6 +14,11 @@ export function useViews() {
 
   const getView = (id) => views().find((view) => view.id === id);
 
+  const setViewName = async (id, name) => {
+    await invoke("set_view_name", { id, name });
+    await refetchViews();
+  };
+
   const setViewDefinition = async (id, definition) => {
     await invoke("set_view_definition", { id, definition });
     await refetchViews();
@@ -36,6 +41,7 @@ export function useViews() {
     views,
     refetchViews,
     getView,
+    setViewName,
     setViewDefinition,
     createView,
     removeView,

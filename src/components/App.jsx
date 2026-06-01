@@ -20,6 +20,7 @@ import { createMemo, createSignal, Show } from "solid-js";
 import { createToggle } from "@/utils";
 import { Key } from "@solid-primitives/keyed";
 import {
+  Check,
   FunnelPlus,
   PanelBottomClose,
   PanelBottomOpen,
@@ -28,12 +29,14 @@ import {
   PenLine,
   Plus,
   Trash,
+  X,
 } from "lucide-solid";
 
 export default function App() {
   const {
     views,
     getView,
+    setViewName,
     setViewDefinition: setViewDefinitionImpl,
     createView: createViewImpl,
     removeView: removeViewImpl,
@@ -80,24 +83,55 @@ export default function App() {
                 <Tab
                   id={view().id}
                   title={view().name}
-                  controls={
-                    <Show when={view().id !== defaultView.id}>
-                      <IconButton size="small" icon={PenLine} />
-                      <IconButton
-                        size="small"
-                        style="danger"
-                        icon={Trash}
-                        onClick={() => removeView(view().id)}
-                      />
-                    </Show>
-                  }
+                  onTitleChange={(title) => setViewName(view().id, title)}
+                  controls={({
+                    editTitle,
+                    editingTitle,
+                    saveTitle,
+                    resetTitle,
+                  }) => (
+                    <>
+                      <Show
+                        when={view().id !== defaultView.id && !editingTitle()}
+                      >
+                        <IconButton
+                          size="small"
+                          icon={PenLine}
+                          onClick={editTitle}
+                        />
+                        <IconButton
+                          size="small"
+                          style="danger"
+                          icon={Trash}
+                          onClick={() => removeView(view().id)}
+                        />
+                      </Show>
+                      <Show when={editingTitle()}>
+                        <IconButton
+                          size="small"
+                          icon={Check}
+                          onClick={saveTitle}
+                        />
+                        <IconButton
+                          size="small"
+                          style="danger"
+                          icon={X}
+                          onClick={resetTitle}
+                        />
+                      </Show>
+                    </>
+                  )}
                 >
-                  {/* TODO: Show total entry count */}
-                  <Show when={view().id !== defaultView.id}>
-                    <Badge size="small" fixedWidth>
-                      {view().entryCount}
-                    </Badge>
-                  </Show>
+                  {({ editingTitle }) => (
+                    // TODO: Show total entry count
+                    <Show
+                      when={view().id !== defaultView.id && !editingTitle()}
+                    >
+                      <Badge size="small" fixedWidth>
+                        {view().entryCount}
+                      </Badge>
+                    </Show>
+                  )}
                 </Tab>
               )}
             </Key>

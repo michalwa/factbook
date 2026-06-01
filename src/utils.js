@@ -3,6 +3,8 @@ import { createSignal } from "solid-js";
 /** @typedef {() => boolean} Toggler */
 
 /**
+ * Creates a signal which can be toggled between two values
+ *
  * @returns {[Getter<boolean>, Toggler]}
  */
 export function createToggle(firstValue = false, secondValue = true) {
