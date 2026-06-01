@@ -44,6 +44,7 @@ Programmer-friendly personal knowledge base based on logic programming
 
 - Rust v1.88+
 - Node.js with pnpm (install with `npm i -g pnpm`)
+- [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
 - SWI-Prolog 10.0.2 or newer with a compatible C API. Install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually.
   - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
   - On Windows (MSVC) add the following to your `~/.cargo/config.toml`:

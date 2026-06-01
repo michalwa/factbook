@@ -1,0 +1,17 @@
+.label {
+  display: block;
+  color: var(--theme-label-foreground);
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 9pt;
+}
+
+.style-form {
+  margin-top: 1rem;
+  margin-bottom: 0.3rem;
+}
+
+.style-panel {
+  margin-top: -0.2rem;
+  margin-bottom: 0.8rem;
+}

@@ -1,0 +1,43 @@
+.controls {
+  position: absolute;
+  padding: 0.6rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.placement-top,
+:not([data-collapsed]) > .sticky-top {
+  top: 0;
+}
+
+.placement-right,
+:not([data-collapsed]) > .sticky-right {
+  right: 0;
+}
+
+.placement-bottom,
+:not([data-collapsed]) > .sticky-bottom {
+  bottom: 0;
+}
+
+.placement-left,
+:not([data-collapsed]) > .sticky-left {
+  left: 0;
+}
+
+[data-collapsed] > .sticky-top {
+  bottom: 100%;
+}
+
+[data-collapsed] > .sticky-right {
+  left: 100%;
+}
+
+[data-collapsed] > .sticky-bottom {
+  top: 100%;
+}
+
+[data-collapsed] > .sticky-left {
+  right: 100%;
+}

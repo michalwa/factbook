@@ -1,3 +1,4 @@
+import path from "path";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
@@ -32,5 +33,12 @@ export default defineConfig(async () => ({
   // https://github.com/riccardoperra/solid-codemirror?tab=readme-ov-file#codemirror-packages-error-fix
   optimizeDeps: {
     include: ["@codemirror/state", "@codemirror/view"],
+  },
+
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+    extensions: [".js", ".jsx", ".module.css"],
   },
 }));

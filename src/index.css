@@ -1,0 +1,89 @@
+:root {
+  --theme-accent-click: #597ae6;
+  --theme-accent-contrast: #101521;
+  --theme-accent-foreground: #7696ff;
+  --theme-accent-hover: #6182ee;
+  --theme-accent: #7696ff;
+  --theme-background: #090c13;
+  --theme-badge-background: #1d2943;
+  --theme-badge-foreground: #6478a7;
+  --theme-danger-click: #d34f4f;
+  --theme-danger-contrast: #220d0d;
+  --theme-danger-foreground: #ed6c6c;
+  --theme-danger-hover: #dd5757;
+  --theme-danger: #ed6c6c;
+  --theme-dialog-background: rgba(0 0 0 / 20%);
+  --theme-foreground: #c5d1e2;
+  --theme-highlight-1: #d972f8;
+  --theme-inner-background: #090c13;
+  --theme-label-foreground: #2c4171;
+  --theme-outline-click: #253b6e;
+  --theme-outline-foreground-hover: #101521;
+  --theme-outline: #2c4171;
+  --theme-panel-background: #101521;
+  --theme-scrollbar-foreground: #2c4171;
+  --theme-selection-background: #1e3261;
+  --round-default: 0.3rem;
+  --round-full: 9999px;
+  --padding-panel: 1rem;
+  --translation-curve: cubic-bezier(0, 0, 0.25, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --theme-accent-contrast: #ecf4fe;
+    --theme-accent-foreground: #5079ff;
+    --theme-background: #d7e4f5;
+    --theme-badge-background: #ecf4fe;
+    --theme-badge-foreground: #7c93ca;
+    --theme-danger-contrast: #ecf4fe;
+    --theme-danger-foreground: #ee5050;
+    --theme-foreground: #101521;
+    --theme-highlight-1: #cb3ef5;
+    --theme-inner-background: #ecf4fe;
+    --theme-label-foreground: #7c93ca;
+    --theme-outline-click: #7089c4;
+    --theme-outline-foreground-hover: #dce8f7;
+    --theme-outline: #7c93ca;
+    --theme-panel-background: #e4eefa;
+    --theme-scrollbar-foreground: #7c93ca;
+    --theme-selection-background: #99b0ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: var(--theme-scrollbar-foreground) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  background: var(--theme-background);
+  color: var(--theme-foreground);
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  font-size: 12pt;
+  user-select: none;
+}
+
+body::selection {
+  background: var(--theme-selection-background);
+}
+
+button {
+  width: fit-content;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: var(--round-default);
+  text-transform: uppercase;
+  font-family: inherit;
+  font-size: 10pt;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.1s;
+}
