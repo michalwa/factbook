@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   position: relative;
-  padding: 0.3rem 0.5rem 0.3rem 1rem;
+  padding: 0.3rem 0.5rem 0.3rem var(--padding-panel);
   margin-inline: calc(-1 * var(--padding-panel));
   background: var(--background);
   --background: var(--theme-panel-background);
