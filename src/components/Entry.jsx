@@ -21,6 +21,7 @@ export default function Entry(props) {
                 class={styles.content}
                 value={props.content}
                 onChangeDeferred={props.onContentChange}
+                onEmptyBackspace={props.onRemove}
               />
             ),
             dispose,

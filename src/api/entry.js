@@ -15,10 +15,16 @@ export function useEntries(viewId) {
     await refetchEntries();
   };
 
+  const removeEntry = async (id) => {
+    await invoke("remove_entry", { id });
+    await refetchEntries();
+  };
+
   return {
     entries,
     refetchEntries,
     setEntryContent,
     createEntry,
+    removeEntry,
   };
 }

@@ -59,6 +59,14 @@ export default function CodeEditor(props) {
   createEditorControlledValue(editorView, incomingValue);
 
   createExtension(EditorView.lineWrapping);
+  createExtension(
+    EditorView.domEventHandlers({
+      keydown(event, view) {
+        if (event.key === "Backspace" && view.state.doc.length === 0)
+          props.onEmptyBackspace?.();
+      },
+    }),
+  );
 
   return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
 }

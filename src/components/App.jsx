@@ -45,7 +45,7 @@ export default function App() {
   const [currentViewId, setCurrentViewId] = createSignal(null);
   const currentView = createMemo(() => getView(currentViewId()));
 
-  const { entries, refetchEntries, setEntryContent, createEntry } =
+  const { entries, refetchEntries, setEntryContent, createEntry, removeEntry } =
     useEntries(currentViewId);
 
   const setViewDefinition = async (...args) => {
@@ -190,6 +190,7 @@ export default function App() {
                   onContentChange={(content) =>
                     setEntryContent(entry().id, content)
                   }
+                  onRemove={() => removeEntry(entry().id)}
                 />
               )}
             </Key>
