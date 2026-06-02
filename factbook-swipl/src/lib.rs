@@ -83,7 +83,7 @@ impl<'s> Session<'s> {
                 "failed to create Prolog engine: SWI-Prolog version does not support threads"
             ),
             id => {
-                log::debug!(
+                log::trace!(
                     "PL_thread_attach_engine on {:?} (id: {id})",
                     std::thread::current().id()
                 );
@@ -123,7 +123,7 @@ impl<'s> Session<'s> {
 
 impl Drop for Session<'_> {
     fn drop(&mut self) {
-        log::debug!("PL_cleanup on {:?}", std::thread::current().id());
+        log::trace!("PL_cleanup on {:?}", std::thread::current().id());
 
         if unsafe { pl::PL_cleanup(pl::PL_CLEANUP_NO_CANCEL as _) } != pl::PL_CLEANUP_SUCCESS as _ {
             log::warn!("PL_cleanup failed");
@@ -140,7 +140,7 @@ pub struct Engine<'a> {
 
 impl Drop for Engine<'_> {
     fn drop(&mut self) {
-        log::debug!(
+        log::trace!(
             "PL_thread_destroy_engine on {:?} (id: {})",
             std::thread::current().id(),
             unsafe { pl::PL_thread_self() }
