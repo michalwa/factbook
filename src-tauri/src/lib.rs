@@ -1,10 +1,16 @@
+use std::fs::File;
 use std::sync::{LazyLock, RwLock};
+use tauri::{App, Manager};
+use tauri_plugin_store::StoreExt;
 
 mod api;
 mod util;
 
 static SESSION: LazyLock<factbook_core::Session> =
     LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
+
+const SETTINGS_PATH: &str = "settings.json";
+const SETTING_JOURNAL_PATH: &str = "journal_path";
 
 #[derive(Default)]
 pub enum AppState {
@@ -38,7 +44,8 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_prevent_default::debug())
-        .manage(RwLock::new(AppState::default()))
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(setup)
         .invoke_handler(tauri::generate_handler![
             api::get_state,
             api::open_journal,
@@ -55,4 +62,23 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+    let state = app
+        .store(SETTINGS_PATH)?
+        .get(SETTING_JOURNAL_PATH)
+        .and_then(|path| {
+            let file = File::open(path.as_str()?).unwrap();
+            let journal = serde_json::from_reader(file).unwrap();
+
+            let journal_state = factbook_core::State::new(&SESSION);
+            journal_state.load_journal(journal);
+            Some(AppState::Journal(journal_state))
+        })
+        .unwrap_or_default();
+
+    app.manage(RwLock::new(state));
+
+    Ok(())
 }

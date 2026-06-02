@@ -1,10 +1,11 @@
-use crate::AppState;
+use crate::{AppState, SETTING_JOURNAL_PATH, SETTINGS_PATH};
 use crate::util::SerializeIterOnce;
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
+use tauri_plugin_store::StoreExt;
 use std::fs::File;
 use std::sync::RwLock;
-use tauri::{State, ipc};
+use tauri::{AppHandle, Manager, State, ipc};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,8 +32,13 @@ pub fn get_state(state: State<RwLock<AppState>>) -> &'static str {
 }
 
 #[tauri::command]
-pub fn open_journal(state: State<RwLock<AppState>>, path: &str) {
+pub fn open_journal(app: AppHandle, path: &str) {
+    let state = app.state::<RwLock<AppState>>();
     let journal_state = factbook_core::State::new(&crate::SESSION);
+
+    let store = app.store(SETTINGS_PATH).unwrap();
+    store.set(SETTING_JOURNAL_PATH, path);
+    store.save().unwrap();
 
     let file = File::open(path).unwrap();
     let journal = serde_json::from_reader(file).unwrap();
@@ -43,7 +49,12 @@ pub fn open_journal(state: State<RwLock<AppState>>, path: &str) {
 }
 
 #[tauri::command]
-pub fn close_journal(state: State<RwLock<AppState>>) {
+pub fn close_journal(app: AppHandle) {
+    let store = app.store(SETTINGS_PATH).unwrap();
+    store.delete(SETTING_JOURNAL_PATH);
+    store.save().unwrap();
+
+    let state = app.state::<RwLock<AppState>>();
     let mut state = state.write().unwrap();
     *state = AppState::Start;
 }
