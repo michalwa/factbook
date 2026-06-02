@@ -8,7 +8,7 @@ export default function createDialog() {
 
   const Dialog = (props) => (
     <dialog ref={el} class={styles.dialog} closedby="none">
-      {props.children?.({ close })}
+      {props.children}
     </dialog>
   );
 
