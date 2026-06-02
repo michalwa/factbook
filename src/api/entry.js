@@ -18,8 +18,8 @@ export function useEntries(viewId) {
 
   const createEntry = async () => {
     setDirty(true);
-    await invoke("create_entry");
-    await refetchEntries();
+    const id = await invoke("create_entry");
+    mutateEntries((entries) => [...entries, { id, createdAt: new Date() }]);
   };
 
   const removeEntry = async (id) => {
