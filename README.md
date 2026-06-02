@@ -3,7 +3,7 @@
 Programmer-friendly personal knowledge base based on logic programming
 
 > [!WARNING]
-> This is a work in progress
+> This is a work in progress. Expect random crashes and general instability. It is also currently possible to execute arbitrary Prolog code from within the application (#24).
 
 <p align="center">
   <picture>
