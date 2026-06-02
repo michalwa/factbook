@@ -6,7 +6,10 @@ Programmer-friendly personal knowledge base based on logic programming
 > This is a work in progress
 
 <p align="center">
-  <img src="screenshot.png" alt="screenshot" />
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="screenshot-light.png">
+    <img alt="screenshot" src="screenshot-dark.png">
+  </picture>
 </p>
 
 ## Philosophy
@@ -22,12 +25,13 @@ Programmer-friendly personal knowledge base based on logic programming
 4. **Powerful views** (aka. queries) &ndash; Easily define views into your knowledge base by querying facts about entries&mdash;presence of tags, timestamps, relations between entries, and more... This is where organization happens. You do it at your own pace, outside of the flow of taking notes. And you get all the [power of Prolog](https://www.metalevel.at/prolog) to your advantage.
 
    <!-- TODO: The example should ideally use existing predicates once they are implemented -->
+
    ```prolog
    % Example only, specific available predicates and semantics may differ
-   % 
+   %
    % This would yield entries containing `@todo` and `@due(_)` with an argument
    % describing a time in the past, i.e. overdue tasks
-   
+
    { now(N) },                     % get current timestamp
    @todo,                          % filter entries with `@todo` tag
    @due(D),                        % filter entries with `@due(_)` tag and take the argument D
@@ -48,6 +52,7 @@ Programmer-friendly personal knowledge base based on logic programming
 - SWI-Prolog 10.0.2 or newer with a compatible C API. Install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually.
   - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
   - On Windows (MSVC) add the following to your `~/.cargo/config.toml`:
+
     ```toml
     # `rustdocflags` is only needed for running some doc tests
     [build]
