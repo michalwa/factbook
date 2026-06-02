@@ -1,4 +1,4 @@
-use crate::model::{Entry, EntryId, Journal, View, ViewId};
+use crate::model::{Entry, EntryId, Journal, PersistedEntry, PersistedView, View, ViewId};
 use factbook_swipl::{Context, RawFunctor, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
@@ -71,11 +71,11 @@ impl<'a> State<'a> {
 
     pub fn load_journal(&self, journal: Journal) {
         for entry in journal.entries {
-            self.entries_mut().insert(entry);
+            self.entries_mut().insert(entry.into());
         }
 
         for view in journal.views {
-            self.insert_view(view);
+            self.insert_view(view.into());
         }
     }
 
@@ -83,9 +83,15 @@ impl<'a> State<'a> {
         let entries = self
             .entries()
             .iter()
-            .map(|(_, e)| e.clone())
+            .map(|(_, e)| PersistedEntry::from(e.clone()))
             .collect::<Vec<_>>();
-        let views = self.views().0.values().cloned().collect::<Vec<_>>();
+
+        let views = self
+            .views()
+            .0
+            .values()
+            .map(|v| PersistedView::from(v.clone()))
+            .collect::<Vec<_>>();
 
         Journal { entries, views }
     }

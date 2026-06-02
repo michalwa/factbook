@@ -61,9 +61,69 @@ impl Default for Entry {
     }
 }
 
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct PersistedView {
+    pub name: String,
+    pub definition: String,
+}
+
+impl From<View> for PersistedView {
+    fn from(value: View) -> Self {
+        let View {
+            name, definition, ..
+        } = value;
+        Self { name, definition }
+    }
+}
+
+impl From<PersistedView> for View {
+    fn from(value: PersistedView) -> Self {
+        let PersistedView { name, definition } = value;
+        Self {
+            name,
+            definition,
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct PersistedEntry {
+    pub created_at: DateTime<Local>,
+    pub content: String,
+}
+
+impl From<Entry> for PersistedEntry {
+    fn from(value: Entry) -> Self {
+        let Entry {
+            created_at,
+            content,
+        } = value;
+        Self {
+            created_at,
+            content,
+        }
+    }
+}
+
+impl From<PersistedEntry> for Entry {
+    fn from(value: PersistedEntry) -> Self {
+        let PersistedEntry {
+            created_at,
+            content,
+        } = value;
+        Self {
+            created_at,
+            content,
+        }
+    }
+}
+
 /// Persistent save file
 #[derive(Serialize, Deserialize)]
 pub struct Journal {
-    pub(crate) entries: Vec<Entry>,
-    pub(crate) views: Vec<View>,
+    pub(crate) views: Vec<PersistedView>,
+    pub(crate) entries: Vec<PersistedEntry>,
 }

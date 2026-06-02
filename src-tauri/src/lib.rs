@@ -47,11 +47,14 @@ impl AppState {
     }
 
     pub fn open_journal(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let file = File::open(path)?;
-        let journal = serde_json::from_reader(file)?;
-
         let journal_state = factbook_core::State::new(&SESSION);
-        journal_state.load_journal(journal);
+
+        if let Ok(file) = File::open(path) {
+            let journal = serde_json::from_reader(file)?;
+            journal_state.load_journal(journal);
+        } else {
+            log::warn!("journal file doesn't exist, saving will create it");
+        }
 
         *self = AppState::Journal {
             journal_path: path.into(),
