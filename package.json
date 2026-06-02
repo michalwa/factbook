@@ -23,6 +23,7 @@
     "@solid-primitives/scheduled": "^1.5.3",
     "@solid-primitives/transition-group": "^1.1.2",
     "@solidjs/meta": "^0.29.4",
+    "@tanstack/solid-hotkeys": "^0.10.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "~2.7.1",
     "@tauri-apps/plugin-log": "~2",

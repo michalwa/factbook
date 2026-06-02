@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createResource } from "solid-js";
+import { useAppState } from "@/api/appState";
 
 export const defaultView = {
   id: null,
@@ -7,6 +8,8 @@ export const defaultView = {
 };
 
 export function useViews() {
+  const { setDirty } = useAppState();
+
   const [createdViews, { refetch: refetchViews, mutate: mutateViews }] =
     createResource(() => invoke("get_views"));
   const views = () => [defaultView, ...(createdViews() ?? [])];
@@ -14,6 +17,7 @@ export function useViews() {
   const getView = (id) => views().find((view) => view.id === id);
 
   const setViewName = async (id, name) => {
+    setDirty(true);
     await invoke("set_view_name", { id, name });
     mutateViews((views) =>
       views.map((view) => (view.id === id ? { ...view, name } : view)),
@@ -21,11 +25,13 @@ export function useViews() {
   };
 
   const setViewDefinition = async (id, definition) => {
+    setDirty(true);
     await invoke("set_view_definition", { id, definition });
     await refetchViews(); // update entry counts
   };
 
   const createView = async () => {
+    setDirty(true);
     const id = await invoke("create_view");
     await invoke("set_view_name", { id, name: "(untitled)" });
     await invoke("set_view_definition", { id, definition: "any" });
@@ -34,6 +40,7 @@ export function useViews() {
   };
 
   const removeView = async (id) => {
+    setDirty(true);
     await invoke("remove_view", { id });
     mutateViews((views) => views.filter((view) => view.id !== id));
   };

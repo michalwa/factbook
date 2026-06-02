@@ -2,6 +2,7 @@ use crate::util::SerializeIterOnce;
 use crate::{AppState, SETTING_JOURNAL_PATH, SETTINGS_PATH};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
+use std::fs::OpenOptions;
 use std::sync::RwLock;
 use tauri::{AppHandle, Manager, State, ipc};
 use tauri_plugin_store::StoreExt;
@@ -51,6 +52,20 @@ pub fn close_journal(app: AppHandle) {
 
     let store = app.store(SETTINGS_PATH).unwrap();
     store.delete(SETTING_JOURNAL_PATH);
+}
+
+#[tauri::command]
+pub fn save_journal(state: State<RwLock<AppState>>) {
+    let state = state.read().unwrap();
+    let path = state.journal_path().unwrap();
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)
+        .unwrap();
+
+    serde_json::to_writer_pretty(file, &state.journal().to_journal()).unwrap();
 }
 
 #[tauri::command]

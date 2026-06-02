@@ -79,6 +79,17 @@ impl<'a> State<'a> {
         }
     }
 
+    pub fn to_journal(&self) -> Journal {
+        let entries = self
+            .entries()
+            .iter()
+            .map(|(_, e)| e.clone())
+            .collect::<Vec<_>>();
+        let views = self.views().0.values().cloned().collect::<Vec<_>>();
+
+        Journal { entries, views }
+    }
+
     fn insert_view(&self, view: View) {
         let mut views = self.views_mut();
         let id = ViewId(views.0.push(view));

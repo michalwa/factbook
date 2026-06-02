@@ -76,6 +76,7 @@ pub fn run() {
             api::get_journal_path,
             api::open_journal,
             api::close_journal,
+            api::save_journal,
             api::get_views,
             api::create_view,
             api::remove_view,

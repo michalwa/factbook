@@ -33,8 +33,10 @@ import {
   Trash,
   X,
 } from "lucide-solid";
+import { useAppState } from "@/api/appState";
 
-export default function Journal(props) {
+export default function Journal() {
+  const { closeJournal } = useAppState();
   const {
     views,
     getView,
@@ -81,7 +83,7 @@ export default function Journal(props) {
                 style="danger"
                 flip="horizontal"
                 icon={LogOut}
-                onClick={props.onClose}
+                onClick={closeJournal}
               />
             </PanelControls>
           </>

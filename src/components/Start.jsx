@@ -8,9 +8,10 @@ import FormField from "@/components/FormField";
 import Label from "@/components/Label";
 import FileInput from "@/components/FileInput";
 import { ArrowRight } from "lucide-solid";
-import useAppState from "@/api/state";
+import { useAppState } from "@/api/appState";
 
-export default function Start(props) {
+export default function Start() {
+  const { openJournal } = useAppState();
   const { Dialog, open } = createDialog();
   const [filePath, setFilePath] = createSignal();
 
@@ -33,7 +34,7 @@ export default function Start(props) {
               icon={ArrowRight}
               iconPlacement="right"
               disabled={!filePath()}
-              onClick={() => props.onOpenJournal?.(filePath())}
+              onClick={() => openJournal(filePath())}
             >
               Open
             </Button>
