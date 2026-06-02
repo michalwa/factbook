@@ -70,6 +70,7 @@ pub(crate) mod predicates {
     use crate::model::EntryId;
     use crate::search::ViewContext;
     use factbook_swipl::foreign::{Nondet, predicate};
+    use factbook_swipl::term::TermKind;
     use factbook_swipl::{Atom, Context, RawFunctor, Record};
     use sparse_tags::Store;
 
@@ -107,10 +108,10 @@ pub(crate) mod predicates {
                             .tags_by_entry(entry_id.0)
                             .map(move |(_, tag)| (entry_id, tag)),
                     )
-                } else if let Some(functor) = tag.get::<RawFunctor>() {
-                    log::debug!(
-                        "entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by functor {functor}"
-                    );
+                } else if tag.kind() != TermKind::Variable {
+                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by tag");
+
+                    let functor = tag.get::<RawFunctor>();
 
                     Box::new(
                         ctx.entries

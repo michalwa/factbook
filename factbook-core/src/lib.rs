@@ -31,7 +31,7 @@ pub struct State<'s> {
 }
 
 type ViewStorage = StableVec<View>;
-type EntryStorage = IndexedStore<RawFunctor, Record, Entry>;
+type EntryStorage = IndexedStore<Option<RawFunctor>, Record, Entry>;
 
 impl<'a> State<'a> {
     pub fn new(session: &'a Session) -> Self {
@@ -161,7 +161,8 @@ impl<'a> EntriesMut<'a> {
         let pl = engine.frame();
 
         for tag in lang::parse(content, &pl).collect::<Vec<_>>() {
-            let key = tag.get::<RawFunctor>().unwrap();
+            // Non-functor terms like numbers or strings are assigned the `None` key
+            let key = tag.get::<RawFunctor>();
             self.store.insert_tag(id.0, key, tag.record());
         }
     }

@@ -1,4 +1,5 @@
 use crate::{Atom, Context, ExternalRecord, Functor, RawFunctor, Record, term};
+use num_enum::TryFromPrimitive;
 use std::marker::PhantomData;
 use std::num::NonZero;
 use std::ops::Deref;
@@ -228,6 +229,10 @@ impl<'a> Term<'a> {
         unsafe { pl::PL_unify(self.ptr.get(), other.ptr.get()) }
     }
 
+    pub fn kind(&self) -> TermKind {
+        TermKind::try_from(unsafe { pl::PL_term_type(self.ptr.get()) } as u32).unwrap()
+    }
+
     /// Used with [`std::fmt::Display`] to obtain a canonical string
     /// representation of the term.
     /// * https://www.swi-prolog.org/pldoc/man?predicate=write_canonical/1
@@ -289,6 +294,22 @@ impl fmt::Debug for Term<'_> {
             self.canonical()
         ))
     }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, TryFromPrimitive)]
+#[repr(u32)]
+pub enum TermKind {
+    Variable = pl::PL_VARIABLE,
+    Atom = pl::PL_ATOM,
+    Nil = pl::PL_NIL,
+    Blob = pl::PL_BLOB,
+    String = pl::PL_STRING,
+    Integer = pl::PL_INTEGER,
+    Rational = pl::PL_RATIONAL,
+    Float = pl::PL_FLOAT,
+    Compound = pl::PL_TERM,
+    ListPair = pl::PL_LIST_PAIR,
+    Dict = pl::PL_DICT,
 }
 
 /// Wrapper around a [`Term`] that represents a Prolog exception
