@@ -1,5 +1,6 @@
 import { mergeProps, Show } from "solid-js";
 import styles from "@/styles/Button";
+import genericStyles from "@/styles/GenericButton";
 
 export default function Button(props) {
   const merged = mergeProps({ style: "outline", iconPlacement: "left" }, props);
@@ -13,9 +14,15 @@ export default function Button(props) {
 
   return (
     <button
-      class={`${styles.button} ${styles[`style-${merged.style}`]} ${merged.size && styles[`size-${merged.size}`]}`}
+      class={`
+        ${genericStyles.button}
+        ${styles.button}
+        ${styles[`style-${merged.style}`]}
+        ${merged.size && styles[`size-${merged.size}`]}
+      `}
       type={props.type ?? "button"}
       onClick={props.onClick}
+      disabled={props.disabled}
     >
       <Show when={merged.iconPlacement === "left"}>
         <Icon />

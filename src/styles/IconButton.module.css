@@ -23,3 +23,7 @@
   height: 1rem;
   stroke-width: 2.5;
 }
+
+.flip-horizontal {
+  transform: scaleX(-1);
+}

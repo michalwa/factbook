@@ -1,6 +1,7 @@
 :root {
   --theme-accent-click: #597ae6;
   --theme-accent-contrast: #101521;
+  --theme-accent-disabled: #586ba9;
   --theme-accent-foreground: #7696ff;
   --theme-accent-hover: #6182ee;
   --theme-accent: #7696ff;
@@ -9,6 +10,7 @@
   --theme-badge-foreground: #6478a7;
   --theme-danger-click: #d34f4f;
   --theme-danger-contrast: #220d0d;
+  --theme-danger-disabled: #b04f4f;
   --theme-danger-foreground: #ed6c6c;
   --theme-danger-hover: #dd5757;
   --theme-danger: #ed6c6c;
@@ -18,6 +20,7 @@
   --theme-inner-background: #090c13;
   --theme-label-foreground: #2c4171;
   --theme-outline-click: #253b6e;
+  --theme-outline-disabled: #2a3753;
   --theme-outline-foreground-hover: #101521;
   --theme-outline: #2c4171;
   --theme-panel-background: #101521;
@@ -27,22 +30,26 @@
   --round-full: 9999px;
   --padding-panel: 1rem;
   --translation-curve: cubic-bezier(0, 0, 0.25, 1);
+  --font-monospace: "Iosevka Custom", monospace;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
     --theme-accent-contrast: #ecf4fe;
+    --theme-accent-disabled: #8aa2f1;
     --theme-accent-foreground: #5079ff;
     --theme-background: #d7e4f5;
     --theme-badge-background: #ecf4fe;
     --theme-badge-foreground: #7c93ca;
     --theme-danger-contrast: #ecf4fe;
+    --theme-danger-disabled: #e38585;
     --theme-danger-foreground: #ee5050;
     --theme-foreground: #101521;
     --theme-highlight-1: #cb3ef5;
     --theme-inner-background: #ecf4fe;
     --theme-label-foreground: #7c93ca;
     --theme-outline-click: #7089c4;
+    --theme-outline-disabled: #a4b3d8;
     --theme-outline-foreground-hover: #dce8f7;
     --theme-outline: #7c93ca;
     --theme-panel-background: #e4eefa;
@@ -69,21 +76,4 @@ body {
 
 body::selection {
   background: var(--theme-selection-background);
-}
-
-button {
-  width: fit-content;
-  display: flex;
-  flex-flow: row nowrap;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.3rem 0.6rem;
-  border: none;
-  border-radius: var(--round-default);
-  text-transform: uppercase;
-  font-family: inherit;
-  font-size: 10pt;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.1s;
 }
