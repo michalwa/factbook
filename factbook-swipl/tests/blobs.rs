@@ -103,16 +103,14 @@ fn scoped_blob_with_foreign_predicate() {
     let xs = MyVec(RefCell::new(Vec::<i32>::new()));
     let t = engine.new_term();
 
-    let xs = {
-        let blob = ScopedBlob::new(xs);
-        t.put(&blob);
+    let blob = ScopedBlob::new(xs);
+    t.put(&blob);
 
-        let goal = term! { &engine => custom_predicate({t}) };
-        assert!(engine.call(goal, None).unwrap());
-        assert_eq!(t.to_string(), "<MyVec>");
+    let goal = term! { &engine => custom_predicate({t}) };
+    assert!(engine.call(goal, None).unwrap());
+    assert_eq!(t.to_string(), "<MyVec>");
 
-        blob.into_inner().unwrap()
-    };
+    let xs = blob.into_inner().unwrap();
 
     assert_eq!(xs.0.into_inner(), [1]);
 
@@ -120,4 +118,21 @@ fn scoped_blob_with_foreign_predicate() {
     let goal = term! { &engine => custom_predicate({t}) };
     assert!(!engine.call(goal, None).unwrap());
     assert_eq!(t.to_string(), "<MyVec (invalid)>");
+}
+
+#[test]
+#[should_panic]
+fn scoped_blob_outlive() {
+    let engine = SESSION.engine();
+
+    let xs = MyVec(RefCell::new(Vec::<i32>::new()));
+    let t = engine.new_term();
+
+    let blob = ScopedBlob::new(xs);
+    t.put(&blob);
+
+    let atom = t.get::<Atom>().unwrap();
+    let _blob_ref = atom.scoped_blob::<MyVec>();
+
+    drop(blob); // dropped while borrowed
 }

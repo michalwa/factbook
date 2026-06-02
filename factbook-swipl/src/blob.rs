@@ -72,14 +72,26 @@ pub struct CopyBlob<T: CopyBlobData>(pub T);
 /// released by Prolog.
 ///
 /// It may be shared between threads, provided the inner type is `Send + Sync`.
-/// References become invalid after the last blob handle is dropped and calling
+/// References become invalid after this handle is dropped and calling
 /// [`Atom::scoped_blob`] will return `None`.
+///
+/// To satisfy the lifetime constraints, there must be no live references to the
+/// blob when the handle is dropped and the inner type's lifetime ends. Dropping
+/// this handle while the blob is borrowed in another thread will panic.
 pub struct ScopedBlob<T: ScopedBlobData>(
     /// The blob handle holds a strong `Arc`, while all Prolog instances (terms
     /// referencing this blob) hold a `Weak` raw pointer, until they are
-    /// upgraded to another [`ScopedBlob`]
-    Arc<T>,
+    /// upgraded to a [`ScopedBlobRef`]
+    MaybeUninit<Arc<T>>,
 );
+
+/// A reference to a [`ScopedBlob`]
+///
+/// This does not free the allocation and does not require to be an exclusive
+/// reference on drop. It must not be kept alive when the [`ScopedBlob`] is
+/// dropped. It should generally only be held within the scope of a foreign
+/// predicate call.
+pub struct ScopedBlobRef<T: ScopedBlobData>(Arc<T>);
 
 impl<T: BlobData> Blob<T> {
     pub fn new(value: T) -> Self {
@@ -97,15 +109,26 @@ impl<T: BlobData> Deref for BlobRef<'_, T> {
 
 impl<T: ScopedBlobData> ScopedBlob<T> {
     pub fn new(value: T) -> Self {
-        Self(Arc::new(value))
+        Self(MaybeUninit::new(Arc::new(value)))
     }
 
     pub fn into_inner(self) -> Option<T> {
-        Arc::into_inner(self.0)
+        // SAFETY: Always init until after `ScopedBlob` is dropped
+        let arc = unsafe { self.0.assume_init_read() };
+        std::mem::forget(self);
+        Arc::into_inner(arc)
     }
 }
 
-impl<T: ScopedBlobData> Deref for ScopedBlob<T> {
+impl<T: ScopedBlobData> Drop for ScopedBlob<T> {
+    fn drop(&mut self) {
+        // SAFETY: Always init until after `ScopedBlob` is dropped
+        Arc::into_inner(unsafe { self.0.assume_init_read() })
+            .expect("ScopedBlob borrowed while dropped");
+    }
+}
+
+impl<T: ScopedBlobData> Deref for ScopedBlobRef<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -167,11 +190,25 @@ impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
 
 impl<T: ScopedBlobData> ToTerm for &ScopedBlob<T> {
     fn put_in(self, term: Term) {
-        assert!(unsafe { put_blob(term, Arc::downgrade(&self.0).into_raw(), T::SPEC) });
+        assert!(unsafe {
+            put_blob(
+                term,
+                // SAFETY: Always init until after `ScopedBlob` is dropped
+                Arc::downgrade(self.0.assume_init_ref()).into_raw(),
+                T::SPEC,
+            )
+        });
     }
 
     fn unify_with(self, term: Term) -> bool {
-        unsafe { unify_blob(term, Arc::downgrade(&self.0).into_raw(), T::SPEC) }
+        unsafe {
+            unify_blob(
+                term,
+                // SAFETY: Always init until after `ScopedBlob` is dropped
+                Arc::downgrade(self.0.assume_init_ref()).into_raw(),
+                T::SPEC,
+            )
+        }
     }
 }
 
@@ -233,12 +270,12 @@ impl Atom {
         }
     }
 
-    pub fn scoped_blob<T: ScopedBlobData>(&self) -> Option<ScopedBlob<T>> {
+    pub fn scoped_blob<T: ScopedBlobData>(&self) -> Option<ScopedBlobRef<T>> {
         let mut spec: *mut pl::PL_blob_t = std::ptr::null_mut();
         let blob_ptr = unsafe { pl::PL_blob_data(self.ptr, std::ptr::null_mut(), &raw mut spec) };
 
         if std::ptr::eq(T::SPEC, spec as _) {
-            unsafe { upgrade_raw_weak(blob_ptr as *const T) }.map(ScopedBlob)
+            unsafe { upgrade_raw_weak(blob_ptr as *const T) }.map(ScopedBlobRef)
         } else {
             None
         }
