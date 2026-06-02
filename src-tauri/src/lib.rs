@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::sync::{LazyLock, RwLock};
-use tauri::{App, Manager};
+use tauri::{App, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_store::StoreExt;
 
 mod api;
@@ -18,22 +18,47 @@ pub enum AppState {
     #[default]
     Start,
     /// Main state with entries and views
-    Journal(factbook_core::State<'static>),
+    Journal {
+        journal_path: String,
+        state: Box<factbook_core::State<'static>>,
+    },
 }
 
 impl AppState {
     pub fn journal(&self) -> &factbook_core::State<'static> {
         match self {
-            Self::Journal(state) => state,
+            Self::Journal { state, .. } => state,
             _ => panic!("expected AppState to be in Journal state"),
         }
     }
 
     pub fn journal_mut(&mut self) -> &mut factbook_core::State<'static> {
         match self {
-            Self::Journal(state) => state,
+            Self::Journal { state, .. } => state,
             _ => panic!("expected AppState to be in Journal state"),
         }
+    }
+
+    pub fn journal_path(&self) -> Option<&str> {
+        match self {
+            Self::Journal { journal_path, .. } => Some(journal_path),
+            _ => None,
+        }
+    }
+
+    pub fn open_journal(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let file = File::open(path)?;
+        let journal = serde_json::from_reader(file)?;
+
+        let journal_state = factbook_core::State::new(&SESSION);
+        journal_state.load_journal(journal);
+
+        *self = AppState::Journal {
+            journal_path: path.into(),
+            state: Box::new(journal_state),
+        };
+
+        Ok(())
     }
 }
 
@@ -48,6 +73,7 @@ pub fn run() {
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             api::get_state,
+            api::get_journal_path,
             api::open_journal,
             api::close_journal,
             api::get_views,
@@ -61,22 +87,29 @@ pub fn run() {
             api::set_entry_content,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error running tauri application");
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    let state = app
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+        .title("factbook")
+        .inner_size(800.0, 600.0)
+        .on_document_title_changed(|window, title| {
+            window.set_title(&title).unwrap();
+        })
+        .build()
+        .unwrap();
+
+    let mut state = AppState::default();
+
+    if let Some(path) = app
         .store(SETTINGS_PATH)?
         .get(SETTING_JOURNAL_PATH)
-        .and_then(|path| {
-            let file = File::open(path.as_str()?).unwrap();
-            let journal = serde_json::from_reader(file).unwrap();
-
-            let journal_state = factbook_core::State::new(&SESSION);
-            journal_state.load_journal(journal);
-            Some(AppState::Journal(journal_state))
-        })
-        .unwrap_or_default();
+        .and_then(|path| path.as_str().map(String::from))
+    {
+        log::info!("loading journal file: {path}");
+        state.open_journal(&path).unwrap();
+    }
 
     app.manage(RwLock::new(state));
 
