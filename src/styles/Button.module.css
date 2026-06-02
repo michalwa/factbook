@@ -1,26 +1,5 @@
-.button {
-  width: fit-content;
-  display: flex;
-  flex-flow: row nowrap;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.3rem 0.6rem;
-  border: none;
-  border-radius: var(--round-default);
-  text-transform: uppercase;
-  font-family: inherit;
-  font-size: 10pt;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.1s;
-}
-
 .button + .button {
   margin-top: 0.5rem;
-}
-
-.button:disabled {
-  cursor: not-allowed;
 }
 
 .icon {
@@ -93,6 +72,6 @@
 }
 
 .size-wide {
-  width: 100%;
-  justify-content: center;
+  width: 100% !important;
+  justify-content: center !important;
 }

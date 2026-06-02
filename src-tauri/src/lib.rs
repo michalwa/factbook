@@ -42,6 +42,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             api::get_state,
             api::open_journal,
+            api::close_journal,
             api::get_views,
             api::create_view,
             api::remove_view,

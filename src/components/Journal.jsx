@@ -9,6 +9,7 @@ import Label from "@/components/Label";
 import Panel from "@/components/Panel";
 import PanelBottomContainer from "@/components/PanelBottomContainer";
 import PanelControls from "@/components/PanelControls";
+import PanelControlsSpacer from "@/components/PanelControlsSpacer";
 import styles from "@/styles/Journal";
 import Tab from "@/components/Tab";
 import Tabs from "@/components/Tabs";
@@ -22,6 +23,7 @@ import { Key } from "@solid-primitives/keyed";
 import {
   Check,
   FunnelPlus,
+  LogOut,
   PanelBottomClose,
   PanelBottomOpen,
   PanelLeftClose,
@@ -32,7 +34,7 @@ import {
   X,
 } from "lucide-solid";
 
-export default function Journal() {
+export default function Journal(props) {
   const {
     views,
     getView,
@@ -67,12 +69,22 @@ export default function Journal() {
         orientation="horizontal"
         collapsed={leftPanelCollapsed()}
         controls={
-          <PanelControls placement="top" sticky="right">
-            <IconButton
-              icon={leftPanelCollapsed() ? PanelLeftOpen : PanelLeftClose}
-              onClick={toggleLeftPanelCollapsed}
-            />
-          </PanelControls>
+          <>
+            <PanelControls placement="top" sticky="right">
+              <IconButton
+                icon={leftPanelCollapsed() ? PanelLeftOpen : PanelLeftClose}
+                onClick={toggleLeftPanelCollapsed}
+              />
+            </PanelControls>
+            <PanelControls placement="bottom" sticky="right">
+              <IconButton
+                style="danger"
+                flip="horizontal"
+                icon={LogOut}
+                onClick={props.onClose}
+              />
+            </PanelControls>
+          </>
         }
       >
         <Label style="panel">Views</Label>
@@ -138,6 +150,7 @@ export default function Journal() {
             New
           </Button>
         </PanelBottomContainer>
+        <PanelControlsSpacer />
       </Panel>
       <EntriesContainer
         after={
@@ -165,6 +178,7 @@ export default function Journal() {
                   setViewDefinition(currentViewId(), definition)
                 }
               />
+              <PanelControlsSpacer when={leftPanelCollapsed()} />
             </Panel>
           </Show>
         }

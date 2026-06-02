@@ -43,6 +43,12 @@ pub fn open_journal(state: State<RwLock<AppState>>, path: &str) {
 }
 
 #[tauri::command]
+pub fn close_journal(state: State<RwLock<AppState>>) {
+    let mut state = state.write().unwrap();
+    *state = AppState::Start;
+}
+
+#[tauri::command]
 pub fn get_views(state: State<RwLock<AppState>>) -> ipc::Response {
     let state = state.read().unwrap();
     let views = state.journal().views();

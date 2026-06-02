@@ -11,5 +11,10 @@ export default function useAppState() {
     await refetchState();
   };
 
-  return { state, openJournal };
+  const closeJournal = async (path) => {
+    await invoke("close_journal", { path });
+    await refetchState();
+  };
+
+  return { state, openJournal, closeJournal };
 }

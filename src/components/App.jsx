@@ -5,7 +5,7 @@ import styles from "@/styles/App";
 import Start from "./Start";
 
 export default function App() {
-  const { state, openJournal } = useAppState();
+  const { state, openJournal, closeJournal } = useAppState();
 
   return (
     <div class={styles.app}>
@@ -14,7 +14,7 @@ export default function App() {
           <Start onOpenJournal={openJournal} />
         </Match>
         <Match when={state() === "journal"}>
-          <Journal />
+          <Journal onClose={closeJournal} />
         </Match>
       </Switch>
     </div>
