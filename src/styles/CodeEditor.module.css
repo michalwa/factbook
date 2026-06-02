@@ -8,7 +8,7 @@
 
 .editor :global(.cm-content) {
   padding: 0;
-  font-family: "Iosevka Custom", monospace;
+  font-family: var(--font-monospace);
   font-size: 12pt;
   line-height: normal;
   caret-color: var(--theme-foreground) !important;

@@ -1,5 +1,26 @@
+.button {
+  width: fit-content;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: var(--round-default);
+  text-transform: uppercase;
+  font-family: inherit;
+  font-size: 10pt;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
 .button + .button {
   margin-top: 0.5rem;
+}
+
+.button:disabled {
+  cursor: not-allowed;
 }
 
 .icon {
@@ -22,11 +43,15 @@
   color: var(--theme-accent-contrast);
 }
 
-.style-primary:hover {
+.style-primary:disabled {
+  background: var(--theme-accent-disabled);
+}
+
+.style-primary:enabled:hover {
   background: var(--theme-accent-hover);
 }
 
-.style-primary:active {
+.style-primary:enabled:active {
   background: var(--theme-accent-click);
 }
 
@@ -35,27 +60,35 @@
   color: var(--theme-danger-contrast);
 }
 
-.style-danger:hover {
+.style-danger:disabled {
+  background: var(--theme-danger-disabled);
+}
+
+.style-danger:enabled:hover {
   background: var(--theme-danger-hover);
 }
 
-.style-danger:active {
+.style-danger:enabled:active {
   background: var(--theme-danger-click);
 }
 
 .style-outline {
   background: none;
   color: var(--theme-outline);
-  box-shadow: inset 0 0 0 0.1rem var(--theme-outline);
+  box-shadow: inset 0 0 0 0.1rem currentColor;
 }
 
-.style-outline:hover {
+.style-outline:disabled {
+  color: var(--theme-outline-disabled);
+}
+
+.style-outline:enabled:hover {
   background: var(--theme-outline);
   color: var(--theme-outline-foreground-hover);
   box-shadow: none;
 }
 
-.style-outline:active {
+.style-outline:enabled:active {
   background: var(--theme-outline-click);
 }
 

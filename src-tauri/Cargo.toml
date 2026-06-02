@@ -26,3 +26,4 @@ tauri-plugin-log = "2"
 log = "0.4"
 factbook-core = { path = "../factbook-core" }
 tauri-plugin-prevent-default = { version = "4.0", features = ["platform-windows"] }
+tauri-plugin-dialog = "2"

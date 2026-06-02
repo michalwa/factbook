@@ -1,6 +1,9 @@
+use crate::AppState;
 use crate::util::SerializeIterOnce;
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
+use std::fs::File;
+use std::sync::RwLock;
 use tauri::{State, ipc};
 
 #[derive(Serialize)]
@@ -20,8 +23,29 @@ struct Entry<'t> {
 }
 
 #[tauri::command]
-pub fn get_views(state: State<factbook_core::State>) -> ipc::Response {
-    let views = state.views();
+pub fn get_state(state: State<RwLock<AppState>>) -> &'static str {
+    match *state.read().unwrap() {
+        AppState::Start => "start",
+        AppState::Journal(_) => "journal",
+    }
+}
+
+#[tauri::command]
+pub fn open_journal(state: State<RwLock<AppState>>, path: &str) {
+    let journal_state = factbook_core::State::new(&crate::SESSION);
+
+    let file = File::open(path).unwrap();
+    let journal = serde_json::from_reader(file).unwrap();
+    journal_state.load_journal(journal);
+
+    let mut state = state.write().unwrap();
+    *state = AppState::Journal(journal_state);
+}
+
+#[tauri::command]
+pub fn get_views(state: State<RwLock<AppState>>) -> ipc::Response {
+    let state = state.read().unwrap();
+    let views = state.journal().views();
     let views = views
         .iter()
         .map(|(id, view)| View { id, view })
@@ -33,29 +57,36 @@ pub fn get_views(state: State<factbook_core::State>) -> ipc::Response {
 }
 
 #[tauri::command]
-pub fn create_view(state: State<factbook_core::State>) -> ViewId {
-    state.views_mut().create()
+pub fn create_view(state: State<RwLock<AppState>>) -> ViewId {
+    let mut state = state.write().unwrap();
+    state.journal_mut().views_mut().create()
 }
 
 #[tauri::command]
-pub fn remove_view(state: State<factbook_core::State>, id: ViewId) {
-    state.views_mut().remove(id);
+pub fn remove_view(state: State<RwLock<AppState>>, id: ViewId) {
+    let mut state = state.write().unwrap();
+    state.journal_mut().views_mut().remove(id);
 }
 
 #[tauri::command]
-pub fn set_view_name(state: State<factbook_core::State>, id: ViewId, name: String) {
-    state.views_mut().set_name(id, name);
+pub fn set_view_name(state: State<RwLock<AppState>>, id: ViewId, name: String) {
+    let mut state = state.write().unwrap();
+    state.journal_mut().views_mut().set_name(id, name);
 }
 
 #[tauri::command]
-pub fn set_view_definition(state: State<factbook_core::State>, id: ViewId, definition: String) {
-    state.set_view_definition(id, definition);
+pub fn set_view_definition(state: State<RwLock<AppState>>, id: ViewId, definition: String) {
+    let mut state = state.write().unwrap();
+    state.journal_mut().set_view_definition(id, definition);
 }
 
 #[tauri::command]
-pub fn get_entries(state: State<factbook_core::State>, view: Option<ViewId>) -> ipc::Response {
+pub fn get_entries(state: State<RwLock<AppState>>, view: Option<ViewId>) -> ipc::Response {
     use serde::Serializer;
     use serde::ser::SerializeSeq;
+
+    let state = state.read().unwrap();
+    let state = state.journal();
 
     if let Some(view) = view {
         let mut json = Vec::new();
@@ -84,16 +115,19 @@ pub fn get_entries(state: State<factbook_core::State>, view: Option<ViewId>) -> 
 }
 
 #[tauri::command]
-pub fn create_entry(state: State<factbook_core::State>) -> EntryId {
-    state.entries_mut().create()
+pub fn create_entry(state: State<RwLock<AppState>>) -> EntryId {
+    let mut state = state.write().unwrap();
+    state.journal_mut().entries_mut().create()
 }
 
 #[tauri::command]
-pub fn remove_entry(state: State<factbook_core::State>, id: EntryId) {
-    state.entries_mut().remove(id);
+pub fn remove_entry(state: State<RwLock<AppState>>, id: EntryId) {
+    let mut state = state.write().unwrap();
+    state.journal_mut().entries_mut().remove(id);
 }
 
 #[tauri::command]
-pub fn set_entry_content(state: State<factbook_core::State>, id: EntryId, content: String) {
-    state.entries_mut().set_content(id, content);
+pub fn set_entry_content(state: State<RwLock<AppState>>, id: EntryId, content: String) {
+    let mut state = state.write().unwrap();
+    state.journal_mut().entries_mut().set_content(id, content);
 }
