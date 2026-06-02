@@ -30,7 +30,7 @@ impl State<'_> {
         let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
         let mut visited = BTreeSet::new();
 
-        while let Some([_, _, entry_id]) = query.next_solution().unwrap() {
+        while let Some([_, _, entry_id]) = query.next_solution().unwrap_or(None) {
             if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
                 if visited.contains(&entry_id) {
                     continue;
