@@ -77,7 +77,7 @@ pub struct CopyBlob<T: CopyBlobData>(pub T);
 ///
 /// To satisfy the lifetime constraints, there must be no live references to the
 /// blob when the handle is dropped and the inner type's lifetime ends. Dropping
-/// this handle while the blob is borrowed in another thread will panic.
+/// this handle while the blob is borrowed will panic.
 pub struct ScopedBlob<T: ScopedBlobData>(
     /// The blob handle holds a strong `Arc`, while all Prolog instances (terms
     /// referencing this blob) hold a `Weak` raw pointer, until they are
