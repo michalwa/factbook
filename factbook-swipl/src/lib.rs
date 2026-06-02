@@ -585,8 +585,8 @@ macro_rules! assert_unify {
         let a = $a;
         let b = $b;
         assert!(
-            a.unify_with(b),
-            "assertion `left.unify_with(right)` failed\n  left: {a},\n right: {b}"
+            a.unify(b),
+            "assertion `left.unify(right)` failed\n  left: {a},\n right: {b}"
         );
     }};
 }

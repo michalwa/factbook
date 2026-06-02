@@ -156,6 +156,34 @@ impl<'a> Term<'a> {
         self
     }
 
+    /// Unifies the term with a value
+    /// * https://www.swi-prolog.org/pldoc/man?section=foreign-unify
+    ///
+    /// Similar to constructing a new term and unifying with that term, but
+    /// saves the unnecessary temporary term construction.
+    ///
+    /// ```
+    /// # use factbook_swipl::*;
+    /// # const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
+    /// # let session = Session::init(STATE).unwrap();
+    /// # let engine = session.engine();
+    /// #
+    /// let [t1, t2, t3] = engine.new_terms().into();
+    ///
+    /// assert!(t1.unify(1));
+    /// assert!(t2.unify("foo"));
+    /// assert!(t3.unify(&engine.atom("foo")));
+    ///
+    /// assert!(!t1.unify(2));
+    ///
+    /// assert_eq!(t1.to_string(), "1");
+    /// assert_eq!(t2.to_string(), "\"foo\"");
+    /// assert_eq!(t3.to_string(), "foo");
+    /// ```
+    pub fn unify(self, value: impl ToTerm) -> bool {
+        value.unify_with(self)
+    }
+
     /// Puts a term parsed from the given string in the term reference
     /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_put_term_from_chars%27)
     ///
@@ -168,7 +196,7 @@ impl<'a> Term<'a> {
     /// let t1 = term! { &engine => foo(bar(foo), _) };
     /// let t2 = engine.new_term().put_parsed("foo(bar(_), foo)").unwrap();
     ///
-    /// assert!(t1.unify_with(t2));
+    /// assert!(t1.unify(t2));
     /// ```
     ///
     /// On failure, returns the `ParseError` containing the exception term.
@@ -220,13 +248,6 @@ impl<'a> Term<'a> {
     /// Extracts a value from the term
     pub fn get<T: FromTerm>(self) -> Option<T> {
         T::from_term(self)
-    }
-
-    /// Unifies the two terms and returns `true` on success or `false` on
-    /// failure.
-    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_unify%27)
-    pub fn unify_with(self, other: Term) -> bool {
-        unsafe { pl::PL_unify(self.ptr.get(), other.ptr.get()) }
     }
 
     pub fn kind(&self) -> TermKind {
@@ -381,6 +402,15 @@ pub trait ToTerm: Sized {
 
     /// Puts (copies) the value into the term reference
     fn put_in(self, term: Term);
+
+    /// Unifies the term with the value. The default implementation constructs
+    /// a temporary term, calls [`Self::put_in`] and unifies the terms.
+    fn unify_with(self, term: Term) -> bool {
+        // It's OK construct a new term here, because we own a live `Term` anyway
+        let temp = Term::from_ptr(unsafe { pl::PL_new_term_ref() }).unwrap();
+        self.put_in(temp);
+        term.unify(temp)
+    }
 }
 
 impl ToTerm for Term<'_> {
@@ -396,7 +426,38 @@ impl ToTerm for Term<'_> {
             panic!("PL_put_term failed");
         }
     }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { pl::PL_unify(self.ptr.get(), term.ptr.get()) }
+    }
 }
+
+macro_rules! impl_ToTerm {
+    ($type:ty, $put_fn:path, $unify_fn:path) => {
+        impl ToTerm for $type {
+            fn put_in(self, term: Term) {
+                assert!(unsafe { $put_fn(term.ptr.get(), self as _) });
+            }
+
+            fn unify_with(self, term: Term) -> bool {
+                unsafe { $unify_fn(term.ptr.get(), self as _) }
+            }
+        }
+    };
+}
+
+// NOTE: Using `PL_put_(u)int64` rather than `PL_put_integer` for numeric types
+// because the integer type is platform-dependent
+impl_ToTerm!(i8, pl::PL_put_int64, pl::PL_unify_int64);
+impl_ToTerm!(i16, pl::PL_put_int64, pl::PL_unify_int64);
+impl_ToTerm!(i32, pl::PL_put_int64, pl::PL_unify_int64);
+impl_ToTerm!(i64, pl::PL_put_int64, pl::PL_unify_int64);
+impl_ToTerm!(u8, pl::PL_put_uint64, pl::PL_unify_uint64);
+impl_ToTerm!(u16, pl::PL_put_uint64, pl::PL_unify_uint64);
+impl_ToTerm!(u32, pl::PL_put_uint64, pl::PL_unify_uint64);
+impl_ToTerm!(u64, pl::PL_put_uint64, pl::PL_unify_uint64);
+impl_ToTerm!(f32, pl::PL_put_float, pl::PL_unify_float);
+impl_ToTerm!(f64, pl::PL_put_float, pl::PL_unify_float);
 
 impl ToTerm for &Atom {
     fn put_in(self, term: Term) {
@@ -404,42 +465,39 @@ impl ToTerm for &Atom {
             panic!("PL_put_atom failed");
         }
     }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { pl::PL_unify_atom(term.ptr.get(), self.ptr) }
+    }
 }
 
 impl ToTerm for &Record {
     fn put_in(self, term: Term) {
-        if !unsafe { pl::PL_recorded(self.ptr, term.ptr.get()) } {
-            panic!("PL_recorded failed");
-        }
+        assert!(unsafe { pl::PL_recorded(self.ptr, term.ptr.get()) });
     }
 }
 
-macro_rules! impl_ToTerm {
-    (|$value:ident: $type:ty, $term:ident| pl::$fn:ident($($args:tt)*)) => {
-        impl ToTerm for $type {
-            fn put_in(self, $term: Term) {
-                let $value = self;
-                if !unsafe { pl::$fn($($args)*) } {
-                    panic!(concat!(stringify!($fn), " failed"));
-                }
-            }
-        }
-    };
+impl ToTerm for bool {
+    fn put_in(self, term: Term) {
+        assert!(unsafe { pl::PL_put_bool(term.ptr.get(), self as _) });
+    }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { pl::PL_unify_bool(term.ptr.get(), self as _) }
+    }
 }
 
-impl_ToTerm!(|v: bool, t| pl::PL_put_bool(t.ptr.get(), v as _));
-impl_ToTerm!(|v: &str, t| pl::PL_put_string_nchars(t.ptr.get(), v.len(), v.as_ptr() as _));
-// Not using `PL_put_integer` because the integer type is platform-dependent
-impl_ToTerm!(|v: i8, t| pl::PL_put_int64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: i16, t| pl::PL_put_int64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: i32, t| pl::PL_put_int64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: i64, t| pl::PL_put_int64(t.ptr.get(), v));
-impl_ToTerm!(|v: u8, t| pl::PL_put_uint64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: u16, t| pl::PL_put_uint64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: u32, t| pl::PL_put_uint64(t.ptr.get(), v as _));
-impl_ToTerm!(|v: u64, t| pl::PL_put_uint64(t.ptr.get(), v));
-impl_ToTerm!(|v: f32, t| pl::PL_put_float(t.ptr.get(), v as _));
-impl_ToTerm!(|v: f64, t| pl::PL_put_float(t.ptr.get(), v));
+impl ToTerm for &str {
+    fn put_in(self, term: Term) {
+        assert!(unsafe {
+            pl::PL_put_string_nchars(term.ptr.get(), self.len(), self.as_ptr() as _)
+        });
+    }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { pl::PL_unify_string_nchars(term.ptr.get(), self.len(), self.as_ptr() as _) }
+    }
+}
 
 /// Implemented by types that can be extracted from a term reference
 pub trait FromTerm: Sized {

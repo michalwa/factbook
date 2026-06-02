@@ -1,6 +1,6 @@
 use factbook_swipl::blob::{Blob, BlobData, CopyBlob, CopyBlobData, ScopedBlob};
 use factbook_swipl::foreign::Semidet;
-use factbook_swipl::{Atom, Context, Session, term};
+use factbook_swipl::{Atom, Context, Session, assert_unify, term};
 use factbook_swipl_macros::{ScopedBlobData, predicate};
 use std::cell::RefCell;
 use std::sync::LazyLock;
@@ -54,7 +54,7 @@ fn blob() {
     }));
     assert_eq!(t1.to_string(), "<FooBlob { text: \"Hello\", number: 42 }>");
 
-    assert!(t2.unify_with(t1));
+    assert_unify!(t1, t2);
     t3.put(Blob::new(BarBlob { number: 1.0 }));
 
     let a2 = t2.get::<Atom>().unwrap();
@@ -88,7 +88,7 @@ fn copy_blob() {
     t1.put(CopyBlob(Vec2i { x: 1, y: 2 }));
     assert_eq!(t1.to_string(), "<Vec2i { x: 1, y: 2 }>");
 
-    assert!(t2.unify_with(t1));
+    assert_unify!(t1, t2);
     t3.put(CopyBlob(Vec3i { x: 1, y: 2, z: 3 }));
 
     assert_eq!(t2.get::<CopyBlob<Vec2i>>().unwrap().0, Vec2i { x: 1, y: 2 });

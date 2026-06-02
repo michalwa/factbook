@@ -131,20 +131,16 @@ pub(crate) mod predicates {
 
             for (found_entry_id, found_tag) in self.iter.as_mut().unwrap() {
                 let pl = pl.frame();
-                let found_tag = pl.new_term().put(found_tag);
 
                 // If `entry_id` is already instantiated, manually compare instead of
                 // unifying terms, because unifying blobs like this will always fail,
                 // even if they have the same contents
                 let entry_matched = match entry_id.get::<EntryId>() {
                     Some(entry_id) => entry_id == found_entry_id,
-                    None => {
-                        let found_entry_id = pl.new_term().put(found_entry_id);
-                        entry_id.unify_with(found_entry_id)
-                    },
+                    None => entry_id.unify(found_entry_id),
                 };
 
-                if entry_matched && tag.unify_with(found_tag) {
+                if entry_matched && tag.unify(found_tag) {
                     pl.close();
                     return true;
                 }

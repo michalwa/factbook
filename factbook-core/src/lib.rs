@@ -196,6 +196,8 @@ mod test {
                 "@bar(2)",
                 "@baz(1, 2)",
                 "@baz(2, 1)",
+                "@42",
+                r#"@"string""#,
             ]
             .into_iter()
             .map(|content| {
@@ -306,5 +308,15 @@ mod test {
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
         assert_eq!(matches, ["@bar(2)"]);
+    }
+
+    #[test]
+    fn view_non_functor_tags() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, r#"@42; @"string""#);
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@42", r#"@"string""#]);
     }
 }

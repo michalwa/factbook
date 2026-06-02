@@ -20,7 +20,7 @@ impl Nondet for MyPredicate {
         Self { iter: None }
     }
 
-    fn next(&mut self, pl: &mut impl Context, [ctx, value]: Self::Args<'_>) -> bool {
+    fn next(&mut self, _: &mut impl Context, [ctx, value]: Self::Args<'_>) -> bool {
         if self.iter.is_none() {
             let ctx_atom = ctx.get::<Atom>().unwrap();
             let ctx = ctx_atom.scoped_blob::<MyContext>().unwrap();
@@ -28,10 +28,7 @@ impl Nondet for MyPredicate {
             self.iter = Some(Box::new(ctx.start..))
         }
 
-        value.unify_with(
-            pl.new_term()
-                .put(self.iter.as_mut().unwrap().next().unwrap()),
-        )
+        value.unify(self.iter.as_mut().unwrap().next().unwrap())
     }
 }
 

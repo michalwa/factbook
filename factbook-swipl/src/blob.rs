@@ -147,46 +147,53 @@ pub unsafe trait ScopedBlobData {
 
 impl<T: BlobData> ToTerm for Blob<T> {
     fn put_in(self, term: Term) {
-        if !unsafe {
-            pl::PL_put_blob(
-                term.ptr.get(),
-                Box::leak(self.0) as *mut _ as _,
-                std::mem::size_of::<T>(),
-                T::SPEC as _,
-            )
-        } {
-            panic!("PL_put_blob failed");
-        }
+        assert!(unsafe { put_blob(term, Box::leak(self.0) as _, T::SPEC) })
+    }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { unify_blob(term, Box::leak(self.0) as _, T::SPEC) }
     }
 }
 
 impl<T: CopyBlobData> ToTerm for CopyBlob<T> {
-    fn put_in(mut self, term: Term) {
-        if !unsafe {
-            pl::PL_put_blob(
-                term.ptr.get(),
-                &raw mut self.0 as _,
-                std::mem::size_of::<T>(),
-                T::SPEC as _,
-            )
-        } {
-            panic!("PL_put_blob failed");
-        }
+    fn put_in(self, term: Term) {
+        assert!(unsafe { put_blob(term, &raw const self.0, T::SPEC) });
+    }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { unify_blob(term, &raw const self.0, T::SPEC) }
     }
 }
 
 impl<T: ScopedBlobData> ToTerm for &ScopedBlob<T> {
     fn put_in(self, term: Term) {
-        if !unsafe {
-            pl::PL_put_blob(
-                term.ptr.get(),
-                Arc::downgrade(&self.0).into_raw() as _,
-                std::mem::size_of::<T>(), // TODO: does this matter?
-                T::SPEC as _,
-            )
-        } {
-            panic!("PL_put_blob failed");
-        }
+        assert!(unsafe { put_blob(term, Arc::downgrade(&self.0).into_raw(), T::SPEC) });
+    }
+
+    fn unify_with(self, term: Term) -> bool {
+        unsafe { unify_blob(term, Arc::downgrade(&self.0).into_raw(), T::SPEC) }
+    }
+}
+
+unsafe fn put_blob<T>(term: Term, ptr: *const T, spec: *mut BlobSpec) -> bool {
+    unsafe {
+        pl::PL_put_blob(
+            term.ptr.get(),
+            ptr as _,
+            std::mem::size_of::<T>(),
+            spec as _,
+        )
+    }
+}
+
+unsafe fn unify_blob<T>(term: Term, ptr: *const T, spec: *mut BlobSpec) -> bool {
+    unsafe {
+        pl::PL_unify_blob(
+            term.ptr.get(),
+            ptr as _,
+            std::mem::size_of::<T>(),
+            spec as _,
+        )
     }
 }
 
