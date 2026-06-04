@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  SWI_PROLOG_VERSION: 10.0.2
+
+jobs:
+  rust-format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: cargo +nightly fmt --check
+
+  rust-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - &install-rust-deps
+        name: Install system dependencies
+        run: |
+          sudo apt-add-repository ppa:swi-prolog/stable
+          sudo apt update
+          sudo apt install libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            swi-prolog=$SWI_PROLOG_VERSION-*
+          mkdir -p target/debug/deps
+          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
+      - run: cargo clippy
+
+  rust-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - *install-rust-deps
+      - run: cargo test
+
+  js-format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          cache: true
+          run_install: true
+      - run: pnpm format-check
