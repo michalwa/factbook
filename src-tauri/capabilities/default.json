@@ -5,9 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default",
     "log:default",
     "dialog:default",
-    "store:default"
+    "store:default",
+    "opener:default"
   ]
 }
