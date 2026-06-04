@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  SWI_PROLOG_VERSION: 10.0.2
 
 jobs:
   rust-format-check:
@@ -24,30 +23,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - &install-rust-deps
-        name: Install system dependencies
+      - name: Install system dependencies
         run: |
-          sudo apt-add-repository ppa:swi-prolog/stable
-          sudo apt update
-          sudo apt install libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            swi-prolog=$SWI_PROLOG_VERSION-*
-          mkdir -p target/debug/deps
-          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
+          chmod +x install-deps.sh
+          sudo ./install-deps.sh
       - run: cargo clippy
 
   rust-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - *install-rust-deps
+      - name: Install system dependencies
+        run: |
+          chmod +x install-deps.sh
+          sudo ./install-deps.sh
+      - name: Copy shared libraries to target directory
+        run: |
+          mkdir -p target/debug/deps
+          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
       - run: cargo test
 
   js-format-check:
