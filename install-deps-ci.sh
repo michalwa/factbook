@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 apt update
 apt install libwebkit2gtk-4.1-dev \
