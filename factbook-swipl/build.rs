@@ -8,7 +8,10 @@ fn main() {
     println!("cargo:rustc-link-lib=gmp");
     println!("cargo:rustc-link-lib=tinfo");
     println!("cargo:rustc-link-lib=z");
-    println!("cargo:rustc-link-search={}", project_dir.join("../deps/swipl/build/src").display());
+    println!(
+        "cargo:rustc-link-search={}",
+        project_dir.join("../deps/swipl/build/src").display()
+    );
 
     let bindings = bindgen::builder()
         .header("src/wrapper.h")

@@ -1,5 +1,4 @@
-use crate::bindings as pl;
-use crate::{Atom, Context, ExternalRecord, Functor, RawFunctor, Record, term};
+use crate::{Atom, Context, ExternalRecord, Functor, RawFunctor, Record, bindings as pl, term};
 use num_enum::TryFromPrimitive;
 use std::marker::PhantomData;
 use std::num::NonZero;

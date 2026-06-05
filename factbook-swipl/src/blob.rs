@@ -1,6 +1,5 @@
-use crate::bindings as pl;
-use crate::Atom;
 use crate::term::{FromTerm, Term, ToTerm};
+use crate::{Atom, bindings as pl};
 pub use factbook_swipl_macros::{BlobData, CopyBlobData, ScopedBlobData};
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;

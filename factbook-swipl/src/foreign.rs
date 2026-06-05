@@ -1,5 +1,4 @@
-use crate::bindings as pl;
-use crate::{Context, Term};
+use crate::{Context, Term, bindings as pl};
 pub use factbook_swipl_macros::predicate;
 use std::ffi::CStr;
 use std::marker::PhantomData;

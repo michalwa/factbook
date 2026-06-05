@@ -1,6 +1,5 @@
-use crate::bindings as pl;
 use crate::term::{Exception, Term, Terms};
-use crate::{Context, get_exception, get_module};
+use crate::{Context, bindings as pl, get_exception, get_module};
 pub use factbook_swipl_macros::open_query;
 
 /// An open Prolog query.
