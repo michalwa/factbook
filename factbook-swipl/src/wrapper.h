@@ -1,2 +1,2 @@
-#include "../lib/SWI-Prolog.h"
-#include "../lib/SWI-Stream.h"
+#include "../../deps/swipl/build/home/include/SWI-Prolog.h"
+#include "../../deps/swipl/build/home/include/SWI-Stream.h"

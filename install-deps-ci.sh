@@ -1,6 +1,5 @@
 #!/bin/sh
 
-apt-add-repository ppa:swi-prolog/stable
 apt update
 apt install libwebkit2gtk-4.1-dev \
   build-essential \
@@ -10,5 +9,4 @@ apt install libwebkit2gtk-4.1-dev \
   libxdo-dev \
   libssl-dev \
   libayatana-appindicator3-dev \
-  librsvg2-dev \
-  swi-prolog=10.0.2-*
+  librsvg2-dev

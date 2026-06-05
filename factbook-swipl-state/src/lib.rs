@@ -5,9 +5,12 @@ use std::process::Command;
 pub fn build(input_filename: &str, output_filename: &str) {
     println!("cargo::rerun-if-changed={input_filename}");
 
-    let output = match Command::new("swipl")
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let project_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
+    let output = match Command::new(project_dir.join("../deps/swipl/build/src/swipl"))
         .arg("-o")
-        .arg(PathBuf::from(env::var("OUT_DIR").unwrap()).join(output_filename))
+        .arg(out_dir.join(output_filename))
         .args([
             "--stand_alone=false",
             "--autoload=false",

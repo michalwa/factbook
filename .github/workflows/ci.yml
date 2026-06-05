@@ -10,6 +10,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: libs
+          key: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
+      - name: Build dependencies
+        run: |
+          chmod +x build-deps.sh
+          sudo ./build-deps.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
+          path: libs
+
   rust-format-check:
     runs-on: ubuntu-latest
     steps:
@@ -20,27 +37,31 @@ jobs:
       - run: cargo +nightly fmt --check
 
   rust-clippy:
+    needs: build-deps
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
         run: |
-          chmod +x install-deps.sh
-          sudo ./install-deps.sh
+          chmod +x install-deps-ci.sh
+          sudo ./install-deps-ci.sh
+      - &fetch-built-deps
+        uses: actions/download-artifact@v8
+        with:
+          name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
+          path: libs
       - run: cargo clippy
 
   rust-test:
+    needs: build-deps
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
         run: |
-          chmod +x install-deps.sh
-          sudo ./install-deps.sh
-      - name: Copy shared libraries to target directory
-        run: |
-          mkdir -p target/debug/deps
-          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
+          chmod +x install-deps-ci.sh
+          sudo ./install-deps-ci.sh
+      - *fetch-built-deps
       - run: cargo test
 
   js-format-check:
