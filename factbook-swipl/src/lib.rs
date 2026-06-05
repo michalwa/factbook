@@ -1,3 +1,4 @@
+use crate::bindings as pl;
 use crate::foreign::{Predicate, PredicateArgs};
 use crate::query::Query;
 use crate::term::{Exception, Term, Terms};
@@ -6,8 +7,8 @@ use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::num::NonZero;
 use std::sync::atomic::{AtomicBool, Ordering};
-use swipl_fli as pl;
 
+mod bindings;
 pub mod blob;
 pub mod foreign;
 pub mod query;

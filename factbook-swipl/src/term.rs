@@ -1,10 +1,10 @@
+use crate::bindings as pl;
 use crate::{Atom, Context, ExternalRecord, Functor, RawFunctor, Record, term};
 use num_enum::TryFromPrimitive;
 use std::marker::PhantomData;
 use std::num::NonZero;
 use std::ops::Deref;
 use std::{fmt, slice};
-use swipl_fli as pl;
 
 /// Reference to a Prolog term.
 ///

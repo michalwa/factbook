@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [build-dependencies]
+bindgen = "0.72.1"
 factbook-swipl-state = { path = "../factbook-swipl-state" }
 
 [dependencies]
 factbook-swipl-macros = { path = "../factbook-swipl-macros" }
 paste = "1.0.15"
-swipl-fli = "0.3.6"
 log = "0.4"
 num_enum = "0.7.6"
 

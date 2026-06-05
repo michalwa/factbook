@@ -1,3 +1,4 @@
+use crate::bindings as pl;
 use crate::Atom;
 use crate::term::{FromTerm, Term, ToTerm};
 pub use factbook_swipl_macros::{BlobData, CopyBlobData, ScopedBlobData};
@@ -5,7 +6,6 @@ use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
-use swipl_fli as pl;
 
 /// A static set of metadata used by Prolog to distinguish blob types and call
 /// lifecycle callbacks.

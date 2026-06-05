@@ -1,12 +1,12 @@
+use crate::bindings as pl;
 use crate::{Context, Term};
 pub use factbook_swipl_macros::predicate;
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use swipl_fli as pl;
 
 /// Re-exports for use by macros
 pub mod ffi {
-    pub use swipl_fli::{PL_FA_NONDETERMINISTIC, control_t, foreign_t, term_t};
+    pub use crate::bindings::{PL_FA_NONDETERMINISTIC, control_t, foreign_t, term_t};
 }
 
 /// Implemented by all foreign predicates. Use the [`predicates`] macro to
