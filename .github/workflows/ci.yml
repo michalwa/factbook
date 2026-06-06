@@ -22,6 +22,7 @@ jobs:
         run: |
           chmod +x build-deps.sh
           sudo CI=1 ./build-deps.sh
+          sudo chmod -R +r deps
       - uses: actions/upload-artifact@v7
         with:
           name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}

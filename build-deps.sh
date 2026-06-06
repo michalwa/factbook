@@ -16,18 +16,13 @@ if [[ -n "$CI" ]]; then
     libgoogle-perftools-dev \
     libgmp-dev \
     libssl-dev \
-    unixodbc-dev \
     zlib1g-dev \
     libarchive-dev \
     libossp-uuid-dev \
     libdb-dev \
     libpcre2-dev \
     libyaml-dev \
-    libutf8proc-dev \
-    python3 \
-    libpython3-dev \
-    default-jdk \
-    junit4
+    libutf8proc-dev
 fi
 
 mkdir -p deps
@@ -46,7 +41,12 @@ pushd swipl
 rm -rf build
 mkdir build
 pushd build
-cmake -DCMAKE_BUILD_TYPE=PGO -DSWIPL_STATIC_LIB=ON -G Ninja ..
+cmake -DCMAKE_BUILD_TYPE=PGO \
+  -DSWIPL_STATIC_LIB=ON \
+  -DBUILD_TESTING=OFF \
+  -DBUILD_SWIPL_LD=OFF \
+  -DINSTALL_DOCUMENTATION=OFF \
+  -G Ninja ..
 ninja
 popd
 popd
