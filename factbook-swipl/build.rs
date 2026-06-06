@@ -6,6 +6,7 @@ fn main() {
 
     println!("cargo:rustc-link-lib=swipl_static");
     println!("cargo:rustc-link-lib=gmp");
+    println!("cargo:rustc-link-lib=tcmalloc_minimal");
     println!("cargo:rustc-link-lib=tinfo");
     println!("cargo:rustc-link-lib=z");
     println!(
