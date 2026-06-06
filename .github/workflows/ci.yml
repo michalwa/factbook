@@ -49,6 +49,7 @@ jobs:
         with:
           name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
           path: deps
+      - uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: |
           sudo chmod +x deps/swipl/build/src/swipl
@@ -62,6 +63,7 @@ jobs:
       - name: Install system dependencies
         run: chmod +x install-deps-ci.sh && sudo ./install-deps-ci.sh
       - *fetch-built-deps
+      - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: |
           sudo chmod +x deps/swipl/build/src/swipl
