@@ -51,7 +51,9 @@ jobs:
         with:
           name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
           path: deps
-      - run: cargo clippy
+      - run: |
+          sudo chmod +x deps/swipl/build/src/swipl
+          cargo clippy
 
   rust-test:
     needs: build-deps
@@ -63,7 +65,9 @@ jobs:
           chmod +x install-deps-ci.sh
           sudo ./install-deps-ci.sh
       - *fetch-built-deps
-      - run: cargo test
+      - run: |
+          sudo chmod +x deps/swipl/build/src/swipl
+          cargo test
 
   js-format-check:
     runs-on: ubuntu-latest
