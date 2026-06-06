@@ -20,8 +20,7 @@ jobs:
           key: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
       - name: Build dependencies
         run: |
-          chmod +x build-deps.sh
-          sudo CI=1 ./build-deps.sh
+          chmod +x build-deps.sh && sudo CI=1 ./build-deps.sh
           sudo chmod -R +r deps
       - uses: actions/upload-artifact@v7
         with:
@@ -43,9 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
-        run: |
-          chmod +x install-deps-ci.sh
-          sudo ./install-deps-ci.sh
+        run: chmod +x install-deps-ci.sh && sudo ./install-deps-ci.sh
       - &fetch-built-deps
         name: Fetch built dependencies
         uses: actions/download-artifact@v8
@@ -63,9 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
-        run: |
-          chmod +x install-deps-ci.sh
-          sudo ./install-deps-ci.sh
+        run: chmod +x install-deps-ci.sh && sudo ./install-deps-ci.sh
       - *fetch-built-deps
       - name: Run tests
         run: |
