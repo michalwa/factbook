@@ -50,54 +50,43 @@ Think _notepad meets SQL console meets scripting REPL_.
 
 There are currently no public builds available ([#31](https://github.com/michalwa/factbook/issues/31)). To run **factbook** you must build it from source. See the sections below.
 
-### Runtime dependencies
-
-- SWI Prolog is currently required as a dynamic library at runtime. This should not be a problem when building from source.
-
 ## Development
 
-**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com)
+**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com).
 
 ### Prerequisites
 
 - Rust v1.88+ (nightly is only required for `cargo fmt`)
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
-- SWI-Prolog 10.0.2 or newer with a compatible C API. Install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually.
-  - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
-  - On Windows (MSVC) make sure to check one of the _Add to PATH_ boxes during installation and add the following to your `~/.cargo/config.toml`:
-    ```toml
-    # `rustdocflags` is only needed for running some doc tests
-    [build]
-    rustdocflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
-
-    [target.x86_64-pc-windows-msvc]
-    rustflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
+- SWI-Prolog needs to be built from source since it's the only way to obtain the [static library](https://www.swi-prolog.org/pldoc/man?section=static-linking). This is preferred because it substantially simplifies building portable executables. Build scripts are provided for respective platforms:
+  - Mac/Linux
+    ```shell
+    chmod +x build-deps.sh && ./build-deps.sh
     ```
-  Common compilation errors result from mismatched SWI-Prolog versions.
+  - Windows
+    ```shell
+    # TODO
+    ```
 
 ### Building and running
 
 Run the project in development:
 
-```
+```shell
 pnpm tauri dev
 ```
 
 Make and run the release build:
 
-```
+```shell
 pnpm tauri build
 target/release/factbook
 ```
 
 Make and run the debug build:
 
-```
+```shell
 pnpm tauri build --debug
 target/debug/factbook
 ```
@@ -106,7 +95,7 @@ target/debug/factbook
 
 Format the codebase:
 
-```
+```shell
 pnpm format
 cargo +nightly fmt
 ```
