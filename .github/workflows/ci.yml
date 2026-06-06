@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/cache@v5
         with:
-          path: libs
+          path: deps
           key: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
       - name: Build dependencies
         run: |
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
-          path: libs
+          path: deps
 
   rust-format-check:
     runs-on: ubuntu-latest
@@ -49,7 +49,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: deps-${{ runner.os }}-${{ hashFiles('build-deps.sh') }}
-          path: libs
+          path: deps
       - run: cargo clippy
 
   rust-test:
