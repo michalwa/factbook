@@ -62,7 +62,7 @@ There are currently no public builds available ([#31](https://github.com/michalw
 - SWI-Prolog needs to be built from source since it's the only way to obtain the [static library](https://www.swi-prolog.org/pldoc/man?section=static-linking). This is preferred because it substantially simplifies building portable executables. Build scripts are provided for respective platforms:
   - Mac/Linux
     ```shell
-    chmod +x build-deps.sh && ./build-deps.sh
+    ./build-deps.sh
     ```
   - Windows
     ```shell
