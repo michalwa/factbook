@@ -39,7 +39,10 @@ if ! [[ -f swipl/build/src/swipl ]]; then
       libutf8proc-dev
   fi
 
-  wget https://www.swi-prolog.org/download/stable/src/swipl-$SWIPL_VERSION.tar.gz
+  if ! [[ -f swipl-$SWIPL_VERSION.tar.gz ]]; then
+    wget https://www.swi-prolog.org/download/stable/src/swipl-$SWIPL_VERSION.tar.gz
+  fi
+
   mkdir -p swipl
   tar -xzf swipl-$SWIPL_VERSION.tar.gz --strip-components=1 -C swipl
 
