@@ -68,6 +68,7 @@ There are currently no public builds available ([#31](https://github.com/michalw
     ```shell
     # TODO
     ```
+  Build dependency lists may appear in the future for various package managers and platforms. In the meantime, consult the `CI` section of the [build script](build-deps.sh) for the appropriate `apt` commands.
 
 ### Building and running
 
