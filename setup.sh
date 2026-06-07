@@ -44,7 +44,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "darwin"* ]]; then
   # to be an issue with `swipl` not being added to `PATH`.
   echo "SWIPL=$(which swipl)" | tee "$ENV_OUTPUT"
 
-  libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_OBJ_EXT}$" | sed 's/^.*=> //' | dirname)}
+  libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_OBJ_EXT}$" | sed 's/^.*=> //' | xargs dirname)}
   libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
   copy-lib "$libswipl_dir" libswipl${SHARED_OBJ_EXT}
 else
