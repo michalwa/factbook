@@ -1,7 +1,7 @@
 {
   "bundle": {
-    "resources": {
-      "../libs/libswipl.10.dylib": "libswipl.10.dylib"
+    "macOS": {
+      "frameworks": ["../libs/libswipl.10.dylib"]
     }
   }
 }

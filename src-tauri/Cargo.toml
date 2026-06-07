@@ -28,3 +28,7 @@ tauri-plugin-prevent-default = { version = "4.0", features = ["platform-windows"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
+
+# Embed RPATH to search the executable's directory for libswipl.so.10
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN/../lib"]
