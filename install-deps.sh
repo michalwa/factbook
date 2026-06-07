@@ -21,11 +21,11 @@ else
 fi
 
 # Ensure `swipl` is in PATH, for some reason not the default on Ubuntu in CI
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+if [[ -n "$1" && "$OSTYPE" == "linux-gnu"* ]]; then
   if ! command -v swipl; then
     path=$(ldconfig -p | grep "libswipl.so$" | sed 's/^.*=> //' | dirname)
     path=${path:-$(pkg-config --libs-only-L $1 | tr -d ' ' | sed 's/-L//')}
-    echo "export PATH=\${PATH}:$path"
-    echo "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$path"
+    echo "export PATH=\${PATH}:$path" >> $1
+    echo "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$path" >> $1
   fi
 fi

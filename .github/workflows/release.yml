@@ -45,9 +45,9 @@ jobs:
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Install dependencies
+      - name: Install system dependencies
         if: matrix.scripts
-        run: eval "$(./install-deps.sh)"
+        run: ./install-deps.sh path-commands && source path-commands
 
       - name: Import shared libraries for bundle
         if: matrix.scripts

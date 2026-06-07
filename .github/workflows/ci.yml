@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
-        run: ./install-deps.sh
+        run: ./install-deps.sh path-commands && source path-commands
       - run: cargo clippy
 
   rust-test:
@@ -32,11 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install system dependencies
-        run: ./install-deps.sh
-      - name: Copy shared libraries to target directory
-        run: |
-          mkdir -p target/debug/deps
-          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
+        run: ./install-deps.sh path-commands && source path-commands
+      # - name: Copy shared libraries to target directory
+      #   run: |
+      #     mkdir -p target/debug/deps
+      #     cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
       - run: cargo test
 
   js-format-check:
