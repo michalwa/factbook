@@ -32,7 +32,7 @@ libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep libswipl | sed 's/^.*=> //' | 
 libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  copy-lib "$libswipl_dir" libswipl.10.dylib
-elif [[ "$OSTYPE" == "darwin"* ]]; then
   copy-lib "$libswipl_dir" libswipl.so.10
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  copy-lib "$libswipl_dir" libswipl.10.dylib
 fi
