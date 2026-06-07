@@ -23,20 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Install system dependencies
-        run: ./setup.sh "$GITHUB_ENV"
+      - name: Install dependencies
+        run: ENV_OUTPUT="$GITHUB_ENV" TARGET=x86_64-unknown-linux-gnu ./setup.sh
       - run: cargo clippy
 
   rust-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Install system dependencies
-        run: ./setup.sh "$GITHUB_ENV"
-      # - name: Copy shared libraries to target directory
-      #   run: |
-      #     mkdir -p target/debug/deps
-      #     cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
+      - name: Install dependencies
+        run: ENV_OUTPUT="$GITHUB_ENV" TARGET=x86_64-unknown-linux-gnu ./setup.sh
       - run: cargo test
 
   js-format-check:
