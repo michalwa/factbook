@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 apt-add-repository ppa:swi-prolog/stable
 apt update
