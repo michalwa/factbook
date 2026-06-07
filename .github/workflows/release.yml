@@ -16,19 +16,19 @@ jobs:
           - name: Linux x86-64
             platform: 'ubuntu-latest'
             scripts: true
-            args: ''
+            target: x86_64-unknown-linux-gnu
           - name: MacOS x86-64
             platform: 'macos-latest'
             scripts: true
-            args: '--target x86_64-apple-darwin'
+            target: x86_64-apple-darwin
           - name: MacOS aarch64
             platform: 'macos-latest'
             scripts: true
-            args: '--target aarch64-apple-darwin'
+            target: aarch64-apple-darwin
           - name: Windows x86-64
             platform: 'windows-latest'
             scripts: false
-            args: ''
+            target: x86_64-windows-msvc
 
     name: Build - ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
@@ -47,20 +47,15 @@ jobs:
 
       - name: Install system dependencies
         if: matrix.scripts
-        run: ./install-deps.sh "$GITHUB_PATH"
+        run: ENV_OUTPUT="$GITHUB_ENV" TARGET="${{ matrix.target }}" ./setup.sh
 
       - name: Import shared libraries for bundle
         if: matrix.scripts
         run: ./import-libs.sh
 
-      # TODO: Put this in a script
       - name: Fetch Windows DLL
         if: matrix.platform == 'windows-latest'
-        run: |
-          Invoke-WebRequest https://www.swi-prolog.org/download/stable/bin/swipl-10.0.2-1.x64.exe -OutFile swipl-installer.exe
-          7z x swipl-installer.exe -oswipl-installer
-          mkdir libs
-          copy swipl-installer\bin\libswipl.dll libs\libswipl-x86_64-windows-msvc.dll
+        run: .\import-libs.ps1
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -70,4 +65,4 @@ jobs:
           tagName: v__VERSION__
           releaseName: v__VERSION__
           releaseDraft: true
-          args: ${{ matrix.args }}
+          args: --target ${{ matrix.target }}
