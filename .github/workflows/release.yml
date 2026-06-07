@@ -36,18 +36,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-          cache: true
-          run_install: true
+      - name: Install dependencies
+        run: ${{ matrix.setup }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Install dependencies
-        run: ${{ matrix.setup }}
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          cache: true
+          run_install: true
 
       - uses: tauri-apps/tauri-action@v0
         env:

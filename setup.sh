@@ -35,7 +35,8 @@ function copy-lib {
 # Echo `SWIPL` env var for the `swipl-info` crate. On some platforms there seems
 # to be an issue with `swipl` not being added to `PATH`.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  swipl_path=$(ldconfig -p | grep "libswipl.so$" | sed 's/^.*=> //' | dirname)
+  swipl_path=$(which swipl | dirname)
+  swipl_path=${swipl_path:-$(ldconfig -p | grep "libswipl.so$" | sed 's/^.*=> //' | dirname)}
   swipl_path=${swipl_path:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
 
   if [[ -f "$swipl_path" ]]; then
