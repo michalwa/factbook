@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         if: matrix.scripts
-        run: ./install-deps.sh
+        run: eval "$(./install-deps.sh)"
 
       - name: Import shared libraries for bundle
         if: matrix.scripts
@@ -65,10 +65,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SWIPL: ${{ matrix.platform == 'windows-latest' && 'swipl-installer\bin\swipl.exe' || '' }}
+          SWIPL: ${{ matrix.platform == 'windows-latest' && format('{0}\swipl-installer\bin\swipl.exe', github.workspace) || '' }}
         with:
           tagName: v__VERSION__
           releaseName: v__VERSION__
           releaseDraft: true
           args: ${{ matrix.args }}
-
