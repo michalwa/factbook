@@ -15,19 +15,19 @@ jobs:
         include:
           - name: Linux x86-64
             platform: 'ubuntu-latest'
-            shell-scripts: true
+            scripts: true
             args: ''
           - name: MacOS x86-64
             platform: 'macos-latest'
-            shell-scripts: true
+            scripts: true
             args: '--target x86_64-apple-darwin'
           - name: MacOS aarch64
             platform: 'macos-latest'
-            shell-scripts: true
+            scripts: true
             args: '--target aarch64-apple-darwin'
           - name: Windows x86-64
             platform: 'windows-latest'
-            shell-scripts: false
+            scripts: false
             args: ''
 
     name: Build - ${{ matrix.name }}
@@ -46,16 +46,16 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install dependencies
-        if: ${{ matrix.platform.shell-scripts }}
+        if: matrix.scripts
         run: sudo ./install-deps.sh
 
       - name: Import shared libraries for bundle
-        if: ${{ matrix.platform.shell-scripts }}
+        if: matrix.scripts
         run: sudo ./import-libs.sh
 
       # TODO: Put this in a script
       - name: Fetch Windows DLL
-        if: ${{ matrix.platform == 'windows-latest' }}
+        if: matrix.platform == 'windows-latest'
         run: |
           Invoke-WebRequest https://www.swi-prolog.org/download/stable/bin/swipl-10.0.2-1.x64.exe -OutFile swipl-installer.exe
           7z x swipl-installer.exe -oswipl-installer
