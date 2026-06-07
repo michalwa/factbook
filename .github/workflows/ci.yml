@@ -32,15 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
-        run: ./setup.sh
-
-      # FIXME: This shouldn't be necessary but is the easiest fix for now
-      - name: Copy shared libraries to target directory
         run: |
-          mkdir -p target/debug/deps
-          cp $(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')/libswipl.so* target/debug/deps
-
-      - run: cargo test
+          ./setup.sh
+          cargo install cargo-swipl
+      - run: cargo swipl test
 
   js-format-check:
     runs-on: ubuntu-latest
