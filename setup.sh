@@ -17,7 +17,6 @@ elif command -v brew; then
   brew install swi-prolog
 else
   echo "No supported package manager found"
-  exit 1
 fi
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -39,7 +38,4 @@ if [[ -n "$SHARED_LIBS_TARGET" ]]; then
   libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_LIBS_EXT}$" | sed 's/^.*=> //' | xargs dirname)}
   libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
   copy-lib "$libswipl_dir" libswipl${SHARED_LIBS_EXT}
-else
-  echo "Unrecognized OSTYPE: ${OSTYPE}, skipped importing shared libs"
-  exit 1
 fi
