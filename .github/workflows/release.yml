@@ -15,15 +15,19 @@ jobs:
         include:
           - name: Linux x86-64
             platform: 'ubuntu-latest'
+            shell-scripts: true
             args: ''
           - name: MacOS x86-64
             platform: 'macos-latest'
+            shell-scripts: true
             args: '--target x86_64-apple-darwin'
           - name: MacOS aarch64
             platform: 'macos-latest'
+            shell-scripts: true
             args: '--target aarch64-apple-darwin'
           - name: Windows x86-64
             platform: 'windows-latest'
+            shell-scripts: false
             args: ''
 
     name: Build - ${{ matrix.name }}
@@ -41,12 +45,12 @@ jobs:
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Install dependencies (Ubuntu)
-        if: matrix.platform == 'ubuntu-latest'
+      - name: Install dependencies
+        if: matrix.platform.shell-scripts
         run: sudo ./install-deps.sh
 
-      - name: Import shared libs for bundle (Ubuntu)
-        if: matrix.platform == 'ubuntu-latest'
+      - name: Import shared libraries for bundle
+        if: matrix.platform.shell-scripts
         run: sudo ./import-libs.sh
 
       # TODO: Put this in a script
