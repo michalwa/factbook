@@ -20,12 +20,12 @@ jobs:
           - name: MacOS x86-64
             platform: macos-latest
             setup: ENV_OUTPUT="$GITHUB_ENV" TARGET=x86_64-apple-darwin ./setup.sh
-            build-args: '--target x86_64-apple-darwin'
+            build-args: "--target x86_64-apple-darwin"
 
           - name: MacOS aarch64
             platform: macos-latest
             setup: ENV_OUTPUT="$GITHUB_ENV" TARGET=aarch64-apple-darwin ./setup.sh
-            build-args: '--target aarch64-apple-darwin'
+            build-args: "--target aarch64-apple-darwin"
 
           - name: Windows x86-64
             platform: windows-latest
@@ -38,8 +38,8 @@ jobs:
 
       - name: Install dependencies
         run: ${{ matrix.setup }}
-
-      - run: swipl -g 'write(hello),nl,halt.'
+      - if: matrix.platform == 'windows-latest'
+        run: echo "SWIPL=$GITHUB_WORKSPACE/libs/swipl/bin/swipl.exe" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -54,7 +54,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SWIPL: ${{ matrix.platform == 'windows-latest' && format('{0}/libs/swipl/bin/swipl.exe', github.workspace) || '' }}
         with:
           tagName: v__VERSION__
           releaseName: v__VERSION__
