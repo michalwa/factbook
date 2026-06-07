@@ -14,7 +14,7 @@ if command -v apt; then
     librsvg2-dev \
     swi-prolog=10.0.2-*
 elif command -v brew; then
-  brew install swi-prolog@10.0.2
+  brew install swi-prolog
 else
   echo "No supported package manager found"
   exit 1
