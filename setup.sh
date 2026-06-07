@@ -19,12 +19,6 @@ else
   echo "No supported package manager found"
 fi
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  SHARED_LIBS_EXT=".so"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  SHARED_LIBS_EXT=".dylib"
-fi
-
 mkdir -p libs
 
 function copy-lib {
@@ -34,7 +28,11 @@ function copy-lib {
   cp "$source_path" "$target_path"
 }
 
-libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_LIBS_EXT}$" | sed 's/^.*=> //' | xargs dirname)}
+libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep libswipl | sed 's/^.*=> //' | xargs dirname)}
 libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
-copy-lib "$libswipl_dir" libswipl${SHARED_LIBS_EXT}
-copy-lib "$libswipl_dir" libswipl${SHARED_LIBS_EXT}.10
+
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  copy-lib "$libswipl_dir" libswipl.10.dylib
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  copy-lib "$libswipl_dir" libswipl.so.10
+fi

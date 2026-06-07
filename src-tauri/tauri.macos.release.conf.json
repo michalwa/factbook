@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "../libs/libswipl.dylib": "libswipl.dylib"
+      "../libs/libswipl.10.dylib": "libswipl.10.dylib"
     }
   }
 }
