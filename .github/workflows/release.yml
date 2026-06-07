@@ -41,6 +41,7 @@ jobs:
         run: ${{ matrix.setup }}
       - if: matrix.platform == 'windows-latest'
         run: echo "SWIPL=$GITHUB_WORKSPACE/libs/swipl/bin/swipl.exe" >> "$GITHUB_ENV"
+        shell: bash
 
       - uses: pnpm/action-setup@v6
         with:
