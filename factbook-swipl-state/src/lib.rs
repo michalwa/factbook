@@ -5,7 +5,10 @@ use std::process::Command;
 pub fn build(input_filename: &str, output_filename: &str) {
     println!("cargo::rerun-if-changed={input_filename}");
 
-    let output = match Command::new("swipl")
+    // Consistency with `swipl-info` used by `swipl-fli`
+    let swipl = env::var("SWIPL").unwrap_or_else(|_| "swipl".into());
+
+    let output = match Command::new(swipl)
         .arg("-o")
         .arg(PathBuf::from(env::var("OUT_DIR").unwrap()).join(output_filename))
         .args([
