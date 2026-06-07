@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 if command -v apt; then
-  apt-add-repository ppa:swi-prolog/stable
-  apt update
-  apt install libwebkit2gtk-4.1-dev \
+  sudo apt-add-repository ppa:swi-prolog/stable
+  sudo apt update
+  sudo apt install libwebkit2gtk-4.1-dev \
     build-essential \
     curl \
     wget \

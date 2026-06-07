@@ -47,11 +47,11 @@ jobs:
 
       - name: Install dependencies
         if: matrix.scripts
-        run: sudo ./install-deps.sh
+        run: ./install-deps.sh
 
       - name: Import shared libraries for bundle
         if: matrix.scripts
-        run: sudo ./import-libs.sh
+        run: ./import-libs.sh
 
       # TODO: Put this in a script
       - name: Fetch Windows DLL
