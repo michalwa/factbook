@@ -35,21 +35,11 @@ function copy-lib {
 # Echo `SWIPL` env var for the `swipl-info` crate. On some platforms there seems
 # to be an issue with `swipl` not being added to `PATH`.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  swipl_path=$(which swipl | dirname)
   swipl_path=${swipl_path:-$(ldconfig -p | grep "libswipl.so$" | sed 's/^.*=> //' | dirname)}
   swipl_path=${swipl_path:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
 
-  if [[ -f "$swipl_path" ]]; then
-    echo "SWIPL=${swipl_path}/swipl" | tee "$ENV_OUTPUT"
-    copy-lib "$swipl_path" libswipl.so
-  else
-    echo "Searched ldconfig and pkg-config, but did not find swipl"
-    echo "ldconfig -p:"
-    ldconfig -p
-    echo "pkg-config --libs-only-L ${ENV_OUTPUT}:"
-    pkg-config --libs-only-L swipl
-    exit 1
-  fi
+  echo "SWIPL=${swipl_path}/swipl" | tee "$ENV_OUTPUT"
+  copy-lib "$swipl_path" libswipl.so
 else
   echo "Unrecognized OSTYPE: ${OSTYPE}, skipped searching for swipl"
 fi
