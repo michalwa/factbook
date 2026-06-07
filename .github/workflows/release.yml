@@ -6,13 +6,59 @@ on:
     #   - 'v*'
 
 jobs:
-  extract-windows-dll:
-    runs-on: windows-latest
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'ubuntu-latest'
+            args: ''
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
     steps:
-      - name: Download installer
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          cache: true
+          run_install: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-latest'
+        run: sudo ./install-deps.sh
+
+      - name: Import shared libs for bundle (Ubuntu)
+        if: matrix.platform == 'ubuntu-latest'
+        run: sudo ./import-libs.sh
+
+      # TODO: Put this in a script
+      - name: Fetch Windows DLL
+        if: matrix.platform == 'windows-latest'
         run: |
           Invoke-WebRequest https://www.swi-prolog.org/download/stable/bin/swipl-10.0.2-1.x64.exe -OutFile swipl-installer.exe
           7z x swipl-installer.exe -oswipl-installer
-      - uses: actions/upload-artifact@v7
+          mkdir libs
+          copy swipl-installer\bin\libswipl.dll libs\libswipl-x86_64-windows-msvc.dll
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path: swipl-installer/bin/libswipl.dll
+          tagName: v__VERSION__
+          releaseName: v__VERSION__
+          releaseDraft: true
+          args: ${{ matrix.args }}
+
