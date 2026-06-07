@@ -1,5 +1,7 @@
 {
   "bundle": {
-    "externalBin": ["../libs/libswipl.10.dylib"]
+    "resources": {
+      "../libs/libswipl.10.dylib": "libswipl.10.dylib"
+    }
   }
 }
