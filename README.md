@@ -4,8 +4,6 @@ Programmer-friendly personal knowledge base in the vein of Zettelkasten based on
 
 **factbook** is a note-taking app for persisting and organizing text-based knowledge. Its philosophy borrows from the Zettelkasten methodology, extending it with powerful logic programming capabilities. With [SWI Prolog](https://www.swi-prolog.org) at its core it delivers a user-facing full-featured Turing-complete programming language with excellent relational capabilities.
 
-Think _notepad meets SQL console meets scripting REPL_.
-
 > [!WARNING]
 > This is a work in progress. Expect random crashes and general instability. It is also currently possible to execute arbitrary Prolog code from within the application ([#24](https://github.com/michalwa/factbook/issues/24)).
 
@@ -48,11 +46,7 @@ Think _notepad meets SQL console meets scripting REPL_.
 
 ## Running
 
-There are currently no public builds available ([#31](https://github.com/michalwa/factbook/issues/31)). To run **factbook** you must build it from source. See the sections below.
-
-### Runtime dependencies
-
-- SWI Prolog is currently required as a dynamic library at runtime. This should not be a problem when building from source.
+See [Github releases](https://github.com/michalwa/factbook/releases) for pre-built binaries.
 
 ## Development
 
@@ -60,25 +54,42 @@ There are currently no public builds available ([#31](https://github.com/michalw
 
 ### Prerequisites
 
+Automated scripts for installing system dependencies are provided: `setup.sh` and `setup.ps1`, but may not support all platforms and package managers.
+
 - Rust v1.88+ (nightly is only required for `cargo fmt`)
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
-- SWI-Prolog 10.0.2 or newer with a compatible C API. Install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually.
-  - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
-  - On Windows (MSVC) make sure to check one of the _Add to PATH_ boxes during installation and add the following to your `~/.cargo/config.toml`:
-    ```toml
-    # `rustdocflags` is only needed for running some doc tests
-    [build]
-    rustdocflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
+- SWI-Prolog 10.0.2 or newer with a compatible C API. Common compilation errors result from mismatched SWI-Prolog versions. Platform-specific instructions are described below.
 
-    [target.x86_64-pc-windows-msvc]
-    rustflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
-    ```
-  Common compilation errors result from mismatched SWI-Prolog versions.
+#### SWI-Prolog on Mac/Linux/MinGW
+
+Install using a package manager, then verify the installation:
+
+```shell
+pkg-config --modversion swipl
+```
+
+#### SWI-Prolog on Windows (MSVC)
+
+Either:
+- [Download](https://www.swi-prolog.org/Download.html) and install manually. Make sure to check one of the _Add to PATH_ boxes during installation.
+- Run `setup.ps1` and set the `SWIPL` environment variable to an absolute path pointing at `libs/swipl/bin/swipl.exe`.
+
+<!-- TODO: Check if this is still necessary -->
+
+You may also need to add the following to your `~/.cargo/config.toml`:
+```toml
+# `rustdocflags` is only needed for running some doc tests
+[build]
+rustdocflags = [
+    "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+]
+```
 
 ### Building and running
 
@@ -91,16 +102,18 @@ pnpm tauri dev
 Make and run the release build:
 
 ```
-pnpm tauri build
+pnpm tauri build --no-bundle
 target/release/factbook
 ```
 
 Make and run the debug build:
 
 ```
-pnpm tauri build --debug
+pnpm tauri build --debug --no-bundle
 target/debug/factbook
 ```
+
+Generating proper portable bundles requires importing shared libraries into the `libs` directory. Consult `setup.sh` or `setup.ps1` for details. Remove the `--no-bundle` flag if you want to produce bundles locally.
 
 ### Style
 

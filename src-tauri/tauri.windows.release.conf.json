@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "../libs/swipl/bin/swipl/libswipl.dll": "libswipl.dll"
+    }
+  }
+}

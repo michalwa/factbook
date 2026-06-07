@@ -15,21 +15,23 @@ jobs:
         include:
           - name: Linux x86-64
             platform: ubuntu-latest
-            setup: SHARED_LIBS_TARGET=x86_64-unknown-linux-gnu ./setup.sh
+            setup: ./setup.sh
+            config: src-tauri/tauri.linux.release.conf.json
 
           - name: MacOS x86-64
             platform: macos-26-intel
-            setup: SHARED_LIBS_TARGET=x86_64-apple-darwin ./setup.sh
-            build-args: "--target x86_64-apple-darwin"
+            setup: ./setup.sh
+            config: src-tauri/tauri.macos.release.conf.json
 
           - name: MacOS arm64
             platform: macos-26
-            setup: SHARED_LIBS_TARGET=aarch64-apple-darwin ./setup.sh
-            build-args: "--target aarch64-apple-darwin"
+            setup: ./setup.sh
+            config: src-tauri/tauri.macos.release.conf.json
 
           - name: Windows x86-64
             platform: windows-latest
             setup: .\setup.ps1
+            config: src-tauri/tauri.windows.release.conf.json
 
     name: Build - ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
@@ -56,4 +58,4 @@ jobs:
           tagName: v__VERSION__
           releaseName: v__VERSION__
           releaseDraft: true
-          args: ${{ matrix.build-args }}
+          args: --config ${{ matrix.config }}
