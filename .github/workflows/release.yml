@@ -52,7 +52,7 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SWIPL: ${{ matrix.platform == 'windows-latest' && format('{0}\swipl-installer\bin\swipl.exe', github.workspace) || '' }}
+          SWIPL: ${{ matrix.platform == 'windows-latest' && format('{0}/libs/swipl/bin/swipl.exe', github.workspace) || '' }}
         with:
           tagName: v__VERSION__
           releaseName: v__VERSION__
