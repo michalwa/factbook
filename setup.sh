@@ -37,3 +37,4 @@ function copy-lib {
 libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_LIBS_EXT}$" | sed 's/^.*=> //' | xargs dirname)}
 libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
 copy-lib "$libswipl_dir" libswipl${SHARED_LIBS_EXT}
+copy-lib "$libswipl_dir" libswipl${SHARED_LIBS_EXT}.10

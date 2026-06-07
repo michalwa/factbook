@@ -1,7 +1,8 @@
 {
   "bundle": {
     "resources": {
-      "../libs/libswipl.so": "libswipl.so"
+      "../libs/libswipl.so": "libswipl.so",
+      "../libs/libswipl.so.10": "libswipl.so.10"
     }
   }
 }
