@@ -13,15 +13,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'ubuntu-latest'
+          - name: Linux x86-64
+            platform: 'ubuntu-latest'
             args: ''
-          - platform: 'macos-latest'
+          - name: MacOS x86-64
+            platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
-          - platform: 'macos-latest'
+          - name: MacOS aarch64
+            platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
-          - platform: 'windows-latest'
+          - name: Windows x86-64
+            platform: 'windows-latest'
             args: ''
 
+    name: Build - ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v6
