@@ -47,7 +47,7 @@ jobs:
 
       - name: Install system dependencies
         if: matrix.scripts
-        run: ./install-deps.sh path-commands && source path-commands
+        run: ./install-deps.sh "$GITHUB_PATH"
 
       - name: Import shared libraries for bundle
         if: matrix.scripts
