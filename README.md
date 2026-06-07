@@ -23,7 +23,7 @@ Programmer-friendly personal knowledge base in the vein of Zettelkasten based on
    ```css
    walk the dog @todo @due(tomorrow) @priority(10) @cite("Einstein", 1905)
    ```
-   
+
 4. **Powerful queries:** Easily define _views_ into your knowledge base by querying facts about entries&mdash;presence of tags, timestamps, relations between entries&mdash;or even executing custom code. This is where organization happens. Do it whenever you need to, at your own pace, outside of the flow of taking notes, and get all the [power of Prolog](https://www.metalevel.at/prolog) to your advantage.
 
    <!-- TODO: The example should ideally use existing predicates once they are implemented -->
@@ -50,7 +50,13 @@ See [Github releases](https://github.com/michalwa/factbook/releases) for pre-bui
 
 ## Development
 
-**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com)
+**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com) + SWI Prolog
+
+Unfortunately, SWI Prolog provides several challenges in terms of development experience:
+- It does not provide pre-built static libraries, and the custom build process for some platforms like Windows is nightmarishly complicated and unreliable. This means we are forced to link and ship the shared version of the library.
+- Most installations do not place the shared library in a system-default path discoverable by runtime linking. This means we need special tooling to help with locating the library in development and embed custom `rpath` entries into the release binaries.
+
+Details of dealing with this are described below.
 
 ### Prerequisites
 
@@ -69,29 +75,21 @@ Install using a package manager, then verify the installation:
 pkg-config --modversion swipl
 ```
 
+More often than not, the shared library `libswipl.so.10` is placed in a location missing from `LD_LIBRARY_PATH`. The project uses a [suite of crates](https://github.com/terminusdb-labs/swipl-rs/tree/master/swipl-fli) to help with the general awkwardness of linking against `libswipl`. `swipl-info` finds `libswipl` at build time and solves compile-time linking, but does not provide a way to embed the library path into executables. This means you may need to proxy some `cargo` commands via `cargo-swipl`:
+
+```shell
+cargo install swipl
+cargo swipl test  # Run tests ensuring libswipl is found
+```
+
+Alternatively, manually find and add the appropriate path to `LD_LIBRARY_PATH`.
+
 #### SWI-Prolog on Windows (MSVC)
 
 Either:
+
 - [Download](https://www.swi-prolog.org/Download.html) and install manually. Make sure to check one of the _Add to PATH_ boxes during installation.
 - Run `setup.ps1` and set the `SWIPL` environment variable to an absolute path pointing at `libs/swipl/bin/swipl.exe`.
-
-<!-- TODO: Check if this is still necessary -->
-
-You may also need to add the following to your `~/.cargo/config.toml`:
-```toml
-# Replace paths with `<WORKSPACE>\\libs\\swipl\\bin` if using the vendored approach
-
-# `rustdocflags` is only needed for running some doc tests
-[build]
-rustdocflags = [
-  "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-]
-
-[target.x86_64-pc-windows-msvc]
-rustflags = [
-  "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-]
-```
 
 ### Building and running
 
