@@ -79,15 +79,17 @@ Either:
 
 You may also need to add the following to your `~/.cargo/config.toml`:
 ```toml
+# Replace paths with `<WORKSPACE>\\libs\\swipl\\bin` if using the vendored approach
+
 # `rustdocflags` is only needed for running some doc tests
 [build]
 rustdocflags = [
-    "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+  "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
 ]
 
 [target.x86_64-pc-windows-msvc]
 rustflags = [
-    "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
+  "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
 ]
 ```
 

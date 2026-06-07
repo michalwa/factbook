@@ -1,7 +1,5 @@
 {
   "bundle": {
-    "resources": {
-      "../libs/libswipl.so.10": "libswipl.so.10"
-    }
+    "externalBin": ["../libs/libswipl.so.10"]
   }
 }

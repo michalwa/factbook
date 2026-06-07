@@ -23,7 +23,7 @@ mkdir -p libs
 
 function copy-lib {
   local source_path="$1/$2"
-  local target_path="libs/$2"
+  local target_path="libs/$2-$(rustc --print host-tuple)"
   echo "Copying ${source_path} -> ${target_path}"
   cp "$source_path" "$target_path"
 }
