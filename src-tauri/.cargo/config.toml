@@ -2,7 +2,7 @@
 # Only relevant for release bundles
 
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN/../lib"]
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN/../lib/factbook"]
 
 [target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-Wl,-rpath,@executable_path/../Frameworks"]
