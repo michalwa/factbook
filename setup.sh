@@ -3,6 +3,12 @@
 ENV_OUTPUT=${ENV_OUTPUT:-/dev/null}
 TARGET=${TARGET:-x86_64-unknown-linux-gnu}
 
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  SHARED_OBJ_EXT=".so"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  SHARED_OBJ_EXT=".dylib"
+fi
+
 if command -v apt; then
   sudo apt-add-repository ppa:swi-prolog/stable
   sudo apt update
@@ -32,14 +38,15 @@ function copy-lib {
   cp "$source_path" "$target_path"
 }
 
-# Echo `SWIPL` env var for the `swipl-info` crate. On some platforms there seems
-# to be an issue with `swipl` not being added to `PATH`.
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  swipl_path=${swipl_path:-$(ldconfig -p | grep "libswipl.so$" | sed 's/^.*=> //' | dirname)}
-  swipl_path=${swipl_path:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
 
-  echo "SWIPL=${swipl_path}/swipl" | tee "$ENV_OUTPUT"
-  copy-lib "$swipl_path" libswipl.so
+if [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "darwin"* ]]; then
+  # Echo `SWIPL` env var for the `swipl-info` crate. On some platforms there seems
+  # to be an issue with `swipl` not being added to `PATH`.
+  echo "SWIPL=$(which swipl)" | tee "$ENV_OUTPUT"
+
+  libswipl_dir=${libswipl_dir:-$(ldconfig -p | grep "libswipl${SHARED_OBJ_EXT}$" | sed 's/^.*=> //' | dirname)}
+  libswipl_dir=${libswipl_dir:-$(pkg-config --libs-only-L swipl | tr -d ' ' | sed 's/-L//')}
+  copy-lib "$libswipl_dir" libswipl${SHARED_OBJ_EXT}
 else
   echo "Unrecognized OSTYPE: ${OSTYPE}, skipped searching for swipl"
 fi
