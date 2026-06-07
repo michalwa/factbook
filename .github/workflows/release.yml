@@ -39,6 +39,8 @@ jobs:
       - name: Install dependencies
         run: ${{ matrix.setup }}
 
+      - run: swipl -g 'write(hello),nl,halt.'
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
