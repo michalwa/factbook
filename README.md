@@ -60,19 +60,19 @@ Details of dealing with this are described below.
 
 ### Prerequisites
 
-Automated scripts for installing system dependencies are provided: `setup.sh` and `setup.ps1`, but may not support all platforms and package managers.
-
 - Rust v1.88+ (nightly is only required for `cargo fmt`)
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
 - SWI-Prolog 10.0.2 or newer with a compatible C API. Common compilation errors result from mismatched SWI-Prolog versions. Platform-specific instructions are described below.
 
+Automated scripts for installing system dependencies are provided: `setup.sh` and `setup.ps1`, but are intended for CI use and as such they do not currently include packages commonly present in CI images and don't support all platforms and package managers.
+
 #### SWI-Prolog on Mac/Linux/MinGW
 
-Install using a package manager, then verify the installation:
+Install `swi-prolog` using a package manager, specifying the exact version `10.0.2` if necessary, then verify the installation:
 
 ```shell
-pkg-config --modversion swipl
+pkg-config --modversion swipl  # must be 10.0.2 or higher
 ```
 
 More often than not, the shared library `libswipl.so.10` is placed in a location missing from `LD_LIBRARY_PATH`. The project uses a [suite of crates](https://github.com/terminusdb-labs/swipl-rs/tree/master/swipl-fli) to help with the general awkwardness of linking against `libswipl`. `swipl-info` finds `libswipl` at build time and solves compile-time linking, but does not provide a way to embed the library path into executables. This means you may need to proxy some `cargo` commands via `cargo-swipl`:
@@ -113,7 +113,7 @@ pnpm tauri build --debug --no-bundle
 target/debug/factbook
 ```
 
-Generating proper portable bundles requires importing shared libraries into the `libs` directory. Consult `setup.sh` or `setup.ps1` for details. Remove the `--no-bundle` flag if you want to produce bundles locally.
+Remove the `--no-bundle` flag if you want to produce bundles locally. Note however that generating proper portable bundles requires importing shared libraries into the `libs` directory. `setup.sh` does this by first installing `swi-prolog` as a system dependency, then attempting to locate and copy `libswipl.so.10` (or `libswipl.10.dylib` on Mac) into the `libs` directory. `setup.ps1` downloads and extracts `libswipl.dll` from the Windows installer. Automating the Windows installation does not seem possible.
 
 ### Style
 
