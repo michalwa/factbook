@@ -4,8 +4,6 @@ Programmer-friendly personal knowledge base in the vein of Zettelkasten based on
 
 **factbook** is a note-taking app for persisting and organizing text-based knowledge. Its philosophy borrows from the Zettelkasten methodology, extending it with powerful logic programming capabilities. With [SWI Prolog](https://www.swi-prolog.org) at its core it delivers a user-facing full-featured Turing-complete programming language with excellent relational capabilities.
 
-Think _notepad meets SQL console meets scripting REPL_.
-
 > [!WARNING]
 > This is a work in progress. Expect random crashes and general instability. It is also currently possible to execute arbitrary Prolog code from within the application ([#24](https://github.com/michalwa/factbook/issues/24)).
 
@@ -25,7 +23,7 @@ Think _notepad meets SQL console meets scripting REPL_.
    ```css
    walk the dog @todo @due(tomorrow) @priority(10) @cite("Einstein", 1905)
    ```
-   
+
 4. **Powerful queries:** Easily define _views_ into your knowledge base by querying facts about entries&mdash;presence of tags, timestamps, relations between entries&mdash;or even executing custom code. This is where organization happens. Do it whenever you need to, at your own pace, outside of the flow of taking notes, and get all the [power of Prolog](https://www.metalevel.at/prolog) to your advantage.
 
    <!-- TODO: The example should ideally use existing predicates once they are implemented -->
@@ -48,37 +46,50 @@ Think _notepad meets SQL console meets scripting REPL_.
 
 ## Running
 
-There are currently no public builds available ([#31](https://github.com/michalwa/factbook/issues/31)). To run **factbook** you must build it from source. See the sections below.
-
-### Runtime dependencies
-
-- SWI Prolog is currently required as a dynamic library at runtime. This should not be a problem when building from source.
+See [Github releases](https://github.com/michalwa/factbook/releases) for pre-built binaries.
 
 ## Development
 
-**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com)
+**factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com) + SWI Prolog
+
+Unfortunately, SWI Prolog provides several challenges in terms of development experience:
+- It does not provide pre-built static libraries, and the custom build process for some platforms like Windows is complicated and unreliable. This means we are forced to link and ship the shared version of the library.
+- Most installations do not place the shared library in a system-default path discoverable by runtime linking. This means we need special tooling to help with locating the library in development and embed custom `rpath` entries into the release binaries.
+
+Details of dealing with this are described below.
 
 ### Prerequisites
 
 - Rust v1.88+ (nightly is only required for `cargo fmt`)
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
-- SWI-Prolog 10.0.2 or newer with a compatible C API. Install using a system package manager or [download](https://www.swi-prolog.org/Download.html) and install manually.
-  - On Mac/Linux/MinGW verify the installation with `pkg-config --modversion swipl`
-  - On Windows (MSVC) make sure to check one of the _Add to PATH_ boxes during installation and add the following to your `~/.cargo/config.toml`:
-    ```toml
-    # `rustdocflags` is only needed for running some doc tests
-    [build]
-    rustdocflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
+- SWI-Prolog 10.0.2 or newer with a compatible C API. Common compilation errors result from mismatched SWI-Prolog versions. Platform-specific instructions are described below.
 
-    [target.x86_64-pc-windows-msvc]
-    rustflags = [
-        "-Clink-arg=/LIBPATH:C:\\Program Files\\swipl\\bin"
-    ]
-    ```
-  Common compilation errors result from mismatched SWI-Prolog versions.
+Automated scripts for installing system dependencies are provided: `setup.sh` and `setup.ps1`, but are intended for CI use and as such they do not currently include packages commonly present in CI images and don't support all platforms and package managers.
+
+#### SWI-Prolog on Mac/Linux/MinGW
+
+Install `swi-prolog` using a package manager, specifying the exact version `10.0.2` if necessary, then verify the installation:
+
+```shell
+pkg-config --modversion swipl  # must be 10.0.2 or higher
+```
+
+More often than not, the shared library `libswipl.so.10` is placed in a location missing from `LD_LIBRARY_PATH`. The project uses a [suite of crates](https://github.com/terminusdb-labs/swipl-rs/tree/master/swipl-fli) to help with the general awkwardness of linking against `libswipl`. `swipl-info` finds `libswipl` at build time and solves compile-time linking, but does not provide a way to embed the library path into executables. This means you may need to proxy some `cargo` commands via `cargo-swipl`:
+
+```shell
+cargo install cargo-swipl
+cargo swipl test  # Run tests ensuring libswipl is found
+```
+
+Alternatively, manually find and add the appropriate path to `LD_LIBRARY_PATH`.
+
+#### SWI-Prolog on Windows (MSVC)
+
+Either:
+
+- [Download](https://www.swi-prolog.org/Download.html) and install manually. Make sure to check one of the _Add to PATH_ boxes during installation.
+- Run `setup.ps1` and set the `SWIPL` environment variable to an absolute path pointing at `libs/swipl/bin/swipl.exe`.
 
 ### Building and running
 
@@ -91,16 +102,18 @@ pnpm tauri dev
 Make and run the release build:
 
 ```
-pnpm tauri build
+pnpm tauri build --no-bundle
 target/release/factbook
 ```
 
 Make and run the debug build:
 
 ```
-pnpm tauri build --debug
+pnpm tauri build --debug --no-bundle
 target/debug/factbook
 ```
+
+Remove the `--no-bundle` flag if you want to produce bundles locally. Note however that generating proper portable bundles requires importing shared libraries into the `libs` directory. `setup.sh` does this by first installing `swi-prolog` as a system dependency, then attempting to locate and copy `libswipl.so.10` (or `libswipl.10.dylib` on Mac) into the `libs` directory. `setup.ps1` downloads and extracts `libswipl.dll` from the Windows installer. Automating the Windows installation does not seem possible.
 
 ### Style
 

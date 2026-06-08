@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check if package version matches tag
+        run: |
+          VERSION=$(cargo metadata --format-version=1 --no-deps | jq '.packages[0].version')
+          [[ "v$VERSION" == "${{ github.ref_name }}" ]]
+
+  build:
+    needs: check-version
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86-64
+            platform: ubuntu-latest
+            setup: ./setup.sh
+            config: src-tauri/tauri.linux.release.conf.json
+
+          - name: MacOS x86-64
+            platform: macos-26-intel
+            setup: ./setup.sh
+            config: src-tauri/tauri.macos.release.conf.json
+
+          - name: MacOS arm64
+            platform: macos-26
+            setup: ./setup.sh
+            config: src-tauri/tauri.macos.release.conf.json
+
+          - name: Windows x86-64
+            platform: windows-latest
+            setup: .\setup.ps1
+            config: src-tauri/tauri.windows.release.conf.json
+
+    name: Build - ${{ matrix.name }}
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: ${{ matrix.setup }}
+      - if: matrix.platform == 'windows-latest'
+        run: echo "SWIPL=$GITHUB_WORKSPACE/libs/swipl/bin/swipl.exe" >> "$GITHUB_ENV"
+        shell: bash
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          cache: true
+          run_install: true
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: v__VERSION__
+          args: --config ${{ matrix.config }}

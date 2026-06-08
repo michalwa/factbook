@@ -1,0 +1,11 @@
+# Set RPATH to search the appropriate sidecar directories for shared libs (libswipl)
+# Only relevant for release bundles
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-Wl,-rpath,$ORIGIN/../lib/factbook"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-rpath,@executable_path/../Frameworks"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-rpath,@executable_path/../Frameworks"]
