@@ -9,7 +9,17 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check if package version matches tag
+        run: |
+          VERSION=$(cargo metadata --format-version=1 --no-deps | jq '.packages[0].version')
+          [[ "v$VERSION" == "${{ github.ref_name }}" ]]
+
   build:
+    needs: check-version
     permissions:
       contents: write
     strategy:
