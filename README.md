@@ -53,7 +53,7 @@ See [Github releases](https://github.com/michalwa/factbook/releases) for pre-bui
 **factbook** is built with Rust + [Tauri](https://v2.tauri.app) + [Solid](https://www.solidjs.com) + SWI Prolog
 
 Unfortunately, SWI Prolog provides several challenges in terms of development experience:
-- It does not provide pre-built static libraries, and the custom build process for some platforms like Windows is nightmarishly complicated and unreliable. This means we are forced to link and ship the shared version of the library.
+- It does not provide pre-built static libraries, and the custom build process for some platforms like Windows is complicated and unreliable. This means we are forced to link and ship the shared version of the library.
 - Most installations do not place the shared library in a system-default path discoverable by runtime linking. This means we need special tooling to help with locating the library in development and embed custom `rpath` entries into the release binaries.
 
 Details of dealing with this are described below.
@@ -78,7 +78,7 @@ pkg-config --modversion swipl
 More often than not, the shared library `libswipl.so.10` is placed in a location missing from `LD_LIBRARY_PATH`. The project uses a [suite of crates](https://github.com/terminusdb-labs/swipl-rs/tree/master/swipl-fli) to help with the general awkwardness of linking against `libswipl`. `swipl-info` finds `libswipl` at build time and solves compile-time linking, but does not provide a way to embed the library path into executables. This means you may need to proxy some `cargo` commands via `cargo-swipl`:
 
 ```shell
-cargo install swipl
+cargo install cargo-swipl
 cargo swipl test  # Run tests ensuring libswipl is found
 ```
 
