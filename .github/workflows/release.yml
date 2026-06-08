@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    # tags:
-    #   - 'v*'
+    tags:
+      - 'v*'
 
 env:
   CARGO_TERM_COLOR: always
@@ -70,5 +70,4 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: v__VERSION__
-          releaseDraft: true
           args: --config ${{ matrix.config }}
