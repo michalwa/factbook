@@ -95,7 +95,7 @@ export default function Journal() {
             {(view) => (
               <Tab
                 id={view().id}
-                title={view().name}
+                title={view().name || "(untitled)"}
                 onTitleChange={(title) => setViewName(view().id, title)}
                 controls={({
                   editTitle,
@@ -188,7 +188,7 @@ export default function Journal() {
         {/* TODO: Show total entry count */}
         <Show when={leftPanelCollapsed() && currentViewId() !== defaultView.id}>
           <EntriesHeader>
-            {currentView().name}
+            {currentView().name || "(untitled)"}
             <Badge size="large">{currentView().entryCount}</Badge>
           </EntriesHeader>
         </Show>

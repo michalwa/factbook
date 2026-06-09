@@ -25,10 +25,11 @@ export default function createEditable(props) {
     selection.addRange(range);
   };
 
-  const save = () => {
+  const save = async () => {
     if (editing()) {
       setEditedValue(editedValue().trim());
-      props.onChange?.(editedValue());
+      await props.onChange?.(editedValue());
+      setEditedValue(props.value());
       setEditing(false);
     }
     ref.blur();
@@ -36,7 +37,7 @@ export default function createEditable(props) {
 
   const reset = () => {
     if (editing()) {
-      setEditedValue(props.value);
+      setEditedValue(props.value());
       setEditing(false);
     }
     ref.blur();
