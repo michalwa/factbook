@@ -33,7 +33,7 @@ export function useViews() {
   const createView = async () => {
     setDirty(true);
     const id = await invoke("create_view");
-    await invoke("set_view_definition", { id, definition: "any" });
+    await invoke("set_view_definition", { id, definition: "_" });
     await refetchViews();
     return id;
   };

@@ -70,9 +70,48 @@ pub(crate) mod predicates {
     use crate::model::EntryId;
     use crate::search::ViewContext;
     use factbook_swipl::foreign::{Nondet, predicate};
-    use factbook_swipl::term::TermKind;
+    use factbook_swipl::term::{Term, TermKind};
     use factbook_swipl::{Atom, Context, RawFunctor, Record};
     use sparse_tags::Store;
+
+    #[predicate(entry(ctx, entry_id) nondet)]
+    pub(crate) struct Entry<'a> {
+        iter: Option<Box<dyn Iterator<Item = EntryId> + 'a>>,
+    }
+
+    impl Nondet for Entry<'_> {
+        fn init(_: &impl Context) -> Self {
+            Self { iter: None }
+        }
+
+        fn next(&mut self, pl: &mut impl Context, [ctx_arg, entry_id]: Self::Args<'_>) -> bool {
+            if self.iter.is_none() {
+                let Some(ctx_atom) = ctx_arg.get::<Atom>() else {
+                    return false;
+                };
+                let Some(ctx) = ctx_atom.scoped_blob::<ViewContext>() else {
+                    return false;
+                };
+
+                self.iter = Some(if let Some(id) = entry_id.get::<EntryId>() {
+                    Box::new(std::iter::once(id))
+                } else {
+                    Box::new(ctx.entries.entries().map(|(id, _)| EntryId(id)))
+                });
+            }
+
+            if let Some(id) = self.iter.as_mut().unwrap().next() {
+                let pl = pl.frame();
+
+                if unify_entry_id(entry_id, id) {
+                    pl.close();
+                    return true;
+                }
+            }
+
+            false
+        }
+    }
 
     #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
     pub(crate) struct EntryTag<'a> {
@@ -132,21 +171,23 @@ pub(crate) mod predicates {
             for (found_entry_id, found_tag) in self.iter.as_mut().unwrap() {
                 let pl = pl.frame();
 
-                // If `entry_id` is already instantiated, manually compare instead of
-                // unifying terms, because unifying blobs like this will always fail,
-                // even if they have the same contents
-                let entry_matched = match entry_id.get::<EntryId>() {
-                    Some(entry_id) => entry_id == found_entry_id,
-                    None => entry_id.unify(found_entry_id),
-                };
-
-                if entry_matched && tag.unify(found_tag) {
+                if unify_entry_id(entry_id, found_entry_id) && tag.unify(found_tag) {
                     pl.close();
                     return true;
                 }
             }
 
             false
+        }
+    }
+
+    fn unify_entry_id(arg: Term, value: EntryId) -> bool {
+        // If `entry_id` is already instantiated, manually compare instead of
+        // unifying terms, because unifying blobs like this will always fail,
+        // even if they have the same contents
+        match arg.get::<EntryId>() {
+            Some(entry_id) => entry_id == value,
+            None => arg.unify(value),
         }
     }
 }
