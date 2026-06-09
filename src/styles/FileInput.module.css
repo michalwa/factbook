@@ -1,5 +1,6 @@
 .button {
-  display: block;
+  display: flex;
+  flex-flow: row nowrap;
   position: relative;
   border: none;
   outline: none;
@@ -27,9 +28,10 @@
 }
 
 .selected {
+  justify-content: flex-end;
   color: var(--theme-foreground);
   font-family: var(--font-monospace);
-  direction: rtl;
+  text-wrap: nowrap;
 }
 
 .selected:after {
