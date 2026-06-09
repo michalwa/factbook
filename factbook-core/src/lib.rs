@@ -16,6 +16,7 @@ impl Session {
     pub fn new() -> Option<Self> {
         Some(Self(
             factbook_swipl::Session::init(SWIPL_STATE)?
+                .register_predicate::<search::predicates::Entry>()
                 .register_predicate::<search::predicates::EntryTag>(),
         ))
     }
@@ -215,6 +216,10 @@ mod test {
                 "@baz(2, 1)",
                 "@42",
                 r#"@"string""#,
+                "@task(_)",
+                "@task(x)",
+                "@nested(foo(_))",
+                "@nested(foo(x))",
             ]
             .into_iter()
             .map(|content| {
@@ -245,9 +250,9 @@ mod test {
     }
 
     #[test]
-    fn view_any() {
+    fn view_free() {
         let (state, entry_ids) = &*FIXTURES;
-        let view = create_view(state, "any");
+        let view = create_view(state, "_");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |id, _| matches.push(id));
@@ -308,7 +313,7 @@ mod test {
     #[test]
     fn view_existence() {
         let (state, _) = &*FIXTURES;
-        // @bar(X), such that there exists a an entry with @foo(X, _)
+        // @bar(X), such that there exists an entry with @foo(X, _)
         let view = create_view(state, "@bar(X), _: @foo(X, _)");
 
         let mut matches = Vec::new();
@@ -319,8 +324,19 @@ mod test {
     #[test]
     fn view_existence_mapping() {
         let (state, _) = &*FIXTURES;
-        // @bar(X), such that there exists a an entry with @baz(1, X)
+        // @bar(X), such that there exists an entry with @baz(1, X)
         let view = create_view(state, "@bar(X), _: @baz(1, X)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@bar(2)"]);
+    }
+
+    #[test]
+    fn view_not_existence() {
+        let (state, _) = &*FIXTURES;
+        // @bar(X), such that there does not exist an entry with @foo(X, _)
+        let view = create_view(state, "@bar(X), ^(_: @foo(X, _))");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -335,5 +351,108 @@ mod test {
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
         assert_eq!(matches, ["@42", r#"@"string""#]);
+    }
+
+    #[test]
+    fn view_not_argument() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@task(^x)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@task(_)"]);
+    }
+
+    #[test]
+    fn view_not_argument_nested() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@nested(foo(^x))");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@nested(foo(_))"]);
+    }
+
+    #[test]
+    fn view_not_argument_nested_2() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@nested(^foo(x))");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, [] as [&str; _]);
+    }
+
+    #[test]
+    fn view_exact_argument() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@task(x!)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@task(x)"]);
+    }
+
+    #[test]
+    fn view_unified_argument() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@task(x)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@task(_)", "@task(x)"]);
+    }
+
+    #[test]
+    fn view_exact_argument_nested() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@nested(foo(x!))");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@nested(foo(x))"]);
+    }
+
+    #[test]
+    fn view_exact_argument_nested_2() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@nested(foo(x)!)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@nested(foo(x))"]);
+    }
+
+    #[test]
+    fn view_argument_nested_combined() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@nested(^foo(x!))");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@nested(foo(_))"]);
+    }
+
+    #[test]
+    fn view_not_tag() {
+        let (state, entry_ids) = &*FIXTURES;
+        let view = create_view(state, "^ @foo");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches.len(), entry_ids.len() - 2);
+        assert!(!matches.contains(&"@foo".into()));
+        assert!(!matches.contains(&"@foo @bar".into()));
+    }
+
+    #[test]
+    fn view_not_conjunction() {
+        let (state, entry_ids) = &*FIXTURES;
+        let view = create_view(state, "^ (@foo, @bar)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches.len(), entry_ids.len() - 1);
+        assert!(!matches.contains(&"@foo @bar".into()));
     }
 }
