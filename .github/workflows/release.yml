@@ -71,7 +71,8 @@ jobs:
           cache: true
           run_install: true
 
-      - uses: tauri-apps/tauri-action@v0
+      - id: tauri-release
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -85,7 +86,7 @@ jobs:
       - if: matrix.platform == 'macos-26-intel'
         uses: robinraju/release-downloader@v1
         with:
-          tag: release-test
+          releaseId: ${{ steps.tauri-release.outputs.releaseId }}
           fileName: factbook_0.2.0_x64.dmg
       - if: matrix.platform == 'macos-26-intel'
         run: |
