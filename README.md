@@ -113,7 +113,13 @@ pnpm tauri build --debug --no-bundle
 target/debug/factbook
 ```
 
-Remove the `--no-bundle` flag if you want to produce bundles locally. Note however that generating proper portable bundles requires importing shared libraries into the `libs` directory. `setup.sh` does this by first installing `swi-prolog` as a system dependency, then attempting to locate and copy `libswipl.so.10` (or `libswipl.10.dylib` on Mac) into the `libs` directory. `setup.ps1` downloads and extracts `libswipl.dll` from the Windows installer. Automating the Windows installation does not seem possible.
+If you want to produce bundles locally, remove the `--no-bundle` flag and include the platform-dependent config:
+
+```
+pnpm tauri build --config src-tauri/tauri.<platform>.release.conf.json
+```
+
+Note however that generating proper portable bundles requires importing shared libraries into the `libs` directory. `setup.sh` does this by first installing `swi-prolog` as a system dependency, then attempting to locate and copy `libswipl.so.10` (or `libswipl.10.dylib` on Mac) into the `libs` directory. `setup.ps1` downloads and extracts `libswipl.dll` from the Windows installer. Automating the system-wide installation on Windows does not seem possible.
 
 ### Style
 
