@@ -43,7 +43,7 @@ impl State<'_> {
                 visited.insert(entry_id);
             } else {
                 // If the entry ID is uninstantiated, the user probably used a wildcard
-                // view like `any`, and we should iterate all entries
+                // view like `_`, and we should iterate all entries
                 log::debug!("query returned uninstantiated entry ID, returning all entries");
 
                 for (entry_id, entry) in entries.entries() {

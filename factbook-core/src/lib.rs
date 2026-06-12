@@ -247,7 +247,7 @@ mod test {
     #[test]
     fn view_any() {
         let (state, entry_ids) = &*FIXTURES;
-        let view = create_view(state, "any");
+        let view = create_view(state, "_");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |id, _| matches.push(id));
