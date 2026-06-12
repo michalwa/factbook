@@ -75,7 +75,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          args: --config ${{ matrix.config }}
           tagName: ${{ github.event_name == 'workflow_dispatch' && 'release-test' || 'v__VERSION__' }}
           releaseName: ${{ github.event_name == 'workflow_dispatch' && 'release-test' || 'v__VERSION__' }}
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' }}
-          args: --config ${{ matrix.config }}
+          generateReleaseNotes: true
