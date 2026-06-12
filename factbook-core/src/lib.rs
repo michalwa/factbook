@@ -16,7 +16,8 @@ impl Session {
     pub fn new() -> Option<Self> {
         Some(Self(
             factbook_swipl::Session::init(SWIPL_STATE)?
-                .register_predicate::<search::predicates::EntryTag>(),
+                .register_predicate::<search::predicates::EntryTag>()
+                .register_predicate::<search::predicates::SetEntryOrderKey>(),
         ))
     }
 }
@@ -209,6 +210,7 @@ mod test {
                 "@bar some other text",
                 "@foo @bar",
                 "@foo(1, 1)",
+                "@bar(3)",
                 "@bar(1)",
                 "@bar(2)",
                 "@baz(1, 2)",
@@ -335,5 +337,15 @@ mod test {
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
         assert_eq!(matches, ["@42", r#"@"string""#]);
+    }
+
+    #[test]
+    fn view_order() {
+        let (state, _) = &*FIXTURES;
+        let view = create_view(state, "@bar(X), order(X)");
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        assert_eq!(matches, ["@bar(1)", "@bar(2)", "@bar(3)"]);
     }
 }
