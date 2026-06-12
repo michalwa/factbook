@@ -317,6 +317,34 @@ impl fmt::Debug for Term<'_> {
     }
 }
 
+impl PartialEq for Term<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        (unsafe { pl::PL_compare(self.ptr.get(), other.ptr.get()) }) == 0
+    }
+}
+
+// `nan == nan` in SWI Prolog
+impl Eq for Term<'_> {}
+
+impl PartialOrd for Term<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Term<'_> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+
+        match unsafe { pl::PL_compare(self.ptr.get(), other.ptr.get()) } {
+            -1 => Ordering::Less,
+            0 => Ordering::Equal,
+            1 => Ordering::Greater,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, TryFromPrimitive)]
 #[repr(u32)]
 pub enum TermKind {
@@ -601,5 +629,23 @@ mod test {
 
         assert_eq!(t1.get::<RawFunctor>(), Some(func.0));
         assert_eq!(t2.get::<RawFunctor>(), None);
+    }
+
+    #[test]
+    fn compare() {
+        let engine = crate::test::SESSION.engine();
+        let terms @ [t1, t2, t3, t4] = engine.new_terms().into();
+
+        t1.put("hello");
+        t2.put(43);
+        t3.put(42);
+        t4.put("hello");
+
+        let mut terms: Vec<_> = terms.into();
+        terms.sort();
+
+        assert_eq!(terms, [t3, t2, t1, t4]);
+        assert_eq!(t1, t4);
+        assert_ne!(t1, t2);
     }
 }
