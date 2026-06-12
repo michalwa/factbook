@@ -1,6 +1,6 @@
 {
   "name": "factbook",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Personal knowledge base app based on logic programming",
   "type": "module",
   "scripts": {
