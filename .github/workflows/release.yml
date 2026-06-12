@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,6 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Check if package version matches tag
+        if: github.event_name != 'workflow_dispatch'
         run: |
           VERSION="$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "factbook") | .version')"
           if ! [[ "v$VERSION" == "${{ github.ref_name }}" ]]; then
@@ -73,6 +75,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: v__VERSION__
           args: --config ${{ matrix.config }}
+          tagName: ${{ github.event_name == 'workflow_dispatch' && 'release-test' || 'v__VERSION__' }}
+          releaseName: ${{ github.event_name == 'workflow_dispatch' && 'release-test' || 'v__VERSION__' }}
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' }}
+          generateReleaseNotes: true
