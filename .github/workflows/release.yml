@@ -79,3 +79,15 @@ jobs:
           releaseName: ${{ github.event_name == 'workflow_dispatch' && 'release-test' || 'v__VERSION__' }}
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' }}
           args: --config ${{ matrix.config }}
+
+      # TODO: For debugging only, remove these steps afterwards
+
+      - if: matrix.platform == 'macos-26-intel'
+        uses: robinraju/release-downloader@v1
+        with:
+          tag: release-test
+          fileName: factbook_0.2.0_x64.dmg
+      - if: matrix.platform == 'macos-26-intel'
+        run: |
+          hdiutil mount factbook_0.2.0_x64.dmg
+          ldd /Volumes/factbook_0.2.0_x64.dmg/factbook/factbook.app/Contents/MacOS/factbook
