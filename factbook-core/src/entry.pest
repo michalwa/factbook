@@ -19,4 +19,4 @@ comma  = @{ "," }
 
 text = _{ (!("@" | WHITESPACE) ~ ANY)* }
 
-WHITESPACE = _{ " " }
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }

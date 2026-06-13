@@ -3,6 +3,7 @@ use factbook_swipl::term::Term;
 use itertools::Itertools;
 use pest::Parser;
 use pest_derive::Parser;
+use serde::Serialize;
 
 #[derive(Parser)]
 #[grammar = "entry.pest"]
@@ -13,7 +14,8 @@ pub struct ParseResult<'c> {
     pub tokens: Vec<Token>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Token {
     pub kind: TokenKind,
     /// Character offset from the start of the input string
@@ -22,7 +24,8 @@ pub struct Token {
     pub len: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum TokenKind {
     Punctuation,
     Ident,
@@ -32,11 +35,25 @@ pub enum TokenKind {
     Operator,
 }
 
+struct CharIndex {
+    index: usize,
+    byte_offset: usize,
+}
+
 impl Token {
-    fn from_pair(kind: TokenKind, pair: pest::iterators::Pair<Rule>) -> Self {
+    fn from_pair(
+        kind: TokenKind,
+        pair: pest::iterators::Pair<Rule>,
+        chars: &mut impl Iterator<Item = CharIndex>,
+    ) -> Self {
+        let start = chars
+            .find(|c| c.byte_offset == pair.as_span().start())
+            .expect("pair position not at character boundary")
+            .index;
+
         Self {
             kind,
-            start: pair.line_col().1 - 1,
+            start,
             len: pair.as_str().chars().count(),
         }
     }
@@ -73,21 +90,26 @@ pub fn parse<'c>(input: &str, ctx: &'c impl Context) -> ParseResult<'c> {
                     tags.push(tag);
                 }
 
+                let mut chars = input
+                    .char_indices()
+                    .enumerate()
+                    .map(|(index, (byte_offset, _))| CharIndex { index, byte_offset });
+
                 for pair in pair.into_inner().flatten() {
                     use TokenKind as T;
 
-                    match pair.as_rule() {
+                    if let Some(kind) = match pair.as_rule() {
                         Rule::at | Rule::lparen | Rule::rparen | Rule::comma => {
-                            tokens.push(Token::from_pair(T::Punctuation, pair))
+                            Some(T::Punctuation)
                         },
-                        Rule::ident | Rule::quoted => tokens.push(Token::from_pair(T::Ident, pair)),
-                        Rule::string => tokens.push(Token::from_pair(T::String, pair)),
-                        Rule::number => tokens.push(Token::from_pair(T::Number, pair)),
-                        Rule::variable => tokens.push(Token::from_pair(T::Variable, pair)),
-                        Rule::operator | Rule::operator_ex => {
-                            tokens.push(Token::from_pair(T::Operator, pair))
-                        },
-                        _ => (),
+                        Rule::ident | Rule::quoted => Some(T::Ident),
+                        Rule::string => Some(T::String),
+                        Rule::number => Some(T::Number),
+                        Rule::variable => Some(T::Variable),
+                        Rule::operator | Rule::operator_ex => Some(T::Operator),
+                        _ => None,
+                    } {
+                        tokens.push(Token::from_pair(kind, pair, &mut chars));
                     }
                 }
             },
@@ -140,6 +162,14 @@ mod test {
         let (tags, tokens) = parse("bar @foo bar", &engine);
         assert_eq!(tags, ["foo"]);
         assert_eq!(tokens, [t(T::Punctuation, 4, 1), t(T::Ident, 5, 3)]);
+    }
+
+    #[test]
+    fn parse_single_atom_with_surrounding_line_breaks() {
+        let engine = crate::test::SESSION.0.engine();
+        let (tags, tokens) = parse("\n@foo\n", &engine);
+        assert_eq!(tags, ["foo"]);
+        assert_eq!(tokens, [t(T::Punctuation, 1, 1), t(T::Ident, 2, 3)]);
     }
 
     #[test]
