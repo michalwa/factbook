@@ -65,6 +65,13 @@ export default function Journal() {
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
   const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
 
+  const onEntryContentChange =
+    (entry) =>
+    async (content, { setTokens }) => {
+      const updatedEntry = await setEntryContent(entry().id, content);
+      setTokens(updatedEntry.tokens);
+    };
+
   return (
     <Workspace>
       <Panel
@@ -198,10 +205,9 @@ export default function Journal() {
               <Entry
                 timestamp={entry().createdAt}
                 content={entry().content}
-                onContentChange={(content) =>
-                  setEntryContent(entry().id, content)
-                }
+                onContentChange={onEntryContentChange(entry)}
                 onRemove={() => removeEntry(entry().id)}
+                tokens={entry().tokens}
               />
             )}
           </Key>

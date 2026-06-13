@@ -144,6 +144,10 @@ impl<'a> Entries<'a> {
     pub fn iter(&'a self) -> impl Iterator<Item = (EntryId, &'a Entry)> {
         self.0.entries().map(|(id, entry)| (EntryId(id), entry))
     }
+
+    pub fn get(&'a self, id: EntryId) -> &'a Entry {
+        self.0.entry_data(id.0)
+    }
 }
 
 pub struct EntriesMut<'a> {

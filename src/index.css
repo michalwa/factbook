@@ -16,7 +16,11 @@
   --theme-danger: #ed6c6c;
   --theme-dialog-background: rgba(0 0 0 / 20%);
   --theme-foreground: #c5d1e2;
+  --theme-foreground-muted: #697a93;
   --theme-highlight-1: #d972f8;
+  --theme-highlight-2: #efa079;
+  --theme-highlight-3: #a1f68c;
+  --theme-highlight-4: #72cce5;
   --theme-inner-background: #090c13;
   --theme-label-foreground: #2c4171;
   --theme-outline-click: #253b6e;

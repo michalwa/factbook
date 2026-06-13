@@ -17,3 +17,23 @@
 .editor :global(.cm-line) {
   padding: 0;
 }
+
+.editor :global(.cm-token-punctuation) {
+  color: var(--theme-foreground-muted);
+}
+
+.editor :global(.cm-token-ident) {
+  color: var(--theme-highlight-1);
+}
+
+.editor :global(.cm-token-string) {
+  color: var(--theme-highlight-2);
+}
+
+.editor :global(.cm-token-number) {
+  color: var(--theme-highlight-3);
+}
+
+.editor :global(.cm-token-variable) {
+  color: var(--theme-highlight-4);
+}

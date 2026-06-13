@@ -7,6 +7,8 @@ export default function Entry(props) {
   const formattedTimestamp = () =>
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
+  const [tokens, setTokens] = createSignal(props.tokens);
+
   return (
     <div class={styles.entry}>
       <time class={styles.timestamp} datetime={formattedTimestamp()}>
@@ -20,8 +22,11 @@ export default function Entry(props) {
               <CodeEditor
                 class={styles.content}
                 value={props.content}
-                onChangeDeferred={props.onContentChange}
+                onChangeDeferred={(value) =>
+                  props.onContentChange?.(value, { setTokens })
+                }
                 onEmptyBackspace={props.onRemove}
+                tokens={tokens()}
               />
             ),
             dispose,

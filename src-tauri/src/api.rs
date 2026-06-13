@@ -148,7 +148,14 @@ pub fn remove_entry(state: State<RwLock<AppState>>, id: EntryId) {
 }
 
 #[tauri::command]
-pub fn set_entry_content(state: State<RwLock<AppState>>, id: EntryId, content: String) {
+pub fn set_entry_content(
+    state: State<RwLock<AppState>>,
+    id: EntryId,
+    content: String,
+) -> ipc::Response {
     let mut state = state.write().unwrap();
     state.journal_mut().entries_mut().set_content(id, content);
+
+    let entries = state.journal().entries();
+    ipc::Response::new(serde_json::to_string(entries.get(id)).unwrap())
 }
