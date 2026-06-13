@@ -182,7 +182,7 @@ impl<'a> EntriesMut<'a> {
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
 
-        let parsed = lang::parse(content, &pl);
+        let parsed = lang::parse(content, Some(&pl));
 
         for tag in parsed.tags {
             // Non-functor terms like numbers or strings are assigned the `None` key

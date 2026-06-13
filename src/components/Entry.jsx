@@ -22,9 +22,10 @@ export default function Entry(props) {
               <CodeEditor
                 class={styles.content}
                 value={props.content}
-                onChangeDeferred={(value) =>
-                  props.onContentChange?.(value, { setTokens })
+                onChange={async (content) =>
+                  setTokens(await props.parseTokens(content))
                 }
+                onChangeDeferred={props.onContentChange}
                 onEmptyBackspace={props.onRemove}
                 tokens={tokens()}
               />

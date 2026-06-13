@@ -1,5 +1,5 @@
-use factbook_swipl::Context;
 use factbook_swipl::term::Term;
+use factbook_swipl::{Context, Engine};
 use itertools::Itertools;
 use pest::Parser;
 use pest_derive::Parser;
@@ -59,7 +59,13 @@ impl Token {
     }
 }
 
-pub fn parse<'c>(input: &str, ctx: &'c impl Context) -> ParseResult<'c> {
+// Wrapper around `parse` to avoid having to reexport a `Context` type from
+// `factbook_swipl`
+pub fn parse_tokens(input: &str) -> Vec<Token> {
+    parse(input, None::<&Engine>).tokens
+}
+
+pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> {
     let mut tags = Vec::new();
     let mut tokens = Vec::new();
 
@@ -82,10 +88,11 @@ pub fn parse<'c>(input: &str, ctx: &'c impl Context) -> ParseResult<'c> {
                     .try_into()
                     .unwrap();
 
-                if let Ok(tag) = ctx
-                    .new_term()
-                    .put_parsed(tag.as_str())
-                    .map_err(|e| log::warn!("failed to parse tag: {e:?}"))
+                if let Some(ctx) = ctx
+                    && let Ok(tag) = ctx
+                        .new_term()
+                        .put_parsed(tag.as_str())
+                        .map_err(|e| log::warn!("failed to parse tag: {e:?}"))
                 {
                     tags.push(tag);
                 }
@@ -136,7 +143,7 @@ mod test {
     }
 
     fn parse(input: &str, ctx: &impl Context) -> (Vec<String>, Vec<Token>) {
-        let result = super::parse(input, ctx);
+        let result = super::parse(input, Some(ctx));
         (
             result.tags.into_iter().map(|t| t.to_string()).collect(),
             result.tokens,

@@ -49,8 +49,14 @@ export default function Journal() {
   const [currentViewId, setCurrentViewId] = createSignal(null);
   const currentView = createMemo(() => getView(currentViewId()));
 
-  const { entries, refetchEntries, setEntryContent, createEntry, removeEntry } =
-    useEntries(currentViewId);
+  const {
+    entries,
+    refetchEntries,
+    setEntryContent,
+    parseEntryContent,
+    createEntry,
+    removeEntry,
+  } = useEntries(currentViewId);
 
   const setViewDefinition = async (...args) => {
     await setViewDefinitionImpl(...args);
@@ -64,13 +70,6 @@ export default function Journal() {
 
   const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
   const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
-
-  const onEntryContentChange =
-    (entry) =>
-    async (content, { setTokens }) => {
-      const updatedEntry = await setEntryContent(entry().id, content);
-      setTokens(updatedEntry.tokens);
-    };
 
   return (
     <Workspace>
@@ -205,9 +204,12 @@ export default function Journal() {
               <Entry
                 timestamp={entry().createdAt}
                 content={entry().content}
-                onContentChange={onEntryContentChange(entry)}
+                onContentChange={(content) =>
+                  setEntryContent(entry().id, content)
+                }
                 onRemove={() => removeEntry(entry().id)}
                 tokens={entry().tokens}
+                parseTokens={parseEntryContent}
               />
             )}
           </Key>
