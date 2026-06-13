@@ -1,7 +1,8 @@
 entry       = ${ SOI ~ text? ~ (((WHITESPACE | SOI) ~ tag ~ &(WHITESPACE | EOI) | "@" | WHITESPACE+) ~ text?)* ~ EOI }
 tag         = ${ at ~ term }
-term        =  { operator? ~ (parens | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
+term        =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
 parens      = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
+list        = !{ lbracket ~ (term ~ (comma ~ term)*)? ~ rbracket }
 compound    = ${ (ident | quoted) ~ args }
 args        = !{ lparen ~ (term ~ (comma ~ term)*)? ~ rparen }
 ident       = @{ 'a'..'z' ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
@@ -12,10 +13,12 @@ string      = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
 operator    = @{ ("!" | "#" | "$" | "^" | "&" | "*" | "-" | "+" | "=" | "\\" | "|" | ";" | "." | "<" | ">" | "/")+ }
 operator_ex = @{ (operator | "@" | ",")+ }
 
-at     = @{ "@" }
-lparen = @{ "(" }
-rparen = @{ ")" }
-comma  = @{ "," }
+at       = @{ "@" }
+lparen   = @{ "(" }
+rparen   = @{ ")" }
+lbracket = @{ "[" }
+rbracket = @{ "]" }
+comma    = @{ "," }
 
 text = _{ (!("@" | WHITESPACE) ~ ANY)* }
 

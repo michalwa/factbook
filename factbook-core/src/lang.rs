@@ -99,9 +99,12 @@ pub fn parse<'c>(input: &str, ctx: &'c impl Context) -> ParseResult<'c> {
                     use TokenKind as T;
 
                     if let Some(kind) = match pair.as_rule() {
-                        Rule::at | Rule::lparen | Rule::rparen | Rule::comma => {
-                            Some(T::Punctuation)
-                        },
+                        Rule::at
+                        | Rule::lparen
+                        | Rule::rparen
+                        | Rule::lbracket
+                        | Rule::rbracket
+                        | Rule::comma => Some(T::Punctuation),
                         Rule::ident | Rule::quoted => Some(T::Ident),
                         Rule::string => Some(T::String),
                         Rule::number => Some(T::Number),
@@ -356,6 +359,38 @@ mod test {
             t(T::Operator, 10, 3),
             t(T::Number, 13, 1),
             t(T::Punctuation, 14, 1),
+        ]);
+    }
+
+    #[test]
+    fn parse_list() {
+        let engine = crate::test::SESSION.0.engine();
+        let (tags, tokens) = parse("@foo([1, 2, 3]) @[4, 5, 6] @[]", &engine);
+
+        assert_eq!(tags, ["foo([1,2,3])", "[4,5,6]", "[]"]);
+        assert_eq!(tokens, [
+            t(T::Punctuation, 0, 1),
+            t(T::Ident, 1, 3),
+            t(T::Punctuation, 4, 1),
+            t(T::Punctuation, 5, 1),
+            t(T::Number, 6, 1),
+            t(T::Punctuation, 7, 1),
+            t(T::Number, 9, 1),
+            t(T::Punctuation, 10, 1),
+            t(T::Number, 12, 1),
+            t(T::Punctuation, 13, 1),
+            t(T::Punctuation, 14, 1),
+            t(T::Punctuation, 16, 1),
+            t(T::Punctuation, 17, 1),
+            t(T::Number, 18, 1),
+            t(T::Punctuation, 19, 1),
+            t(T::Number, 21, 1),
+            t(T::Punctuation, 22, 1),
+            t(T::Number, 24, 1),
+            t(T::Punctuation, 25, 1),
+            t(T::Punctuation, 27, 1),
+            t(T::Punctuation, 28, 1),
+            t(T::Punctuation, 29, 1),
         ]);
     }
 }
