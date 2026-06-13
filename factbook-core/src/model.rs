@@ -1,3 +1,4 @@
+use crate::lang::Token;
 use chrono::{DateTime, Local};
 use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
@@ -35,21 +36,20 @@ impl factbook_swipl::term::FromTerm for EntryId {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(default)]
 pub struct View {
     pub name: String,
     pub definition: String,
     pub entry_count: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(default)]
 pub struct Entry {
     pub created_at: DateTime<Local>,
     pub content: String,
+    pub tokens: Option<Vec<Token>>,
 }
 
 impl Default for Entry {
@@ -57,6 +57,7 @@ impl Default for Entry {
         Self {
             created_at: Local::now(),
             content: String::new(),
+            tokens: None,
         }
     }
 }
@@ -68,18 +69,23 @@ pub(crate) struct PersistedView {
     pub definition: String,
 }
 
-impl From<View> for PersistedView {
-    fn from(value: View) -> Self {
+impl From<&View> for PersistedView {
+    fn from(value: &View) -> Self {
         let View {
             name, definition, ..
         } = value;
-        Self { name, definition }
+
+        Self {
+            name: name.clone(),
+            definition: definition.clone(),
+        }
     }
 }
 
 impl From<PersistedView> for View {
     fn from(value: PersistedView) -> Self {
         let PersistedView { name, definition } = value;
+
         Self {
             name,
             definition,
@@ -95,15 +101,17 @@ pub(crate) struct PersistedEntry {
     pub content: String,
 }
 
-impl From<Entry> for PersistedEntry {
-    fn from(value: Entry) -> Self {
+impl From<&Entry> for PersistedEntry {
+    fn from(value: &Entry) -> Self {
         let Entry {
             created_at,
             content,
+            ..
         } = value;
+
         Self {
-            created_at,
-            content,
+            created_at: *created_at,
+            content: content.clone(),
         }
     }
 }
@@ -114,9 +122,11 @@ impl From<PersistedEntry> for Entry {
             created_at,
             content,
         } = value;
+
         Self {
             created_at,
             content,
+            ..Default::default()
         }
     }
 }

@@ -9,18 +9,18 @@ use tauri_plugin_store::StoreExt;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct View<'t> {
+struct View<'a> {
     id: ViewId,
     #[serde(flatten)]
-    view: &'t model::View,
+    view: &'a model::View,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Entry<'t> {
+struct Entry<'a> {
     id: EntryId,
     #[serde(flatten)]
-    entry: &'t model::Entry,
+    entry: &'a model::Entry,
 }
 
 #[tauri::command]
@@ -114,30 +114,25 @@ pub fn get_entries(state: State<RwLock<AppState>>, view: Option<ViewId>) -> ipc:
     let state = state.read().unwrap();
     let state = state.journal();
 
+    let mut json = Vec::new();
+    let mut serializer = serde_json::Serializer::new(&mut json);
+    let mut seq = serializer.serialize_seq(None).unwrap();
+
     if let Some(view) = view {
-        let mut json = Vec::new();
-        let mut serializer = serde_json::Serializer::new(&mut json);
-        let mut seq = serializer.serialize_seq(None).unwrap();
-
         state.for_each_view_entry(view, |id, entry| {
-            seq.serialize_element(&Entry { id, entry }).unwrap();
+            seq.serialize_element(&Entry { id, entry }).unwrap()
         });
-
-        seq.end().unwrap();
-
-        // SAFETY: `serde_json::Serializer` does not emit invalid UTF-8
-        ipc::Response::new(unsafe { String::from_utf8_unchecked(json) })
     } else {
-        let entries = state.entries();
-        let entries = entries
+        state
+            .entries()
             .iter()
-            .map(|(id, entry)| Entry { id, entry })
-            .collect::<Vec<_>>();
-
-        // Return an `ipc::Response` directly to avoid allocations
-        let response = serde_json::to_string(&SerializeIterOnce::new(entries)).unwrap();
-        ipc::Response::new(response)
+            .for_each(|(id, entry)| seq.serialize_element(&Entry { id, entry }).unwrap());
     }
+
+    seq.end().unwrap();
+
+    // SAFETY: `serde_json::Serializer` does not emit invalid UTF-8
+    ipc::Response::new(unsafe { String::from_utf8_unchecked(json) })
 }
 
 #[tauri::command]
