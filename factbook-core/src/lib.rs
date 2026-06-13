@@ -178,7 +178,7 @@ impl<'a> EntriesMut<'a> {
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
 
-        for tag in lang::parse(content, &pl).collect::<Vec<_>>() {
+        for tag in lang::parse(content, &pl).tags {
             // Non-functor terms like numbers or strings are assigned the `None` key
             let key = tag.get::<RawFunctor>();
             self.store.insert_tag(id.0, key, tag.record());
