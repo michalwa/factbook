@@ -1,4 +1,4 @@
-entry       = ${ SOI ~ text? ~ (((WHITESPACE | SOI) ~ tag ~ &(WHITESPACE | EOI) | "@" | WHITESPACE+) ~ text?)* ~ EOI }
+entry       = ${ SOI ~ text? ~ (((WHITESPACE+ | SOI) ~ tag ~ &(WHITESPACE | EOI) | "@" | WHITESPACE+) ~ text?)* ~ EOI }
 tag         = ${ at ~ term }
 term        =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
 parens      = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }

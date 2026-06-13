@@ -162,9 +162,9 @@ mod test {
     #[test]
     fn parse_single_atom_with_surrounding_content() {
         let engine = crate::test::SESSION.0.engine();
-        let (tags, tokens) = parse("bar @foo bar", &engine);
+        let (tags, tokens) = parse("  bar  @foo  bar  ", &engine);
         assert_eq!(tags, ["foo"]);
-        assert_eq!(tokens, [t(T::Punctuation, 4, 1), t(T::Ident, 5, 3)]);
+        assert_eq!(tokens, [t(T::Punctuation, 7, 1), t(T::Ident, 8, 3)]);
     }
 
     #[test]
