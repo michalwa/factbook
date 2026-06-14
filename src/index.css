@@ -49,7 +49,11 @@
     --theme-danger-disabled: #e38585;
     --theme-danger-foreground: #ee5050;
     --theme-foreground: #101521;
-    --theme-highlight-1: #cb3ef5;
+    --theme-foreground-muted: #627194;
+    --theme-highlight-1: #B914EA;
+    --theme-highlight-2: #E06325;
+    --theme-highlight-3: #3CC51A;
+    --theme-highlight-4: #1AB1DA;
     --theme-inner-background: #ecf4fe;
     --theme-label-foreground: #7c93ca;
     --theme-outline-click: #7089c4;
