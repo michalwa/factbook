@@ -7,6 +7,8 @@ export default function Entry(props) {
   const formattedTimestamp = () =>
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
+  const [spans, setSpans] = createSignal(props.spans);
+
   return (
     <div class={styles.entry}>
       <time class={styles.timestamp} datetime={formattedTimestamp()}>
@@ -20,8 +22,12 @@ export default function Entry(props) {
               <CodeEditor
                 class={styles.content}
                 value={props.content}
+                onChange={async (content) =>
+                  setSpans(await props.parseSpans(content))
+                }
                 onChangeDeferred={props.onContentChange}
                 onEmptyBackspace={props.onRemove}
+                spans={spans()}
               />
             ),
             dispose,

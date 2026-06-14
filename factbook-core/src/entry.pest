@@ -1,0 +1,25 @@
+entry       = ${ SOI ~ text? ~ (((WHITESPACE+ | SOI) ~ tag ~ &(WHITESPACE | EOI) | "@" | WHITESPACE+) ~ text?)* ~ EOI }
+tag         = ${ at ~ term }
+term        =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
+parens      = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
+list        = !{ lbracket ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rbracket }
+compound    = ${ #functor = (ident | quoted) ~ args }
+args        = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
+ident       = @{ 'a'..'z' ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
+variable    = @{ ('A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
+number      = @{ '0'..'9'+ ~ ("." ~ '0'..'9'+)? }
+quoted      = @{ "'" ~ ("\\'" | !"'" ~ ANY)* ~ "'" }
+string      = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
+operator    = @{ ("!" | "#" | "$" | "^" | "&" | "*" | "-" | "+" | "=" | "\\" | "|" | ";" | "." | "<" | ">" | "/")+ }
+operator_ex = @{ (operator | "@" | ",")+ }
+
+at       = @{ "@" }
+lparen   = @{ "(" }
+rparen   = @{ ")" }
+lbracket = @{ "[" }
+rbracket = @{ "]" }
+comma    = @{ "," }
+
+text = _{ (!("@" | WHITESPACE) ~ ANY)* }
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }

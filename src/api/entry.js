@@ -13,8 +13,11 @@ export function useEntries(viewId) {
 
   const setEntryContent = async (id, content) => {
     setDirty(true);
-    await invoke("set_entry_content", { id, content });
+    return await invoke("set_entry_content", { id, content });
   };
+
+  const parseEntryContent = (content) =>
+    invoke("parse_entry_content", { content });
 
   const createEntry = async () => {
     setDirty(true);
@@ -32,6 +35,7 @@ export function useEntries(viewId) {
     entries,
     refetchEntries,
     setEntryContent,
+    parseEntryContent,
     createEntry,
     removeEntry,
   };

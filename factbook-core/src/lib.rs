@@ -84,14 +84,14 @@ impl<'a> State<'a> {
         let entries = self
             .entries()
             .iter()
-            .map(|(_, e)| PersistedEntry::from(e.clone()))
+            .map(|(_, e)| PersistedEntry::from(e))
             .collect::<Vec<_>>();
 
         let views = self
             .views()
             .0
             .values()
-            .map(|v| PersistedView::from(v.clone()))
+            .map(PersistedView::from)
             .collect::<Vec<_>>();
 
         Journal { entries, views }
@@ -144,6 +144,10 @@ impl<'a> Entries<'a> {
     pub fn iter(&'a self) -> impl Iterator<Item = (EntryId, &'a Entry)> {
         self.0.entries().map(|(id, entry)| (EntryId(id), entry))
     }
+
+    pub fn get(&'a self, id: EntryId) -> &'a Entry {
+        self.0.entry_data(id.0)
+    }
 }
 
 pub struct EntriesMut<'a> {
@@ -178,11 +182,15 @@ impl<'a> EntriesMut<'a> {
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
 
-        for tag in lang::parse(content, &pl).collect::<Vec<_>>() {
+        let parsed = lang::parse(content, Some(&pl));
+
+        for tag in parsed.tags {
             // Non-functor terms like numbers or strings are assigned the `None` key
             let key = tag.get::<RawFunctor>();
             self.store.insert_tag(id.0, key, tag.record());
         }
+
+        self.store.entry_data_mut(id.0).spans = (!parsed.spans.is_empty()).then_some(parsed.spans);
     }
 }
 

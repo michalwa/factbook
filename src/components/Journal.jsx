@@ -49,8 +49,14 @@ export default function Journal() {
   const [currentViewId, setCurrentViewId] = createSignal(null);
   const currentView = createMemo(() => getView(currentViewId()));
 
-  const { entries, refetchEntries, setEntryContent, createEntry, removeEntry } =
-    useEntries(currentViewId);
+  const {
+    entries,
+    refetchEntries,
+    setEntryContent,
+    parseEntryContent,
+    createEntry,
+    removeEntry,
+  } = useEntries(currentViewId);
 
   const setViewDefinition = async (...args) => {
     await setViewDefinitionImpl(...args);
@@ -202,6 +208,8 @@ export default function Journal() {
                   setEntryContent(entry().id, content)
                 }
                 onRemove={() => removeEntry(entry().id)}
+                spans={entry().spans}
+                parseSpans={parseEntryContent}
               />
             )}
           </Key>

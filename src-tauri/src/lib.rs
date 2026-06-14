@@ -93,6 +93,7 @@ pub fn run() {
             api::create_entry,
             api::remove_entry,
             api::set_entry_content,
+            api::parse_entry_content,
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri application");

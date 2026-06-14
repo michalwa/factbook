@@ -17,3 +17,25 @@
 .editor :global(.cm-line) {
   padding: 0;
 }
+
+.editor :global(.cm-highlight-punctuation) {
+  color: var(--theme-foreground-muted);
+}
+
+.editor :global(.cm-highlight-ident) {
+  color: var(--theme-highlight-1);
+}
+
+.editor :global(.cm-highlight-argument) :global(.cm-highlight-ident),
+.editor :global(.cm-highlight-ident) :global(.cm-highlight-argument) {
+  color: var(--theme-highlight-2);
+}
+
+.editor :global(.cm-highlight-string),
+.editor :global(.cm-highlight-number) {
+  color: var(--theme-highlight-3);
+}
+
+.editor :global(.cm-highlight-variable) {
+  color: var(--theme-highlight-4);
+}
