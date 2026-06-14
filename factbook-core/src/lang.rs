@@ -1,6 +1,10 @@
+//! Parser for the entry language
+//!
+//! Only used to extract spans for syntax highlighting and tag spans which are
+//! extracted and passed to Prolog to be properly parsed into terms.
+
 use factbook_swipl::term::Term;
 use factbook_swipl::{Context, Engine};
-use itertools::Itertools;
 use pest::Parser;
 use pest_derive::Parser;
 use serde::Serialize;
@@ -14,6 +18,7 @@ pub struct ParseResult<'c> {
     pub spans: Vec<Span>,
 }
 
+/// Span of entry content with an attached semantic tag
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Span {
@@ -38,7 +43,11 @@ pub enum SpanKind {
 }
 
 impl Span {
-    fn from_pair(kind: SpanKind, pair: &pest::iterators::Pair<Rule>, input: &str) -> Self {
+    fn from_pair<R: pest::RuleType>(
+        kind: SpanKind,
+        pair: &pest::iterators::Pair<R>,
+        input: &str,
+    ) -> Self {
         let mut char_indices = input
             .char_indices()
             .map(|(i, _)| Some(i))
@@ -70,15 +79,20 @@ pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> 
 
     // The parser should never fail, because it includes `Rule::text` which
     // matches arbitrary input
-    let top = EntryParser::parse(Rule::entry, input)
-        .unwrap()
-        .exactly_one()
-        .unwrap();
+    let top = EntryParser::parse(Rule::entry, input).unwrap();
 
-    assert_eq!(top.as_rule(), Rule::entry);
+    for pair in top.flatten() {
+        use SpanKind as S;
 
-    for pair in top.into_inner() {
-        match pair.as_rule() {
+        if let Some(kind) = match pair.as_node_tag() {
+            Some("functor") => Some(S::Functor),
+            Some("argument") => Some(S::Argument),
+            _ => None,
+        } {
+            spans.push(Span::from_pair(kind, &pair, input));
+        }
+
+        if let Some(kind) = match pair.as_rule() {
             Rule::tag => {
                 let [_, tag] = pair
                     .clone()
@@ -96,37 +110,22 @@ pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> 
                     tags.push(tag);
                 }
 
-                for pair in pair.into_inner().flatten() {
-                    use SpanKind as T;
-
-                    if let Some(kind) = match pair.as_node_tag() {
-                        Some("functor") => Some(T::Functor),
-                        Some("argument") => Some(T::Argument),
-                        _ => None,
-                    } {
-                        spans.push(Span::from_pair(kind, &pair, input));
-                    }
-
-                    if let Some(kind) = match pair.as_rule() {
-                        Rule::at
-                        | Rule::lparen
-                        | Rule::rparen
-                        | Rule::lbracket
-                        | Rule::rbracket
-                        | Rule::comma => Some(T::Punctuation),
-                        Rule::ident | Rule::quoted => Some(T::Ident),
-                        Rule::string => Some(T::String),
-                        Rule::number => Some(T::Number),
-                        Rule::variable => Some(T::Variable),
-                        Rule::operator | Rule::operator_ex => Some(T::Operator),
-                        _ => None,
-                    } {
-                        spans.push(Span::from_pair(kind, &pair, input));
-                    }
-                }
+                None
             },
-            Rule::EOI => (),
-            rule => panic!("parser returned unexpected rule: {rule:?}"),
+            Rule::at
+            | Rule::lparen
+            | Rule::rparen
+            | Rule::lsquare
+            | Rule::rsquare
+            | Rule::comma => Some(S::Punctuation),
+            Rule::ident | Rule::quoted => Some(S::Ident),
+            Rule::string => Some(S::String),
+            Rule::number => Some(S::Number),
+            Rule::variable => Some(S::Variable),
+            Rule::operator | Rule::operator_ex => Some(S::Operator),
+            _ => None,
+        } {
+            spans.push(Span::from_pair(kind, &pair, input));
         }
     }
 
@@ -140,16 +139,16 @@ mod test {
     use pretty_assertions::assert_eq;
     use test_log::test;
 
-    fn s(kind: S, start: usize, len: usize) -> Span {
-        Span { kind, start, len }
-    }
-
     fn parse(input: &str, ctx: &impl Context) -> (Vec<String>, Vec<Span>) {
         let result = super::parse(input, Some(ctx));
         (
             result.tags.into_iter().map(|t| t.to_string()).collect(),
             result.spans,
         )
+    }
+
+    fn s(kind: S, start: usize, len: usize) -> Span {
+        Span { kind, start, len }
     }
 
     #[test]

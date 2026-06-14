@@ -42,6 +42,7 @@ pub struct View {
     pub name: String,
     pub definition: String,
     pub entry_count: usize,
+    pub spans: Option<Vec<Span>>,
 }
 
 #[derive(Serialize)]

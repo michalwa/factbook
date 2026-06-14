@@ -18,7 +18,8 @@
   padding: 0;
 }
 
-.editor :global(.cm-highlight-punctuation) {
+.editor :global(.cm-highlight-punctuation),
+.editor :global(.cm-highlight-comment) {
   color: var(--theme-foreground-muted);
 }
 
@@ -27,7 +28,8 @@
 }
 
 .editor :global(.cm-highlight-argument) :global(.cm-highlight-ident),
-.editor :global(.cm-highlight-ident) :global(.cm-highlight-argument) {
+.editor :global(.cm-highlight-ident) :global(.cm-highlight-argument),
+.editor :global(.cm-highlight-argument.cm-highlight-ident) {
   color: var(--theme-highlight-2);
 }
 
