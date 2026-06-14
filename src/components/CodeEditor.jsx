@@ -110,14 +110,12 @@ const spanHighlight = StateField.define({
     for (const effect of transaction.effects) {
       if (effect.is(updateSpans)) {
         decorations = Decoration.set(
-          effect.value
-            .filter(({ start, len }) => start + len <= docLength)
-            .map(({ kind, start, len }) =>
-              Decoration.mark({ class: `cm-highlight-${kind}` }).range(
-                start,
-                start + len,
-              ),
+          effect.value.map(({ kind, start, len }) =>
+            Decoration.mark({ class: `cm-highlight-${kind}` }).range(
+              start,
+              start + len,
             ),
+          ),
         );
       }
     }

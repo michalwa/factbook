@@ -190,8 +190,7 @@ impl<'a> EntriesMut<'a> {
             self.store.insert_tag(id.0, key, tag.record());
         }
 
-        self.store.entry_data_mut(id.0).spans =
-            (!parsed.spans.is_empty()).then_some(parsed.spans);
+        self.store.entry_data_mut(id.0).spans = (!parsed.spans.is_empty()).then_some(parsed.spans);
     }
 }
 

@@ -26,10 +26,12 @@
   color: var(--theme-highlight-1);
 }
 
-.editor :global(.cm-highlight-string) {
+.editor :global(.cm-highlight-argument) :global(.cm-highlight-ident),
+.editor :global(.cm-highlight-ident) :global(.cm-highlight-argument) {
   color: var(--theme-highlight-2);
 }
 
+.editor :global(.cm-highlight-string),
 .editor :global(.cm-highlight-number) {
   color: var(--theme-highlight-3);
 }

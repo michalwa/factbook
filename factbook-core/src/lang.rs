@@ -33,19 +33,27 @@ pub enum SpanKind {
     String,
     Variable,
     Operator,
+    Functor,
+    Argument,
 }
 
 impl Span {
-    fn from_pair(kind: SpanKind, pair: pest::iterators::Pair<Rule>, input: &str) -> Self {
-        let start = input
+    fn from_pair(kind: SpanKind, pair: &pest::iterators::Pair<Rule>, input: &str) -> Self {
+        let mut char_indices = input
             .char_indices()
-            .position(|(i, _)| i == pair.as_span().start())
-            .unwrap();
+            .map(|(i, _)| Some(i))
+            .chain(std::iter::once(None));
+
+        let [start, len] = [pair.as_span().start(), pair.as_span().end()].map(|pos| {
+            char_indices
+                .position(|i| i.is_none_or(|i| i == pos))
+                .unwrap()
+        });
 
         Self {
             kind,
             start,
-            len: pair.as_str().chars().count(),
+            len: len + 1,
         }
     }
 }
@@ -91,6 +99,14 @@ pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> 
                 for pair in pair.into_inner().flatten() {
                     use SpanKind as T;
 
+                    if let Some(kind) = match pair.as_node_tag() {
+                        Some("functor") => Some(T::Functor),
+                        Some("argument") => Some(T::Argument),
+                        _ => None,
+                    } {
+                        spans.push(Span::from_pair(kind, &pair, input));
+                    }
+
                     if let Some(kind) = match pair.as_rule() {
                         Rule::at
                         | Rule::lparen
@@ -105,7 +121,7 @@ pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> 
                         Rule::operator | Rule::operator_ex => Some(T::Operator),
                         _ => None,
                     } {
-                        spans.push(Span::from_pair(kind, pair, input));
+                        spans.push(Span::from_pair(kind, &pair, input));
                     }
                 }
             },
@@ -196,8 +212,10 @@ mod test {
         assert_eq!(tags, ["foo(bar)"]);
         assert_eq!(spans, [
             s(S::Punctuation, 0, 1),
+            s(S::Functor, 1, 3),
             s(S::Ident, 1, 3),
             s(S::Punctuation, 4, 1),
+            s(S::Argument, 5, 3),
             s(S::Ident, 5, 3),
             s(S::Punctuation, 8, 1)
         ]);
@@ -210,15 +228,21 @@ mod test {
         assert_eq!(tags, ["foo(bar)", "bar(baz,1)"]);
         assert_eq!(spans, [
             s(S::Punctuation, 0, 1),
+            s(S::Functor, 1, 3),
             s(S::Ident, 1, 3),
             s(S::Punctuation, 4, 1),
+            s(S::Argument, 5, 3),
             s(S::Ident, 5, 3),
             s(S::Punctuation, 8, 1),
             s(S::Punctuation, 10, 1),
+            s(S::Functor, 11, 3),
             s(S::Ident, 11, 3),
             s(S::Punctuation, 14, 1),
+            // FIXME: `#argument` nodes consume trailing whitespace
+            s(S::Argument, 16, 4),
             s(S::Ident, 16, 3),
             s(S::Punctuation, 20, 1),
+            s(S::Argument, 22, 2),
             s(S::Number, 22, 1),
             s(S::Punctuation, 24, 1),
         ]);
@@ -247,8 +271,10 @@ mod test {
         assert_eq!(tags, ["foo(\"foo bar\")"]);
         assert_eq!(spans, [
             s(S::Punctuation, 0, 1),
+            s(S::Functor, 1, 3),
             s(S::Ident, 1, 3),
             s(S::Punctuation, 4, 1),
+            s(S::Argument, 5, 9),
             s(S::String, 5, 9),
             s(S::Punctuation, 14, 1)
         ]);
@@ -269,10 +295,13 @@ mod test {
         assert_eq!(tags, ["foo(42,12.34)"]);
         assert_eq!(spans, [
             s(S::Punctuation, 0, 1),
+            s(S::Functor, 1, 3),
             s(S::Ident, 1, 3),
             s(S::Punctuation, 4, 1),
+            s(S::Argument, 5, 2),
             s(S::Number, 5, 2),
             s(S::Punctuation, 7, 1),
+            s(S::Argument, 9, 5),
             s(S::Number, 9, 5),
             s(S::Punctuation, 14, 1)
         ]);
@@ -363,22 +392,30 @@ mod test {
         assert_eq!(tags, ["foo([1,2,3])", "[4,5,6]", "[]"]);
         assert_eq!(spans, [
             s(S::Punctuation, 0, 1),
+            s(S::Functor, 1, 3),
             s(S::Ident, 1, 3),
             s(S::Punctuation, 4, 1),
+            s(S::Argument, 5, 9),
             s(S::Punctuation, 5, 1),
+            s(S::Argument, 6, 1),
             s(S::Number, 6, 1),
             s(S::Punctuation, 7, 1),
+            s(S::Argument, 9, 1),
             s(S::Number, 9, 1),
             s(S::Punctuation, 10, 1),
+            s(S::Argument, 12, 1),
             s(S::Number, 12, 1),
             s(S::Punctuation, 13, 1),
             s(S::Punctuation, 14, 1),
             s(S::Punctuation, 16, 1),
             s(S::Punctuation, 17, 1),
+            s(S::Argument, 18, 1),
             s(S::Number, 18, 1),
             s(S::Punctuation, 19, 1),
+            s(S::Argument, 21, 1),
             s(S::Number, 21, 1),
             s(S::Punctuation, 22, 1),
+            s(S::Argument, 24, 1),
             s(S::Number, 24, 1),
             s(S::Punctuation, 25, 1),
             s(S::Punctuation, 27, 1),

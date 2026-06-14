@@ -2,9 +2,9 @@ entry       = ${ SOI ~ text? ~ (((WHITESPACE+ | SOI) ~ tag ~ &(WHITESPACE | EOI)
 tag         = ${ at ~ term }
 term        =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
 parens      = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
-list        = !{ lbracket ~ (term ~ (comma ~ term)*)? ~ rbracket }
-compound    = ${ (ident | quoted) ~ args }
-args        = !{ lparen ~ (term ~ (comma ~ term)*)? ~ rparen }
+list        = !{ lbracket ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rbracket }
+compound    = ${ #functor = (ident | quoted) ~ args }
+args        = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
 ident       = @{ 'a'..'z' ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 variable    = @{ ('A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 number      = @{ '0'..'9'+ ~ ("." ~ '0'..'9'+)? }

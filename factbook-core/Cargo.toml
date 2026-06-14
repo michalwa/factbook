@@ -9,7 +9,7 @@ factbook-swipl = { path = "../factbook-swipl" }
 itertools = "0.14.0"
 log = "0.4"
 pest = "2.8.6"
-pest_derive = "2.8.6"
+pest_derive = { version = "2.8.6", features = ["grammar-extras"] }
 serde = { version = "1", features = ["derive"] }
 stable-vec = "0.4.2"
 
