@@ -30,6 +30,9 @@ export function useViews() {
     await refetchViews(); // update entry counts
   };
 
+  const parseViewDefinition = (definition) =>
+    invoke("parse_view_definition", { definition });
+
   const createView = async () => {
     setDirty(true);
     const id = await invoke("create_view");
@@ -50,6 +53,7 @@ export function useViews() {
     getView,
     setViewName,
     setViewDefinition,
+    parseViewDefinition,
     createView,
     removeView,
   };

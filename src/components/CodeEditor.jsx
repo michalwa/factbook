@@ -28,7 +28,7 @@ export default function CodeEditor(props) {
   // Track dirty flag explicitly to be able to conditionally call the deferred
   // callback on cleanup. We don't actually test content for equality, but that's fine
   let dirty = false;
-  let initialTokenUpdateDone = false;
+  let incomingValueJustChanged = true;
 
   const spans = () => props.spans ?? [];
 
@@ -56,12 +56,13 @@ export default function CodeEditor(props) {
 
   const { ref, editorView, createExtension } = createCodeMirror({
     onValueChange(value) {
-      setValue(value);
-
-      if (!initialTokenUpdateDone) {
+      if (incomingValueJustChanged) {
+        incomingValueJustChanged = false;
         editorView()?.dispatch({ effects: updateSpans.of(spans()) });
-        initialTokenUpdateDone = true;
+        return;
       }
+
+      setValue(value);
     },
   });
 
@@ -69,7 +70,11 @@ export default function CodeEditor(props) {
   const [incomingValue, setIncomingValue] = createSignal(props.value);
   createEffect(() => {
     const value = props.value;
-    if (!editorView()?.hasFocus) setIncomingValue(value);
+
+    if (!editorView()?.hasFocus) {
+      incomingValueJustChanged = true;
+      setIncomingValue(value);
+    }
   });
 
   createEditorControlledValue(editorView, incomingValue);
@@ -110,12 +115,14 @@ const spanHighlight = StateField.define({
     for (const effect of transaction.effects) {
       if (effect.is(updateSpans)) {
         decorations = Decoration.set(
-          effect.value.map(({ kind, start, len }) =>
-            Decoration.mark({ class: `cm-highlight-${kind}` }).range(
-              start,
-              start + len,
+          effect.value
+            .filter(({ start, len }) => start + len <= docLength)
+            .map(({ kind, start, len }) =>
+              Decoration.mark({ class: `cm-highlight-${kind}` }).range(
+                start,
+                start + len,
+              ),
             ),
-          ),
         );
       }
     }

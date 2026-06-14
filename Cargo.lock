@@ -1249,7 +1249,6 @@ dependencies = [
  "chrono",
  "factbook-swipl",
  "factbook-swipl-state",
- "itertools 0.14.0",
  "log",
  "pest",
  "pest_derive",

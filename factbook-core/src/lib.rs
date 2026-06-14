@@ -111,6 +111,7 @@ impl<'a> State<'a> {
 
         let mut views = self.views.write().unwrap();
         views[id.0].entry_count = entry_count;
+        views[id.0].spans = lang::view::parse_spans(&views[id.0].definition);
     }
 }
 
@@ -182,7 +183,7 @@ impl<'a> EntriesMut<'a> {
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
 
-        let parsed = lang::parse(content, Some(&pl));
+        let parsed = lang::entry::parse(content, Some(&pl));
 
         for tag in parsed.tags {
             // Non-functor terms like numbers or strings are assigned the `None` key

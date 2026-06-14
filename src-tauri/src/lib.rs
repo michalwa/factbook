@@ -89,6 +89,7 @@ pub fn run() {
             api::remove_view,
             api::set_view_name,
             api::set_view_definition,
+            api::parse_view_definition,
             api::get_entries,
             api::create_entry,
             api::remove_entry,
