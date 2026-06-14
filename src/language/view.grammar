@@ -4,12 +4,12 @@
 
 term       { Operator? leaf (Operator term)? }
 termEx     { operatorEx? leaf (operatorEx termEx)? }
-leaf       { parens | curly | list | Compound | Ident | Quoted | Number | String | Variable }
-parens     { "(" termEx ")" }
-curly      { "{" termEx "}" }
-list       { "[" (term ("," term)*)? "]" }
-Compound   { (Ident | Quoted) Args }
-Args       { "(" (term ("," term)*)? ")" }
+leaf       { Parens | Curly | List | Compound | Ident | Quoted | Number | String | Variable }
+Parens     { "(" termEx ")" }
+Curly      { "{" termEx "}" }
+List       { "[" Args? "]" }
+Compound   { (Ident | Quoted) "(" Args? ")" }
+Args       { term ("," term)* }
 operatorEx { "@" | "," | ";" | Operator }
 
 @tokens {
@@ -19,9 +19,10 @@ operatorEx { "@" | "," | ";" | Operator }
   Quoted     { "'" ("\\'" | !['] )* "'" }
   String     { "\"" ("\\\"" | !["])* "\"" }
 
-  // Treat single '@' as punctuation, but if there are adjacent characters, then
-  // it's an operator
-  Operator   { $[!#$^&*\-+=\\|:.<>/] $[!@#$^&*\-+=\\|:.<>/]* | "@" $[!@#$^&*\-+=\\|:.<>/]+ }
+  // Treat single '@' as punctuation, but if there are adjacent characters, then it's an operator
+  Operator   { opCharNoAt opChar* | "@" opChar+ }
+  opCharNoAt { $[!#$^&*\-+=\\|:.<>/] }
+  opChar     { $[!@#$^&*\-+=\\|:.<>/] }
 
   whitespace { @whitespace+ }
   Comment    { "%" ![\n]* }
