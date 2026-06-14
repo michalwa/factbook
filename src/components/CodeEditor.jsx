@@ -20,7 +20,9 @@ import { Decoration } from "@codemirror/view";
  *   Called at the trailing edge of a timeout and on cleanup if there are
  *   pending changes
  * @param {number} props.debounce The debounce timeout for `onChangeDeferred`
- * @param {Span[]} props.spans
+ * @param {Span[]} props.spans Explicitly highlighted spans
+ * @param {import("@codemirror/state").Extension} props.extension
+ *   Additional extension
  */
 export default function CodeEditor(props) {
   // This is the value read back from CodeMirror, not updated with the prop
@@ -96,6 +98,8 @@ export default function CodeEditor(props) {
       editorView()?.dispatch({ effects: updateSpans.of(spans) }),
     ),
   );
+
+  createExtension(() => props.extension);
 
   return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
 }

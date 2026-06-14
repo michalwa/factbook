@@ -166,10 +166,5 @@ pub fn set_entry_content(
 /// should be faster and safe to call very frequently.
 #[tauri::command]
 pub fn parse_entry_content(content: &str) -> Vec<Span> {
-    lang::entry::parse_spans(content)
-}
-
-#[tauri::command]
-pub fn parse_view_definition(definition: &str) -> Option<Vec<Span>> {
-    lang::view::parse_spans(definition)
+    lang::parse_spans(content)
 }

@@ -42,7 +42,6 @@ export default function Journal() {
     getView,
     setViewName,
     setViewDefinition: setViewDefinitionImpl,
-    parseViewDefinition,
     createView: createViewImpl,
     removeView: removeViewImpl,
   } = useViews();
@@ -186,8 +185,6 @@ export default function Journal() {
                 onDefinitionChange={(definition) =>
                   setViewDefinition(currentViewId(), definition)
                 }
-                spans={currentView().spans}
-                parseSpans={parseViewDefinition}
               />
               <PanelControlsSpacer when={leftPanelCollapsed()} />
             </Panel>
