@@ -1,4 +1,4 @@
-use crate::lang::Token;
+use crate::lang::Span;
 use chrono::{DateTime, Local};
 use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub struct View {
 pub struct Entry {
     pub created_at: DateTime<Local>,
     pub content: String,
-    pub tokens: Option<Vec<Token>>,
+    pub spans: Option<Vec<Span>>,
 }
 
 impl Default for Entry {
@@ -57,7 +57,7 @@ impl Default for Entry {
         Self {
             created_at: Local::now(),
             content: String::new(),
-            tokens: None,
+            spans: None,
         }
     }
 }

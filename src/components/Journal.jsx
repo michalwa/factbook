@@ -208,8 +208,8 @@ export default function Journal() {
                   setEntryContent(entry().id, content)
                 }
                 onRemove={() => removeEntry(entry().id)}
-                tokens={entry().tokens}
-                parseTokens={parseEntryContent}
+                spans={entry().spans}
+                parseSpans={parseEntryContent}
               />
             )}
           </Key>

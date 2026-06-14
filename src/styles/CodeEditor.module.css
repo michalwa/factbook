@@ -18,22 +18,22 @@
   padding: 0;
 }
 
-.editor :global(.cm-token-punctuation) {
+.editor :global(.cm-highlight-punctuation) {
   color: var(--theme-foreground-muted);
 }
 
-.editor :global(.cm-token-ident) {
+.editor :global(.cm-highlight-ident) {
   color: var(--theme-highlight-1);
 }
 
-.editor :global(.cm-token-string) {
+.editor :global(.cm-highlight-string) {
   color: var(--theme-highlight-2);
 }
 
-.editor :global(.cm-token-number) {
+.editor :global(.cm-highlight-number) {
   color: var(--theme-highlight-3);
 }
 
-.editor :global(.cm-token-variable) {
+.editor :global(.cm-highlight-variable) {
   color: var(--theme-highlight-4);
 }

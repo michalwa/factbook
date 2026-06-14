@@ -7,7 +7,7 @@ export default function Entry(props) {
   const formattedTimestamp = () =>
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
-  const [tokens, setTokens] = createSignal(props.tokens);
+  const [spans, setSpans] = createSignal(props.spans);
 
   return (
     <div class={styles.entry}>
@@ -23,11 +23,11 @@ export default function Entry(props) {
                 class={styles.content}
                 value={props.content}
                 onChange={async (content) =>
-                  setTokens(await props.parseTokens(content))
+                  setSpans(await props.parseSpans(content))
                 }
                 onChangeDeferred={props.onContentChange}
                 onEmptyBackspace={props.onRemove}
-                tokens={tokens()}
+                spans={spans()}
               />
             ),
             dispose,

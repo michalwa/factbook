@@ -10,7 +10,7 @@ import { StateEffect } from "@codemirror/state";
 import { StateField } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 
-/** @typedef {{ start: number, len: number, kind: string }} Token */
+/** @typedef {{ start: number, len: number, kind: string }} Span */
 
 /**
  * @param {object} props
@@ -20,7 +20,7 @@ import { Decoration } from "@codemirror/view";
  *   Called at the trailing edge of a timeout and on cleanup if there are
  *   pending changes
  * @param {number} props.debounce The debounce timeout for `onChangeDeferred`
- * @param {Token[]} props.tokens
+ * @param {Span[]} props.spans
  */
 export default function CodeEditor(props) {
   // This is the value read back from CodeMirror, not updated with the prop
@@ -30,7 +30,7 @@ export default function CodeEditor(props) {
   let dirty = false;
   let initialTokenUpdateDone = false;
 
-  const tokens = () => props.tokens ?? [];
+  const spans = () => props.spans ?? [];
 
   const onChangeDeferred = (value) => {
     if (dirty) {
@@ -59,7 +59,7 @@ export default function CodeEditor(props) {
       setValue(value);
 
       if (!initialTokenUpdateDone) {
-        editorView()?.dispatch({ effects: updateTokens.of(tokens()) });
+        editorView()?.dispatch({ effects: updateSpans.of(spans()) });
         initialTokenUpdateDone = true;
       }
     },
@@ -84,11 +84,11 @@ export default function CodeEditor(props) {
     }),
   );
 
-  createExtension(tokenHighlight);
+  createExtension(spanHighlight);
 
   createEffect(
-    on(tokens, (tokens) =>
-      editorView()?.dispatch({ effects: updateTokens.of(tokens) }),
+    on(spans, (spans) =>
+      editorView()?.dispatch({ effects: updateSpans.of(spans) }),
     ),
   );
 
@@ -96,9 +96,9 @@ export default function CodeEditor(props) {
 }
 
 /** @type {import("@codemirror/state").StateEffectType<Token[]>} */
-const updateTokens = StateEffect.define();
+const updateSpans = StateEffect.define();
 
-const tokenHighlight = StateField.define({
+const spanHighlight = StateField.define({
   create() {
     return Decoration.none;
   },
@@ -108,12 +108,12 @@ const tokenHighlight = StateField.define({
     decorations = decorations.map(transaction.changes);
 
     for (const effect of transaction.effects) {
-      if (effect.is(updateTokens)) {
+      if (effect.is(updateSpans)) {
         decorations = Decoration.set(
           effect.value
             .filter(({ start, len }) => start + len <= docLength)
             .map(({ kind, start, len }) =>
-              Decoration.mark({ class: `cm-token-${kind}` }).range(
+              Decoration.mark({ class: `cm-highlight-${kind}` }).range(
                 start,
                 start + len,
               ),

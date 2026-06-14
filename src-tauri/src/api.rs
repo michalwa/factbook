@@ -1,6 +1,6 @@
 use crate::util::SerializeIterOnce;
 use crate::{AppState, SETTING_JOURNAL_PATH, SETTINGS_PATH};
-use factbook_core::lang::{self, Token};
+use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
 use std::fs::OpenOptions;
@@ -161,10 +161,10 @@ pub fn set_entry_content(
     ipc::Response::new(serde_json::to_string(entries.get(id)).unwrap())
 }
 
-/// A faster endpoint which allows parsing tokens after every keystroke. Unlike
+/// A faster endpoint which allows parsing spans after every keystroke. Unlike
 /// [`set_entry_content`] this does not instantiate any Prolog terms and so
 /// should be faster and safe to call very frequently.
 #[tauri::command]
-pub fn parse_entry_content(content: &str) -> Vec<Token> {
-    lang::parse_tokens(content)
+pub fn parse_entry_content(content: &str) -> Vec<Span> {
+    lang::parse_spans(content)
 }
