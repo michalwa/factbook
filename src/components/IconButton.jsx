@@ -18,6 +18,7 @@ export default function IconButton(props) {
       `}
       type={props.type ?? "button"}
       onClick={props.onClick}
+      title={props.title}
     >
       <Dynamic component={merged.icon} class={styles.icon} />
     </button>

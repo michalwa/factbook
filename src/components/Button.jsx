@@ -23,6 +23,7 @@ export default function Button(props) {
       type={props.type ?? "button"}
       onClick={props.onClick}
       disabled={props.disabled}
+      title={props.title}
     >
       <Show when={merged.iconPlacement === "left"}>
         <Icon />

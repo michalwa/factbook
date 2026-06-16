@@ -87,8 +87,16 @@ export default function Journal() {
             </PanelControls>
             <Show when={!leftPanelCollapsed()}>
               <PanelControls placement="bottom left">
-                <IconButton icon={FilePlusCorner} onClick={createJournal} />
-                <IconButton icon={FolderOpen} onClick={openJournal} />
+                <IconButton
+                  icon={FilePlusCorner}
+                  onClick={createJournal}
+                  title="New journal"
+                />
+                <IconButton
+                  icon={FolderOpen}
+                  onClick={openJournal}
+                  title="Open journal"
+                />
               </PanelControls>
             </Show>
           </>
@@ -116,12 +124,14 @@ export default function Journal() {
                         size="small"
                         icon={PenLine}
                         onClick={editTitle}
+                        title="Rename"
                       />
                       <IconButton
                         size="small"
                         style="danger"
                         icon={Trash}
                         onClick={() => removeView(view().id)}
+                        title="Delete"
                       />
                     </Show>
                     <Show when={editingTitle()}>
@@ -129,12 +139,14 @@ export default function Journal() {
                         size="small"
                         icon={Check}
                         onClick={saveTitle}
+                        title="Save"
                       />
                       <IconButton
                         size="small"
                         style="danger"
                         icon={X}
                         onClick={resetTitle}
+                        title="Cancel"
                       />
                     </Show>
                   </>
@@ -153,7 +165,12 @@ export default function Journal() {
           </Key>
         </Tabs>
         <PanelBottomContainer>
-          <Button size="wide" icon={FunnelPlus} onClick={createView}>
+          <Button
+            size="wide"
+            icon={FunnelPlus}
+            onClick={createView}
+            title="New view"
+          >
             New
           </Button>
         </PanelBottomContainer>
