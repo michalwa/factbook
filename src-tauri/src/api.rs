@@ -1,12 +1,14 @@
 use crate::settings::Settings;
 use crate::util::SerializeIterOnce;
-use crate::window::WindowState;
+use crate::window::{self, WindowState};
 use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
 use std::fs::OpenOptions;
+use std::path::PathBuf;
 use std::sync::RwLock;
-use tauri::ipc;
+use tauri::{AppHandle, ipc};
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,39 +29,34 @@ struct Entry<'a> {
 type AppState<'a> = WindowState<'a, RwLock<crate::AppState>>;
 
 #[tauri::command]
-pub fn get_state(state: AppState) -> &'static str {
-    match *state.read().unwrap() {
-        crate::AppState::Start => "start",
-        crate::AppState::Journal { .. } => "journal",
-    }
+pub fn get_journal_path(state: AppState) -> Option<PathBuf> {
+    state.read().unwrap().journal_path.clone()
+}
+
+// Commands which create windows need to be async
+// https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html#known-issues
+#[tauri::command]
+pub async fn create_journal(app: AppHandle) {
+    window::open(&app, crate::AppState::default());
 }
 
 #[tauri::command]
-pub fn get_journal_path(state: AppState) -> Option<String> {
-    state.read().unwrap().journal_path().map(String::from)
-}
+pub async fn open_journal(app: AppHandle, settings: Settings) {
+    if let Some(path) = app
+        .dialog()
+        .file()
+        .set_title("Open journal file")
+        .add_filter("Journal file", &["json"])
+        .blocking_pick_file()
+    {
+        let path = path.into_path().unwrap();
+        let path_str = path.to_str().expect("path is not valid unicode").to_owned();
 
-#[tauri::command]
-pub fn open_journal(state: AppState, settings: Settings, path: &str) {
-    state.write().unwrap().open_journal(path).unwrap();
+        let state = crate::AppState::open(path).unwrap();
+        window::open(&app, state);
 
-    let mut paths = settings.open_journals().unwrap_or_default();
-    paths.push(path.into());
-    settings.set_open_journals(paths);
-}
-
-#[tauri::command]
-pub fn close_journal(state: AppState, settings: Settings) {
-    let mut state = state.write().unwrap();
-    let Some(path) = state.journal_path().map(|p| p.to_owned()) else {
-        return;
-    };
-    *state = crate::AppState::Start;
-
-    if let Some(mut paths) = settings.open_journals() {
-        if let Some(i) = paths.iter().position(|p| p == &path) {
-            paths.remove(i);
-        }
+        let mut paths = settings.open_journals().unwrap_or_default();
+        paths.push(path_str);
         settings.set_open_journals(paths);
     }
 }
@@ -67,7 +64,7 @@ pub fn close_journal(state: AppState, settings: Settings) {
 #[tauri::command]
 pub fn save_journal(state: AppState) {
     let state = state.read().unwrap();
-    let path = state.journal_path().unwrap();
+    let path = state.journal_path.as_ref().unwrap();
     let file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -75,13 +72,13 @@ pub fn save_journal(state: AppState) {
         .open(path)
         .unwrap();
 
-    serde_json::to_writer_pretty(file, &state.journal().to_journal()).unwrap();
+    serde_json::to_writer_pretty(file, &state.journal.to_journal()).unwrap();
 }
 
 #[tauri::command]
 pub fn get_views(state: AppState) -> ipc::Response {
     let state = state.read().unwrap();
-    let views = state.journal().views();
+    let views = state.journal.views();
     let views = views
         .iter()
         .map(|(id, view)| View { id, view })
@@ -94,26 +91,26 @@ pub fn get_views(state: AppState) -> ipc::Response {
 
 #[tauri::command]
 pub fn create_view(state: AppState) -> ViewId {
-    let mut state = state.write().unwrap();
-    state.journal_mut().views_mut().create()
+    let state = state.write().unwrap();
+    state.journal.views_mut().create()
 }
 
 #[tauri::command]
 pub fn remove_view(state: AppState, id: ViewId) {
-    let mut state = state.write().unwrap();
-    state.journal_mut().views_mut().remove(id);
+    let state = state.write().unwrap();
+    state.journal.views_mut().remove(id);
 }
 
 #[tauri::command]
 pub fn set_view_name(state: AppState, id: ViewId, name: String) {
-    let mut state = state.write().unwrap();
-    state.journal_mut().views_mut().set_name(id, name);
+    let state = state.write().unwrap();
+    state.journal.views_mut().set_name(id, name);
 }
 
 #[tauri::command]
 pub fn set_view_definition(state: AppState, id: ViewId, definition: String) {
-    let mut state = state.write().unwrap();
-    state.journal_mut().set_view_definition(id, definition);
+    let state = state.write().unwrap();
+    state.journal.set_view_definition(id, definition);
 }
 
 #[tauri::command]
@@ -122,18 +119,18 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
     use serde::ser::SerializeSeq;
 
     let state = state.read().unwrap();
-    let state = state.journal();
 
     let mut json = Vec::new();
     let mut serializer = serde_json::Serializer::new(&mut json);
     let mut seq = serializer.serialize_seq(None).unwrap();
 
     if let Some(view) = view {
-        state.for_each_view_entry(view, |id, entry| {
+        state.journal.for_each_view_entry(view, |id, entry| {
             seq.serialize_element(&Entry { id, entry }).unwrap()
         });
     } else {
         state
+            .journal
             .entries()
             .iter()
             .for_each(|(id, entry)| seq.serialize_element(&Entry { id, entry }).unwrap());
@@ -147,22 +144,22 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
 
 #[tauri::command]
 pub fn create_entry(state: AppState) -> EntryId {
-    let mut state = state.write().unwrap();
-    state.journal_mut().entries_mut().create()
+    let state = state.write().unwrap();
+    state.journal.entries_mut().create()
 }
 
 #[tauri::command]
 pub fn remove_entry(state: AppState, id: EntryId) {
-    let mut state = state.write().unwrap();
-    state.journal_mut().entries_mut().remove(id);
+    let state = state.write().unwrap();
+    state.journal.entries_mut().remove(id);
 }
 
 #[tauri::command]
 pub fn set_entry_content(state: AppState, id: EntryId, content: String) -> ipc::Response {
-    let mut state = state.write().unwrap();
-    state.journal_mut().entries_mut().set_content(id, content);
+    let state = state.write().unwrap();
+    state.journal.entries_mut().set_content(id, content);
 
-    let entries = state.journal().entries();
+    let entries = state.journal.entries();
     ipc::Response::new(serde_json::to_string(entries.get(id)).unwrap())
 }
 

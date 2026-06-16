@@ -4,7 +4,9 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use tauri::ipc::{CommandArg, CommandItem, InvokeError};
-use tauri::{App, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window};
+use tauri::{
+    Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
+};
 
 /// Manages instances of a state type per window
 struct WindowStateManager<T> {
@@ -81,8 +83,9 @@ impl<'r, 'de: 'r, T: Send + Sync + 'static, R: Runtime> CommandArg<'de, R> for W
     }
 }
 
-trait WindowLike {
+trait AnyWindow {
     fn label(&self) -> &str;
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F);
 }
 
 pub trait WindowScopedManager<R: Runtime> {
@@ -94,15 +97,38 @@ pub trait WindowScopedManager<R: Runtime> {
     fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T>;
 }
 
-impl<R: Runtime, M: Manager<R> + WindowLike> WindowScopedManager<R> for M {
+impl<R: Runtime, M: Manager<R> + AnyWindow> WindowScopedManager<R> for M {
     fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool {
         self.manage::<Arc<WindowStateManager<T>>>(Default::default());
-        self.state::<Arc<WindowStateManager<T>>>()
+
+        let replaced = self
+            .state::<Arc<WindowStateManager<T>>>()
             .states
             .write()
             .unwrap()
             .insert(self.label().into(), state)
-            .is_some()
+            .is_some();
+
+        log::debug!("attached state to window {:?}", self.label());
+
+        if !replaced {
+            let handle = self.app_handle().clone();
+            let label = self.label().to_owned();
+
+            #[allow(clippy::single_match)]
+            self.on_window_event(move |e| match e {
+                WindowEvent::Destroyed => {
+                    log::debug!("window {label:?} destroyed, dropping state");
+
+                    if let Some(manager) = handle.try_state::<Arc<WindowStateManager<T>>>() {
+                        manager.states.write().unwrap().remove(&label);
+                    }
+                },
+                _ => (),
+            });
+        }
+
+        replaced
     }
 
     fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T> {
@@ -117,22 +143,38 @@ impl<R: Runtime, M: Manager<R> + WindowLike> WindowScopedManager<R> for M {
     }
 }
 
-impl<R: Runtime> WindowLike for Window<R> {
+impl<R: Runtime> AnyWindow for Window<R> {
     fn label(&self) -> &str {
         self.label()
     }
+
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F) {
+        self.on_window_event(f);
+    }
 }
 
-impl<R: Runtime> WindowLike for WebviewWindow<R> {
+impl<R: Runtime> AnyWindow for WebviewWindow<R> {
     fn label(&self) -> &str {
         self.label()
+    }
+
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F) {
+        self.on_window_event(f);
     }
 }
 
 #[derive(Default)]
 struct WindowCounter(AtomicUsize);
 
-pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> WebviewWindow<R> {
+/// Opens a new app window with the given window-scoped state attached
+///
+/// NOTE: Commands calling this function must be `async` to avoid deadlocks on
+/// Windows!
+/// https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html#known-issues
+pub fn open<R: Runtime, M: Manager<R>, S: Send + Sync + 'static>(
+    app: &M,
+    state: S,
+) -> WebviewWindow<R> {
     app.manage(WindowCounter::default());
 
     let id = app
@@ -140,7 +182,8 @@ pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> Web
         .0
         .fetch_add(1, Ordering::SeqCst);
 
-    let window = WebviewWindowBuilder::new(app, format!("main{id}"), WebviewUrl::default())
+    let label = format!("main{id}");
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::default())
         .title("factbook")
         .inner_size(800.0, 600.0)
         .on_document_title_changed(|window, title| {

@@ -20,23 +20,24 @@ import ViewEditor from "@/components/ViewEditor";
 import { createMemo, createSignal, Show } from "solid-js";
 import { createToggle } from "@/utils";
 import { Key } from "@solid-primitives/keyed";
-import {
-  Check,
-  FunnelPlus,
-  LogOut,
-  PanelBottomClose,
-  PanelBottomOpen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PenLine,
-  Plus,
-  Trash,
-  X,
-} from "lucide-solid";
 import { useAppState } from "@/api/appState";
+import {
+  FilePlusCorner,
+  FolderOpen,
+  PanelLeftOpen,
+  PanelLeftClose,
+  PenLine,
+  Trash,
+  Check,
+  X,
+  FunnelPlus,
+  PanelBottomOpen,
+  PanelBottomClose,
+  Plus,
+} from "lucide-solid";
 
 export default function Journal() {
-  const { closeJournal } = useAppState();
+  const { createJournal, openJournal } = useAppState();
   const {
     views,
     getView,
@@ -84,14 +85,12 @@ export default function Journal() {
                 onClick={toggleLeftPanelCollapsed}
               />
             </PanelControls>
-            <PanelControls placement="bottom" sticky="right">
-              <IconButton
-                style="danger"
-                flip="horizontal"
-                icon={LogOut}
-                onClick={closeJournal}
-              />
-            </PanelControls>
+            <Show when={!leftPanelCollapsed()}>
+              <PanelControls placement="bottom left">
+                <IconButton icon={FilePlusCorner} onClick={createJournal} />
+                <IconButton icon={FolderOpen} onClick={openJournal} />
+              </PanelControls>
+            </Show>
           </>
         }
       >
