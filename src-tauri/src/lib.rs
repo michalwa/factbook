@@ -1,16 +1,17 @@
 use std::fs::File;
-use std::sync::{LazyLock, RwLock};
-use tauri::{App, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::sync::LazyLock;
+use tauri::App;
 use tauri_plugin_store::StoreExt;
 
 mod api;
 mod util;
+mod window;
 
 static SESSION: LazyLock<factbook_core::Session> =
     LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
 
 const SETTINGS_PATH: &str = "settings.json";
-const SETTING_JOURNAL_PATH: &str = "journal_path";
+const SETTING_OPEN_JOURNALS: &str = "openJournals";
 
 #[derive(Default)]
 pub enum AppState {
@@ -100,27 +101,22 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("factbook")
-        .inner_size(800.0, 600.0)
-        .on_document_title_changed(|window, title| {
-            window.set_title(&title).unwrap();
-        })
-        .build()
-        .unwrap();
-
-    let mut state = AppState::default();
-
-    if let Some(path) = app
+    if let Some(paths) = app
         .store(SETTINGS_PATH)?
-        .get(SETTING_JOURNAL_PATH)
-        .and_then(|path| path.as_str().map(String::from))
+        .get(SETTING_OPEN_JOURNALS)
+        .and_then(|paths| paths.as_array().cloned())
     {
-        log::info!("loading journal file: {path}");
-        state.open_journal(&path).unwrap();
+        for path in paths {
+            if let Some(path) = path.as_str() {
+                log::info!("loading journal file: {path}");
+                let mut state = AppState::default();
+                state.open_journal(path)?;
+                window::open(app, state);
+            }
+        }
+    } else {
+        window::open(app, AppState::default());
     }
-
-    app.manage(RwLock::new(state));
 
     Ok(())
 }
