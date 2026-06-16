@@ -29,6 +29,8 @@ impl Default for AppState {
 impl AppState {
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
         let path = path.into();
+        log::info!("loading journal file: {}", path.display());
+
         let journal_state = factbook_core::State::new(&SESSION);
 
         if let Ok(file) = File::open(&path) {
@@ -90,14 +92,10 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(paths) = app.settings().open_journals() {
-        for path in paths {
-            log::info!("loading journal file: {path}");
-            window::open(app, AppState::open(path)?);
-        }
-    } else {
-        window::open(app, AppState::default());
-    }
+    match app.settings().last_saved_journal() {
+        Some(path) => window::open(app, AppState::open(path)?),
+        None => window::open(app, AppState::default()),
+    };
 
     Ok(())
 }

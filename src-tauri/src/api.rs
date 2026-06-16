@@ -1,14 +1,14 @@
 use crate::settings::Settings;
 use crate::util::SerializeIterOnce;
-use crate::window::{self, WindowState};
+use crate::window::{self, WindowScopedManager, WindowState};
 use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use tauri::{AppHandle, ipc};
-use tauri_plugin_dialog::DialogExt;
+use tauri::{AppHandle, Manager, Runtime, Window, ipc};
+use tauri_plugin_dialog::{DialogExt, FileDialogBuilder};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,30 +41,42 @@ pub async fn create_journal(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn open_journal(app: AppHandle, settings: Settings) {
-    if let Some(path) = app
-        .dialog()
-        .file()
+pub async fn open_journal(window: Window) {
+    if let Some(path) = journal_file_picker(&window)
         .set_title("Open journal file")
-        .add_filter("Journal file", &["json"])
         .blocking_pick_file()
     {
         let path = path.into_path().unwrap();
-        let path_str = path.to_str().expect("path is not valid unicode").to_owned();
-
         let state = crate::AppState::open(path).unwrap();
-        window::open(&app, state);
-
-        let mut paths = settings.open_journals().unwrap_or_default();
-        paths.push(path_str);
-        settings.set_open_journals(paths);
+        window::open(window.app_handle(), state);
     }
 }
 
+#[derive(Serialize)]
+pub struct SaveJournalResponse {
+    success: bool,
+}
+
 #[tauri::command]
-pub fn save_journal(state: AppState) {
-    let state = state.read().unwrap();
-    let path = state.journal_path.as_ref().unwrap();
+pub async fn save_journal(window: Window, settings: Settings) -> Result<SaveJournalResponse, ()> {
+    let state = window.state_window_scoped::<RwLock<crate::AppState>>();
+    let mut state = state.write().unwrap();
+
+    let path = match state.journal_path {
+        Some(ref path) => path,
+        None => {
+            let Some(path) = journal_file_picker(&window)
+                .set_title("Save journal file")
+                .blocking_save_file()
+            else {
+                return Ok(SaveJournalResponse { success: false });
+            };
+
+            state.journal_path = Some(path.into_path().unwrap());
+            state.journal_path.as_ref().unwrap()
+        },
+    };
+
     let file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -73,6 +85,10 @@ pub fn save_journal(state: AppState) {
         .unwrap();
 
     serde_json::to_writer_pretty(file, &state.journal.to_journal()).unwrap();
+
+    settings.set_last_saved_journal(path);
+
+    Ok(SaveJournalResponse { success: true })
 }
 
 #[tauri::command]
@@ -169,4 +185,13 @@ pub fn set_entry_content(state: AppState, id: EntryId, content: String) -> ipc::
 #[tauri::command]
 pub fn parse_entry_content(content: &str) -> Vec<Span> {
     lang::parse_spans(content)
+}
+
+fn journal_file_picker<R: Runtime>(window: &Window<R>) -> FileDialogBuilder<R> {
+    window
+        .app_handle()
+        .dialog()
+        .file()
+        .set_parent(window)
+        .add_filter("Journal file", &["json"])
 }

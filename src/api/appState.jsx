@@ -10,7 +10,9 @@ import {
 const AppStateContext = createContext();
 
 export function createAppState() {
-  const [journalPath] = createResource(() => invoke("get_journal_path"));
+  const [journalPath, { refetch: refetchJournalPath }] = createResource(() =>
+    invoke("get_journal_path"),
+  );
   const [journalBasename] = createResource(
     () => ({ path: journalPath() }),
     ({ path }) => path && basename(path),
@@ -21,8 +23,11 @@ export function createAppState() {
   const createJournal = () => invoke("create_journal");
   const openJournal = () => invoke("open_journal");
   const saveJournal = async () => {
-    await invoke("save_journal");
-    setDirty(false);
+    const { success } = await invoke("save_journal");
+    if (success) {
+      setDirty(false);
+      refetchJournalPath();
+    }
   };
 
   const context = {

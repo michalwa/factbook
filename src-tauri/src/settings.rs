@@ -1,10 +1,11 @@
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::ipc::{CommandArg, CommandItem, InvokeError};
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::{Store, StoreExt};
 
 const SETTINGS_PATH: &str = "settings.json";
-const SETTING_OPEN_JOURNALS: &str = "openJournals";
+const SETTING_LAST_SAVED_JOURNAL: &str = "lastSavedJournal";
 
 /// Type-safety & convenience wrapper around a [`Store`] for persistent user
 /// settings
@@ -17,20 +18,15 @@ impl<'de, R: Runtime> CommandArg<'de, R> for Settings<R> {
 }
 
 impl<R: Runtime> Settings<R> {
-    pub fn open_journals(&self) -> Option<Vec<String>> {
+    pub fn last_saved_journal(&self) -> Option<PathBuf> {
         self.0
-            .get(SETTING_OPEN_JOURNALS)
-            .and_then(|paths| paths.as_array().cloned())
-            .map(|paths| {
-                paths
-                    .into_iter()
-                    .filter_map(|path| path.as_str().map(|p| p.into()))
-                    .collect()
-            })
+            .get(SETTING_LAST_SAVED_JOURNAL)
+            .and_then(|v| v.as_str().map(PathBuf::from))
     }
 
-    pub fn set_open_journals(&self, value: Vec<String>) {
-        self.0.set(SETTING_OPEN_JOURNALS, value);
+    pub fn set_last_saved_journal(&self, path: impl AsRef<Path>) {
+        self.0
+            .set(SETTING_LAST_SAVED_JOURNAL, path.as_ref().to_str().unwrap());
     }
 }
 
