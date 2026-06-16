@@ -1,13 +1,12 @@
+use crate::settings::Settings;
 use crate::util::SerializeIterOnce;
 use crate::window::WindowState;
-use crate::{AppState, SETTING_OPEN_JOURNALS, SETTINGS_PATH};
 use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
 use std::fs::OpenOptions;
 use std::sync::RwLock;
-use tauri::{AppHandle, ipc};
-use tauri_plugin_store::StoreExt;
+use tauri::ipc;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,55 +24,48 @@ struct Entry<'a> {
     entry: &'a model::Entry,
 }
 
+type AppState<'a> = WindowState<'a, RwLock<crate::AppState>>;
+
 #[tauri::command]
-pub fn get_state(state: WindowState<RwLock<AppState>>) -> &'static str {
+pub fn get_state(state: AppState) -> &'static str {
     match *state.read().unwrap() {
-        AppState::Start => "start",
-        AppState::Journal { .. } => "journal",
+        crate::AppState::Start => "start",
+        crate::AppState::Journal { .. } => "journal",
     }
 }
 
 #[tauri::command]
-pub fn get_journal_path(state: WindowState<RwLock<AppState>>) -> Option<String> {
+pub fn get_journal_path(state: AppState) -> Option<String> {
     state.read().unwrap().journal_path().map(String::from)
 }
 
 #[tauri::command]
-pub fn open_journal(app: AppHandle, state: WindowState<RwLock<AppState>>, path: &str) {
+pub fn open_journal(state: AppState, settings: Settings, path: &str) {
     state.write().unwrap().open_journal(path).unwrap();
 
-    let store = app.store(SETTINGS_PATH).unwrap();
-    let mut paths = store
-        .get(SETTING_OPEN_JOURNALS)
-        .and_then(|paths| paths.as_array().cloned())
-        .unwrap_or_default();
-
+    let mut paths = settings.open_journals().unwrap_or_default();
     paths.push(path.into());
-    store.set(SETTING_OPEN_JOURNALS, paths);
+    settings.set_open_journals(paths);
 }
 
 #[tauri::command]
-pub fn close_journal(app: AppHandle, state: WindowState<RwLock<AppState>>) {
+pub fn close_journal(state: AppState, settings: Settings) {
     let mut state = state.write().unwrap();
     let Some(path) = state.journal_path().map(|p| p.to_owned()) else {
         return;
     };
-    *state = AppState::Start;
+    *state = crate::AppState::Start;
 
-    let store = app.store(SETTINGS_PATH).unwrap();
-    if let Some(mut paths) = store
-        .get(SETTING_OPEN_JOURNALS)
-        .and_then(|paths| paths.as_array().cloned())
-    {
+    if let Some(mut paths) = settings.open_journals() {
         if let Some(i) = paths.iter().position(|p| p == &path) {
             paths.remove(i);
         }
-        store.set(SETTING_OPEN_JOURNALS, paths);
+        settings.set_open_journals(paths);
     }
 }
 
 #[tauri::command]
-pub fn save_journal(state: WindowState<RwLock<AppState>>) {
+pub fn save_journal(state: AppState) {
     let state = state.read().unwrap();
     let path = state.journal_path().unwrap();
     let file = OpenOptions::new()
@@ -87,7 +79,7 @@ pub fn save_journal(state: WindowState<RwLock<AppState>>) {
 }
 
 #[tauri::command]
-pub fn get_views(state: WindowState<RwLock<AppState>>) -> ipc::Response {
+pub fn get_views(state: AppState) -> ipc::Response {
     let state = state.read().unwrap();
     let views = state.journal().views();
     let views = views
@@ -101,31 +93,31 @@ pub fn get_views(state: WindowState<RwLock<AppState>>) -> ipc::Response {
 }
 
 #[tauri::command]
-pub fn create_view(state: WindowState<RwLock<AppState>>) -> ViewId {
+pub fn create_view(state: AppState) -> ViewId {
     let mut state = state.write().unwrap();
     state.journal_mut().views_mut().create()
 }
 
 #[tauri::command]
-pub fn remove_view(state: WindowState<RwLock<AppState>>, id: ViewId) {
+pub fn remove_view(state: AppState, id: ViewId) {
     let mut state = state.write().unwrap();
     state.journal_mut().views_mut().remove(id);
 }
 
 #[tauri::command]
-pub fn set_view_name(state: WindowState<RwLock<AppState>>, id: ViewId, name: String) {
+pub fn set_view_name(state: AppState, id: ViewId, name: String) {
     let mut state = state.write().unwrap();
     state.journal_mut().views_mut().set_name(id, name);
 }
 
 #[tauri::command]
-pub fn set_view_definition(state: WindowState<RwLock<AppState>>, id: ViewId, definition: String) {
+pub fn set_view_definition(state: AppState, id: ViewId, definition: String) {
     let mut state = state.write().unwrap();
     state.journal_mut().set_view_definition(id, definition);
 }
 
 #[tauri::command]
-pub fn get_entries(state: WindowState<RwLock<AppState>>, view: Option<ViewId>) -> ipc::Response {
+pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
     use serde::Serializer;
     use serde::ser::SerializeSeq;
 
@@ -154,23 +146,19 @@ pub fn get_entries(state: WindowState<RwLock<AppState>>, view: Option<ViewId>) -
 }
 
 #[tauri::command]
-pub fn create_entry(state: WindowState<RwLock<AppState>>) -> EntryId {
+pub fn create_entry(state: AppState) -> EntryId {
     let mut state = state.write().unwrap();
     state.journal_mut().entries_mut().create()
 }
 
 #[tauri::command]
-pub fn remove_entry(state: WindowState<RwLock<AppState>>, id: EntryId) {
+pub fn remove_entry(state: AppState, id: EntryId) {
     let mut state = state.write().unwrap();
     state.journal_mut().entries_mut().remove(id);
 }
 
 #[tauri::command]
-pub fn set_entry_content(
-    state: WindowState<RwLock<AppState>>,
-    id: EntryId,
-    content: String,
-) -> ipc::Response {
+pub fn set_entry_content(state: AppState, id: EntryId, content: String) -> ipc::Response {
     let mut state = state.write().unwrap();
     state.journal_mut().entries_mut().set_content(id, content);
 
