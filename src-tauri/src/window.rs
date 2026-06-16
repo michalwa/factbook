@@ -26,7 +26,7 @@ pub struct WindowState<'a, T: Send + Sync + 'static> {
     state: &'a T,
     // SAFETY: `_guard` must be declared before `_manager` in order to ensure
     // the `RwLock` is still valid on `drop`
-    _guard: RwLockReadGuard<'a, WindowStates<T>>,
+    _guard: RwLockReadGuard<'static, WindowStates<T>>,
     _manager: Arc<WindowStateManager<T>>,
 }
 
@@ -47,22 +47,20 @@ impl<'r, 'de: 'r, T: Send + Sync + 'static, R: Runtime> CommandArg<'de, R> for W
             .state_ref()
             .try_get::<Arc<WindowStateManager<T>>>()
             .and_then(|manager| {
-                // Thanks to the `Arc` we can pretty much borrow this for `'static`,
-                // `'r` is just to ensure the borrow does not outlive the `CommandArg`
                 let manager = Arc::clone(&*manager);
 
-                // SAFETY: Guard is valid as long as the `Arc` is valid
+                // SAFETY: Guard is valid as long as the `RwLock` is valid,
+                // which is kept valid by the `Arc`
                 let guard = unsafe {
                     std::mem::transmute::<
                         RwLockReadGuard<'_, WindowStates<T>>,
-                        RwLockReadGuard<'r, WindowStates<T>>,
+                        RwLockReadGuard<'static, WindowStates<T>>,
                     >(manager.states.read().unwrap())
                 };
 
-                // SAFETY: Reference is valid as long as `guard` is valid, the
-                // `HashMap` is ensured to be immutable while `guard` is held
-                let state =
-                    unsafe { std::mem::transmute::<&'_ T, &'r T>(guard.get(window.label())?) };
+                // SAFETY: Reference is valid as long as `guard` is valid, the `HashMap`
+                // is ensured to be immutable while `guard` is held
+                let state = unsafe { &*(guard.get(window.label())? as *const T) };
 
                 Some(WindowState {
                     state,
