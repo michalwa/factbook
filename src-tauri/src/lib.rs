@@ -1,16 +1,15 @@
+use crate::settings::SettingsExt;
 use std::fs::File;
-use std::sync::{LazyLock, RwLock};
-use tauri::{App, Manager, WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_store::StoreExt;
+use std::sync::LazyLock;
+use tauri::{App, Manager};
 
 mod api;
+mod settings;
 mod util;
+mod window;
 
 static SESSION: LazyLock<factbook_core::Session> =
     LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
-
-const SETTINGS_PATH: &str = "settings.json";
-const SETTING_JOURNAL_PATH: &str = "journal_path";
 
 #[derive(Default)]
 pub enum AppState {
@@ -67,7 +66,18 @@ impl AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.webview_windows().values().next() {
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -100,27 +110,16 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-        .title("factbook")
-        .inner_size(800.0, 600.0)
-        .on_document_title_changed(|window, title| {
-            window.set_title(&title).unwrap();
-        })
-        .build()
-        .unwrap();
-
-    let mut state = AppState::default();
-
-    if let Some(path) = app
-        .store(SETTINGS_PATH)?
-        .get(SETTING_JOURNAL_PATH)
-        .and_then(|path| path.as_str().map(String::from))
-    {
-        log::info!("loading journal file: {path}");
-        state.open_journal(&path).unwrap();
+    if let Some(paths) = app.settings().open_journals() {
+        for path in paths {
+            log::info!("loading journal file: {path}");
+            let mut state = AppState::default();
+            state.open_journal(&path)?;
+            window::open(app, state);
+        }
+    } else {
+        window::open(app, AppState::default());
     }
-
-    app.manage(RwLock::new(state));
 
     Ok(())
 }
