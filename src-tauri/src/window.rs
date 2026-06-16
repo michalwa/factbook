@@ -1,4 +1,4 @@
-use crate::AppState;
+use std::any::type_name;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -18,6 +18,31 @@ impl<T> Default for WindowStateManager<T> {
         Self {
             states: Default::default(),
         }
+    }
+}
+
+impl<T: Send + Sync + 'static> WindowStateManager<T> {
+    fn get(self: &Arc<Self>, key: &str) -> Option<WindowState<'static, T>> {
+        let manager = Arc::clone(self);
+
+        // SAFETY: Guard is valid as long as the `RwLock` is valid, which is kept
+        // valid by the `Arc`
+        let guard = unsafe {
+            std::mem::transmute::<
+                RwLockReadGuard<'_, WindowStates<T>>,
+                RwLockReadGuard<'static, WindowStates<T>>,
+            >(manager.states.read().unwrap())
+        };
+
+        // SAFETY: Reference is valid as long as `guard` is valid, the `HashMap`
+        // is ensured to be immutable while `guard` is held
+        let state = unsafe { &*(guard.get(key)? as *const T) };
+
+        Some(WindowState {
+            state,
+            _guard: guard,
+            _manager: manager,
+        })
     }
 }
 
@@ -46,28 +71,7 @@ impl<'r, 'de: 'r, T: Send + Sync + 'static, R: Runtime> CommandArg<'de, R> for W
             .message
             .state_ref()
             .try_get::<Arc<WindowStateManager<T>>>()
-            .and_then(|manager| {
-                let manager = Arc::clone(&*manager);
-
-                // SAFETY: Guard is valid as long as the `RwLock` is valid,
-                // which is kept valid by the `Arc`
-                let guard = unsafe {
-                    std::mem::transmute::<
-                        RwLockReadGuard<'_, WindowStates<T>>,
-                        RwLockReadGuard<'static, WindowStates<T>>,
-                    >(manager.states.read().unwrap())
-                };
-
-                // SAFETY: Reference is valid as long as `guard` is valid, the `HashMap`
-                // is ensured to be immutable while `guard` is held
-                let state = unsafe { &*(guard.get(window.label())? as *const T) };
-
-                Some(WindowState {
-                    state,
-                    _guard: guard,
-                    _manager: manager,
-                })
-            })
+            .and_then(|manager| manager.get(window.label()))
             .ok_or_else(|| {
                 InvokeError::from(format!(
                     "window state not managed for field `{}` on command `{}`",
@@ -77,16 +81,21 @@ impl<'r, 'de: 'r, T: Send + Sync + 'static, R: Runtime> CommandArg<'de, R> for W
     }
 }
 
-trait ManageScopedInternal {
+trait WindowLike {
     fn label(&self) -> &str;
 }
 
-pub trait ManageScoped<R: Runtime> {
-    fn manage_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool;
+pub trait WindowScopedManager<R: Runtime> {
+    /// Registers state to be managed in the scope of the window.
+    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool;
+    /// Fetches state managed in the scope of the window.
+    /// In commands, prefer using a [`WindowState`] argument.
+    #[allow(unused)] // Used in tests and added for consistency with [`tauri::Manager::state`]
+    fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T>;
 }
 
-impl<R: Runtime, M: Manager<R> + ManageScopedInternal> ManageScoped<R> for M {
-    fn manage_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool {
+impl<R: Runtime, M: Manager<R> + WindowLike> WindowScopedManager<R> for M {
+    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool {
         self.manage::<Arc<WindowStateManager<T>>>(Default::default());
         self.state::<Arc<WindowStateManager<T>>>()
             .states
@@ -95,15 +104,26 @@ impl<R: Runtime, M: Manager<R> + ManageScopedInternal> ManageScoped<R> for M {
             .insert(self.label().into(), state)
             .is_some()
     }
+
+    fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T> {
+        self.state::<Arc<WindowStateManager<T>>>()
+            .get(self.label())
+            .unwrap_or_else(|| {
+                panic!(
+                    "state_window_scoped() called before manage_window_scoped() for {}",
+                    type_name::<T>()
+                )
+            })
+    }
 }
 
-impl ManageScopedInternal for Window {
+impl<R: Runtime> WindowLike for Window<R> {
     fn label(&self) -> &str {
         self.label()
     }
 }
 
-impl ManageScopedInternal for WebviewWindow {
+impl<R: Runtime> WindowLike for WebviewWindow<R> {
     fn label(&self) -> &str {
         self.label()
     }
@@ -112,7 +132,7 @@ impl ManageScopedInternal for WebviewWindow {
 #[derive(Default)]
 struct WindowCounter(AtomicUsize);
 
-pub fn open(app: &App, state: AppState) {
+pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> WebviewWindow<R> {
     app.manage(WindowCounter::default());
 
     let id = app
@@ -129,5 +149,6 @@ pub fn open(app: &App, state: AppState) {
         .build()
         .unwrap();
 
-    window.manage_scoped(RwLock::new(state));
+    window.manage_window_scoped(RwLock::new(state));
+    window
 }
