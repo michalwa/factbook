@@ -10,42 +10,34 @@ import {
 const AppStateContext = createContext();
 
 export function createAppState() {
-  const [state, { refetch: refetchState }] = createResource(() =>
-    invoke("get_state"),
+  const [journalPath, { refetch: refetchJournalPath }] = createResource(() =>
+    invoke("get_journal_path"),
   );
-
-  const [journalPath] = createResource(state, () => invoke("get_journal_path"));
   const [journalBasename] = createResource(
     () => ({ path: journalPath() }),
     ({ path }) => path && basename(path),
   );
 
-  const openJournal = async (path) => {
-    await invoke("open_journal", { path });
-    await refetchState();
-  };
-
-  const closeJournal = async (path) => {
-    await invoke("close_journal", { path });
-    await refetchState();
-  };
-
   const [dirty, setDirty] = createSignal(false);
 
+  const createJournal = () => invoke("create_journal");
+  const openJournal = () => invoke("open_journal");
   const saveJournal = async () => {
-    await invoke("save_journal");
-    setDirty(false);
+    const { success } = await invoke("save_journal");
+    if (success) {
+      setDirty(false);
+      refetchJournalPath();
+    }
   };
 
   const context = {
-    state,
     journalPath,
     journalBasename,
+    createJournal,
     openJournal,
-    closeJournal,
+    saveJournal,
     dirty,
     setDirty,
-    saveJournal,
   };
 
   const Provider = (props) => (

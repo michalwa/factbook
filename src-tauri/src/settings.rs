@@ -4,7 +4,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::{Store, StoreExt};
 
 const SETTINGS_PATH: &str = "settings.json";
-const SETTING_OPEN_JOURNALS: &str = "openJournals";
+const SETTING_LAST_JOURNAL_PATH: &str = "lastJournalPath";
 
 /// Type-safety & convenience wrapper around a [`Store`] for persistent user
 /// settings
@@ -17,20 +17,12 @@ impl<'de, R: Runtime> CommandArg<'de, R> for Settings<R> {
 }
 
 impl<R: Runtime> Settings<R> {
-    pub fn open_journals(&self) -> Option<Vec<String>> {
-        self.0
-            .get(SETTING_OPEN_JOURNALS)
-            .and_then(|paths| paths.as_array().cloned())
-            .map(|paths| {
-                paths
-                    .into_iter()
-                    .filter_map(|path| path.as_str().map(|p| p.into()))
-                    .collect()
-            })
+    pub fn last_journal_path(&self) -> Option<String> {
+        Some(self.0.get(SETTING_LAST_JOURNAL_PATH)?.as_str()?.to_owned())
     }
 
-    pub fn set_open_journals(&self, value: Vec<String>) {
-        self.0.set(SETTING_OPEN_JOURNALS, value);
+    pub fn set_last_journal_path(&self, path: impl Into<String>) {
+        self.0.set(SETTING_LAST_JOURNAL_PATH, path.into());
     }
 }
 

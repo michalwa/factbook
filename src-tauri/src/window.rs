@@ -4,7 +4,15 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use tauri::ipc::{CommandArg, CommandItem, InvokeError};
-use tauri::{App, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window};
+use tauri::{
+    AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window,
+    WindowEvent,
+};
+
+pub trait WindowStateData<R: Runtime>: Send + Sync + 'static {
+    /// Called on managed window-scoped state when the window is destroyed
+    fn cleanup(self, app: &AppHandle<R>);
+}
 
 /// Manages instances of a state type per window
 struct WindowStateManager<T> {
@@ -81,28 +89,54 @@ impl<'r, 'de: 'r, T: Send + Sync + 'static, R: Runtime> CommandArg<'de, R> for W
     }
 }
 
-trait WindowLike {
+trait AnyWindow {
     fn label(&self) -> &str;
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F);
 }
 
 pub trait WindowScopedManager<R: Runtime> {
     /// Registers state to be managed in the scope of the window.
-    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool;
+    fn manage_window_scoped<T: WindowStateData<R>>(&self, state: T) -> bool;
     /// Fetches state managed in the scope of the window.
     /// In commands, prefer using a [`WindowState`] argument.
     #[allow(unused)] // Used in tests and added for consistency with [`tauri::Manager::state`]
     fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T>;
 }
 
-impl<R: Runtime, M: Manager<R> + WindowLike> WindowScopedManager<R> for M {
-    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool {
+impl<R: Runtime, M: Manager<R> + AnyWindow> WindowScopedManager<R> for M {
+    fn manage_window_scoped<T: WindowStateData<R>>(&self, state: T) -> bool {
         self.manage::<Arc<WindowStateManager<T>>>(Default::default());
-        self.state::<Arc<WindowStateManager<T>>>()
+
+        let replaced = self
+            .state::<Arc<WindowStateManager<T>>>()
             .states
             .write()
             .unwrap()
             .insert(self.label().into(), state)
-            .is_some()
+            .is_some();
+
+        log::debug!("attached state to window {:?}", self.label());
+
+        if !replaced {
+            let handle = self.app_handle().clone();
+            let label = self.label().to_owned();
+
+            #[allow(clippy::single_match)]
+            self.on_window_event(move |e| match e {
+                WindowEvent::Destroyed => {
+                    log::debug!("window {label:?} destroyed, dropping state");
+
+                    if let Some(manager) = handle.try_state::<Arc<WindowStateManager<T>>>()
+                        && let Some(data) = manager.states.write().unwrap().remove(&label)
+                    {
+                        data.cleanup(&handle);
+                    }
+                },
+                _ => (),
+            });
+        }
+
+        replaced
     }
 
     fn state_window_scoped<T: Send + Sync + 'static>(&self) -> WindowState<'_, T> {
@@ -117,22 +151,40 @@ impl<R: Runtime, M: Manager<R> + WindowLike> WindowScopedManager<R> for M {
     }
 }
 
-impl<R: Runtime> WindowLike for Window<R> {
+impl<R: Runtime> AnyWindow for Window<R> {
     fn label(&self) -> &str {
         self.label()
     }
+
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F) {
+        self.on_window_event(f);
+    }
 }
 
-impl<R: Runtime> WindowLike for WebviewWindow<R> {
+impl<R: Runtime> AnyWindow for WebviewWindow<R> {
     fn label(&self) -> &str {
         self.label()
+    }
+
+    fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F) {
+        self.on_window_event(f);
     }
 }
 
 #[derive(Default)]
 struct WindowCounter(AtomicUsize);
 
-pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> WebviewWindow<R> {
+/// Opens a new app window with the given window-scoped state attached
+///
+/// NOTE: Commands calling this function must be `async` to avoid deadlocks on
+/// Windows!
+/// https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html#known-issues
+pub fn open<R, M, S>(app: &M, state: S) -> WebviewWindow<R>
+where
+    R: Runtime,
+    M: Manager<R>,
+    S: WindowStateData<R>,
+{
     app.manage(WindowCounter::default());
 
     let id = app
@@ -140,7 +192,8 @@ pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> Web
         .0
         .fetch_add(1, Ordering::SeqCst);
 
-    let window = WebviewWindowBuilder::new(app, format!("main{id}"), WebviewUrl::default())
+    let label = format!("main{id}");
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::default())
         .title("factbook")
         .inner_size(800.0, 600.0)
         .on_document_title_changed(|window, title| {
@@ -149,6 +202,6 @@ pub fn open<R: Runtime, T: Send + Sync + 'static>(app: &App<R>, state: T) -> Web
         .build()
         .unwrap();
 
-    window.manage_window_scoped(RwLock::new(state));
+    window.manage_window_scoped(state);
     window
 }

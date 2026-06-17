@@ -1,7 +1,9 @@
 use crate::settings::SettingsExt;
+use crate::window::WindowStateData;
 use std::fs::File;
-use std::sync::LazyLock;
-use tauri::{App, Manager};
+use std::path::PathBuf;
+use std::sync::{LazyLock, RwLock};
+use tauri::{App, AppHandle, Manager, Runtime};
 
 mod api;
 mod settings;
@@ -11,56 +13,47 @@ mod window;
 static SESSION: LazyLock<factbook_core::Session> =
     LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
 
-#[derive(Default)]
-pub enum AppState {
-    /// Initial screen with journal file picker
-    #[default]
-    Start,
-    /// Main state with entries and views
-    Journal {
-        journal_path: String,
-        state: Box<factbook_core::State<'static>>,
-    },
+pub struct AppState {
+    journal_path: Option<PathBuf>,
+    journal: factbook_core::State<'static>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            journal_path: None,
+            journal: factbook_core::State::new(&SESSION),
+        }
+    }
 }
 
 impl AppState {
-    pub fn journal(&self) -> &factbook_core::State<'static> {
-        match self {
-            Self::Journal { state, .. } => state,
-            _ => panic!("expected AppState to be in Journal state"),
-        }
-    }
+    pub fn open(path: impl Into<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
+        let path = path.into();
+        log::info!("loading journal file: {}", path.display());
 
-    pub fn journal_mut(&mut self) -> &mut factbook_core::State<'static> {
-        match self {
-            Self::Journal { state, .. } => state,
-            _ => panic!("expected AppState to be in Journal state"),
-        }
-    }
-
-    pub fn journal_path(&self) -> Option<&str> {
-        match self {
-            Self::Journal { journal_path, .. } => Some(journal_path),
-            _ => None,
-        }
-    }
-
-    pub fn open_journal(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
         let journal_state = factbook_core::State::new(&SESSION);
 
-        if let Ok(file) = File::open(path) {
+        if let Ok(file) = File::open(&path) {
             let journal = serde_json::from_reader(file)?;
             journal_state.load_journal(journal);
         } else {
             log::warn!("journal file doesn't exist, saving will create it");
         }
 
-        *self = AppState::Journal {
-            journal_path: path.into(),
-            state: Box::new(journal_state),
-        };
+        Ok(Self {
+            journal_path: Some(path),
+            journal: journal_state,
+        })
+    }
+}
 
-        Ok(())
+impl<R: Runtime> WindowStateData<R> for RwLock<AppState> {
+    fn cleanup(self, app: &AppHandle<R>) {
+        if let Some(path) = self.into_inner().unwrap().journal_path {
+            app.settings()
+                .set_last_journal_path(path.to_str().expect("path is not valid unicode"));
+        }
     }
 }
 
@@ -89,10 +82,9 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
-            api::get_state,
             api::get_journal_path,
+            api::create_journal,
             api::open_journal,
-            api::close_journal,
             api::save_journal,
             api::get_views,
             api::create_view,
@@ -110,16 +102,10 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(paths) = app.settings().open_journals() {
-        for path in paths {
-            log::info!("loading journal file: {path}");
-            let mut state = AppState::default();
-            state.open_journal(&path)?;
-            window::open(app, state);
-        }
-    } else {
-        window::open(app, AppState::default());
-    }
+    match app.settings().last_journal_path() {
+        Some(path) => window::open(app, RwLock::new(AppState::open(path)?)),
+        None => window::open(app, RwLock::new(AppState::default())),
+    };
 
     Ok(())
 }
