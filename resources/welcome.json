@@ -1,9 +1,74 @@
 {
-  "views": [],
+  "views": [
+    {
+      "name": "Getting started",
+      "definition": "@\"Getting started\""
+    },
+    {
+      "name": "Basic tagging",
+      "definition": "@\"Basic tagging\"; @tags; @tag"
+    },
+    {
+      "name": "Compound terms",
+      "definition": "@\"Compound terms\"; @'compound term'"
+    },
+    {
+      "name": "Variables",
+      "definition": "@\"Variables\"; @variables"
+    }
+  ],
   "entries": [
     {
       "created_at": "2026-06-17T14:39:12.007864300+02:00",
-      "content": "Welcome to factbook!"
+      "content": "=== Welcome to factbook! ==="
+    },
+    {
+      "created_at": "2026-06-17T15:20:39.979284900+02:00",
+      "content": "This is the default journal meant to serve as a starting point and a learning resource for using the app."
+    },
+    {
+      "created_at": "2026-06-17T15:22:10.876437300+02:00",
+      "content": "You can access it at any time by clicking the question mark icon at the bottom of the sidebar."
+    },
+    {
+      "created_at": "2026-06-17T15:24:50.441731300+02:00",
+      "content": "Start the tutorial by clicking on @\"Getting started\" in the sidebar."
+    },
+    {
+      "created_at": "2026-06-17T15:36:31.774256+02:00",
+      "content": "============================"
+    },
+    {
+      "created_at": "2026-06-17T15:36:41.576484100+02:00",
+      "content": "The content you are reading is organized into @entries These are distinguished by the line on the left of the text and a timestamp indicating when the entry was created.\n\nTabs on the left are called @views and they define different sets of entries which are displayed in the entry list.\n\nAt the bottom you can see the @'view definition' which is a query written in a language built on top of Prolog.\n\nA query is composed of @predicates This specific view only uses a single predicate, satisfied by entries containing the tag @\"Getting started\" like the one you're reading right now.\n\nTags start with the `@` sign followed by any Prolog term like @hello(world) @2+2=4 @[_, hello, \"world\"]"
+    },
+    {
+      "created_at": "2026-06-17T17:18:59.208631100+02:00",
+      "content": "Switch the view from @\"Getting started\" to @\"Basic tagging\" in the sidebar to read more."
+    },
+    {
+      "created_at": "2026-06-17T17:20:25.574707500+02:00",
+      "content": "@tags are pieces of data embedded in @entries parsed and stored as @'Prolog terms'\n\nA simple tag like @foo consists of what's called an @atom This is a unique value identified by its textual representation.\n\nThe name of an atom should start with a lowercase letter and only contain alphanumeric characters or the `_` character. Otherwise it must be enclosed in @'single quotes'\n\nAtoms are similar to @\"strings\" which are enclosed in @\"double quotes\" but are in fact a distinct data type. In the context of factbook, you may use this distinction to your advantage by maintaining two separate tagging systems."
+    },
+    {
+      "created_at": "2026-06-17T17:35:45.153998900+02:00",
+      "content": "Filtering by atoms resembles simple @tag filtering in other note-taking apps. Give it a try! Create a new view by clicking the button on the bottom of the sidebar and type @'my first view' into the definition panel.\n\nClick on @\"Compound terms\" to continue."
+    },
+    {
+      "created_at": "2026-06-17T17:49:31.795728700+02:00",
+      "content": "Another kind of @tag is a @'compound term'\n\nIt is a grouping of zero or more terms discriminated by a prefix called a @functor e.g. @hello() @hello(world) @hello(1, 2)\n\nThe same naming rules apply to functors as to regular atoms, e.g. they may be @'single quoted'() if they contain spaces.\n\nIt is important to note that functors are also unique by their @arity meaning @hello() and @hello(world) are actually distinct functors, conventionally notated as `hello/0` and `hello/1`."
+    },
+    {
+      "created_at": "2026-06-17T17:50:38.849240300+02:00",
+      "content": "Filtering by a @'compound term' is similar to filtering by atoms, simply include the term in your view. Give it a try! Try filtering by @my(compound, term)\n\nClick on @\"Variables\" to continue."
+    },
+    {
+      "created_at": "2026-06-17T17:52:25.479703300+02:00",
+      "content": "So far we've relied on basic structural equality for filtering. This means tags referenced in the views were recursively compared with tags occuring in entries. But one of the strengths of Prolog as a logic programming language is @\"Variables\" and @unification\n\nVariables are special terms that match other terms by either assuming their value or matching with a previously assumed value. For a predicate to succeed, all occurences of a variable must match the same term.\n\nVariables are represented similarly to atoms as identifiers, but starting with an uppercase letter or `_`, e.g. `Variable` `_variable`\n\n[note: we cannot actually include valid variable tags here as it would make this entry appear in other views]\n\nIn the examples below, `=` represents successful @unification rather than equality:\n\n       X = atom\n    atom = X\n  \nThis also applies recursively to compound terms:\n\n       compound(X) = compound(1)\n    compound(X, Y) = compound(1, 2)\n\nIt is also worth noting that variables do not need to assume a concrete value, so long as it cannot be proven that unification is broken. For example, two free variables will always unify:\n\n              X = Y\n    compound(X) = compound(Y)\n\nAnd a variable will always unify with itself:\n\n    X = X\n\nIn the following counter-examples @unification fails:\n\n    compound(X, X) = compound(1, 2)\n       compound(X) = compound(X, Y)\n\nJust as other terms, variables may occur both in entries as well as views.\n\nYou may have noticed that newly created views are defined as `_`. This represents an unnamed variable and indicates that the view should match any entry. Importantly, all occurences of `_` represent distinct variables. The following example succeeds:\n\n    compound(_, _) = compound(1, 2)\n"
+    },
+    {
+      "created_at": "2026-06-17T18:27:34.710064700+02:00",
+      "content": "Try filtering by @variables yourself! As a basic example `@_` will match all entries which contain at least one tag of any kind."
     }
   ]
 }
