@@ -52,7 +52,7 @@ impl<R: Runtime> WindowStateData<R> for RwLock<AppState> {
     fn cleanup(self, app: &AppHandle<R>) {
         if let Some(path) = self.into_inner().unwrap().journal_path {
             app.settings()
-                .close_journal(path.to_str().expect("path is not valid unicode"));
+                .set_last_journal_path(path.to_str().expect("path is not valid unicode"));
         }
     }
 }
@@ -102,11 +102,7 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    match app
-        .settings()
-        .open_journals()
-        .and_then(|mut paths| paths.pop())
-    {
+    match app.settings().last_journal_path() {
         Some(path) => window::open(app, RwLock::new(AppState::open(path)?)),
         None => window::open(app, RwLock::new(AppState::default())),
     };

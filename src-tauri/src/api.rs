@@ -1,4 +1,3 @@
-use crate::settings::Settings;
 use crate::util::SerializeIterOnce;
 use crate::window::{self, WindowScopedManager, WindowState};
 use factbook_core::lang::{self, Span};
@@ -41,18 +40,14 @@ pub async fn create_journal(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn open_journal(window: Window, settings: Settings) {
+pub async fn open_journal(window: Window) {
     if let Some(path) = journal_file_picker(&window)
         .set_title("Open journal file")
         .blocking_pick_file()
     {
         let path = path.into_path().unwrap();
-        let path_str = path.to_str().expect("path is not valid unicode").to_owned();
-
         let state = crate::AppState::open(path).unwrap();
         window::open(window.app_handle(), RwLock::new(state));
-
-        settings.open_journal(path_str);
     }
 }
 
