@@ -30,12 +30,15 @@ export function createAppState() {
     }
   };
 
+  const openDefaultJournal = () => invoke("open_default_journal");
+
   const context = {
     journalPath,
     journalBasename,
     createJournal,
     openJournal,
     saveJournal,
+    openDefaultJournal,
     dirty,
     setDirty,
   };

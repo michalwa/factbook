@@ -15,7 +15,7 @@ pub trait WindowStateData<R: Runtime>: Send + Sync + 'static {
 }
 
 /// Manages instances of a state type per window
-struct WindowStateManager<T> {
+pub struct WindowStateManager<T> {
     states: RwLock<WindowStates<T>>,
 }
 
@@ -30,6 +30,10 @@ impl<T> Default for WindowStateManager<T> {
 }
 
 impl<T: Send + Sync + 'static> WindowStateManager<T> {
+    pub fn states(&self) -> RwLockReadGuard<'_, WindowStates<T>> {
+        self.states.read().unwrap()
+    }
+
     fn get(self: &Arc<Self>, key: &str) -> Option<WindowState<'static, T>> {
         let manager = Arc::clone(self);
 
@@ -168,6 +172,18 @@ impl<R: Runtime> AnyWindow for WebviewWindow<R> {
 
     fn on_window_event<F: Fn(&WindowEvent) + Send + 'static>(&self, f: F) {
         self.on_window_event(f);
+    }
+}
+
+pub trait WindowStatesExt<R: Runtime> {
+    /// Returns a reference to the storage of all window-scoped states of type
+    /// `T`
+    fn window_states<T: Send + Sync + 'static>(&self) -> Arc<WindowStateManager<T>>;
+}
+
+impl<R: Runtime, M: Manager<R>> WindowStatesExt<R> for M {
+    fn window_states<T: Send + Sync + 'static>(&self) -> Arc<WindowStateManager<T>> {
+        Arc::clone(&*self.state::<Arc<WindowStateManager<T>>>())
     }
 }
 
