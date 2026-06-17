@@ -5,8 +5,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use tauri::ipc::{CommandArg, CommandItem, InvokeError};
 use tauri::{
-    Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window,
+    WindowEvent,
 };
+
+pub trait WindowStateData<R: Runtime>: Send + Sync + 'static {
+    /// Called on managed window-scoped state when the window is destroyed
+    fn cleanup(self, app: &AppHandle<R>);
+}
 
 /// Manages instances of a state type per window
 struct WindowStateManager<T> {
@@ -90,7 +96,7 @@ trait AnyWindow {
 
 pub trait WindowScopedManager<R: Runtime> {
     /// Registers state to be managed in the scope of the window.
-    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool;
+    fn manage_window_scoped<T: WindowStateData<R>>(&self, state: T) -> bool;
     /// Fetches state managed in the scope of the window.
     /// In commands, prefer using a [`WindowState`] argument.
     #[allow(unused)] // Used in tests and added for consistency with [`tauri::Manager::state`]
@@ -98,7 +104,7 @@ pub trait WindowScopedManager<R: Runtime> {
 }
 
 impl<R: Runtime, M: Manager<R> + AnyWindow> WindowScopedManager<R> for M {
-    fn manage_window_scoped<T: Send + Sync + 'static>(&self, state: T) -> bool {
+    fn manage_window_scoped<T: WindowStateData<R>>(&self, state: T) -> bool {
         self.manage::<Arc<WindowStateManager<T>>>(Default::default());
 
         let replaced = self
@@ -120,8 +126,10 @@ impl<R: Runtime, M: Manager<R> + AnyWindow> WindowScopedManager<R> for M {
                 WindowEvent::Destroyed => {
                     log::debug!("window {label:?} destroyed, dropping state");
 
-                    if let Some(manager) = handle.try_state::<Arc<WindowStateManager<T>>>() {
-                        manager.states.write().unwrap().remove(&label);
+                    if let Some(manager) = handle.try_state::<Arc<WindowStateManager<T>>>()
+                        && let Some(data) = manager.states.write().unwrap().remove(&label)
+                    {
+                        data.cleanup(&handle);
                     }
                 },
                 _ => (),
@@ -171,10 +179,12 @@ struct WindowCounter(AtomicUsize);
 /// NOTE: Commands calling this function must be `async` to avoid deadlocks on
 /// Windows!
 /// https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html#known-issues
-pub fn open<R: Runtime, M: Manager<R>, S: Send + Sync + 'static>(
-    app: &M,
-    state: S,
-) -> WebviewWindow<R> {
+pub fn open<R, M, S>(app: &M, state: S) -> WebviewWindow<R>
+where
+    R: Runtime,
+    M: Manager<R>,
+    S: WindowStateData<R>,
+{
     app.manage(WindowCounter::default());
 
     let id = app
@@ -192,6 +202,6 @@ pub fn open<R: Runtime, M: Manager<R>, S: Send + Sync + 'static>(
         .build()
         .unwrap();
 
-    window.manage_window_scoped(RwLock::new(state));
+    window.manage_window_scoped(state);
     window
 }

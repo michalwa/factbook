@@ -1,8 +1,9 @@
 use crate::settings::SettingsExt;
+use crate::window::WindowStateData;
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::LazyLock;
-use tauri::{App, Manager};
+use std::sync::{LazyLock, RwLock};
+use tauri::{App, AppHandle, Manager, Runtime};
 
 mod api;
 mod settings;
@@ -44,6 +45,15 @@ impl AppState {
             journal_path: Some(path),
             journal: journal_state,
         })
+    }
+}
+
+impl<R: Runtime> WindowStateData<R> for RwLock<AppState> {
+    fn cleanup(self, app: &AppHandle<R>) {
+        if let Some(path) = self.into_inner().unwrap().journal_path {
+            app.settings()
+                .close_journal(path.to_str().expect("path is not valid unicode"));
+        }
     }
 }
 
@@ -92,9 +102,13 @@ pub fn run() {
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    match app.settings().last_saved_journal() {
-        Some(path) => window::open(app, AppState::open(path)?),
-        None => window::open(app, AppState::default()),
+    match app
+        .settings()
+        .open_journals()
+        .and_then(|mut paths| paths.pop())
+    {
+        Some(path) => window::open(app, RwLock::new(AppState::open(path)?)),
+        None => window::open(app, RwLock::new(AppState::default())),
     };
 
     Ok(())

@@ -37,18 +37,22 @@ pub fn get_journal_path(state: AppState) -> Option<PathBuf> {
 // https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html#known-issues
 #[tauri::command]
 pub async fn create_journal(app: AppHandle) {
-    window::open(&app, crate::AppState::default());
+    window::open(&app, RwLock::new(crate::AppState::default()));
 }
 
 #[tauri::command]
-pub async fn open_journal(window: Window) {
+pub async fn open_journal(window: Window, settings: Settings) {
     if let Some(path) = journal_file_picker(&window)
         .set_title("Open journal file")
         .blocking_pick_file()
     {
         let path = path.into_path().unwrap();
+        let path_str = path.to_str().expect("path is not valid unicode").to_owned();
+
         let state = crate::AppState::open(path).unwrap();
-        window::open(window.app_handle(), state);
+        window::open(window.app_handle(), RwLock::new(state));
+
+        settings.open_journal(path_str);
     }
 }
 
@@ -58,7 +62,7 @@ pub struct SaveJournalResponse {
 }
 
 #[tauri::command]
-pub async fn save_journal(window: Window, settings: Settings) -> Result<SaveJournalResponse, ()> {
+pub async fn save_journal(window: Window) -> Result<SaveJournalResponse, ()> {
     let state = window.state_window_scoped::<RwLock<crate::AppState>>();
     let mut state = state.write().unwrap();
 
@@ -85,8 +89,6 @@ pub async fn save_journal(window: Window, settings: Settings) -> Result<SaveJour
         .unwrap();
 
     serde_json::to_writer_pretty(file, &state.journal.to_journal()).unwrap();
-
-    settings.set_last_saved_journal(path);
 
     Ok(SaveJournalResponse { success: true })
 }
