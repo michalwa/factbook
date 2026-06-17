@@ -1,3 +1,4 @@
+use crate::OpenMode;
 use crate::util::SerializeIterOnce;
 use crate::window::{self, WindowScopedManager, WindowState};
 use factbook_core::lang::{self, Span};
@@ -46,7 +47,7 @@ pub async fn open_journal(window: Window) {
         .blocking_pick_file()
     {
         let path = path.into_path().unwrap();
-        let state = crate::AppState::open(path).unwrap();
+        let state = crate::AppState::open(path, OpenMode::Edit).unwrap();
         window::open(window.app_handle(), RwLock::new(state));
     }
 }

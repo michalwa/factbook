@@ -4,7 +4,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_store::{Store, StoreExt};
 
 const SETTINGS_PATH: &str = "settings.json";
-const SETTING_LAST_JOURNAL_PATH: &str = "lastJournalPath";
+const SETTING_LAST_JOURNAL_PATH: &str = "last_journal_path";
 
 /// Type-safety & convenience wrapper around a [`Store`] for persistent user
 /// settings

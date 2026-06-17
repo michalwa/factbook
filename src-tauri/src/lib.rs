@@ -10,6 +10,8 @@ mod settings;
 mod util;
 mod window;
 
+const DEFAULT_JOURNAL_PATH: &str = "welcome.json";
+
 static SESSION: LazyLock<factbook_core::Session> =
     LazyLock::new(|| factbook_core::Session::new().expect("failed to initialize session"));
 
@@ -27,22 +29,44 @@ impl Default for AppState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenMode {
+    /// Load the journal and set it for writing
+    Edit,
+    /// Load the journal but don't set it for writing
+    Read,
+}
+
 impl AppState {
-    pub fn open(path: impl Into<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn open(
+        path: impl Into<PathBuf>,
+        mode: OpenMode,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let path = path.into();
         log::info!("loading journal file: {}", path.display());
 
         let journal_state = factbook_core::State::new(&SESSION);
 
-        if let Ok(file) = File::open(&path) {
-            let journal = serde_json::from_reader(file)?;
-            journal_state.load_journal(journal);
-        } else {
-            log::warn!("journal file doesn't exist, saving will create it");
+        match File::open(&path) {
+            Ok(file) => {
+                let journal = serde_json::from_reader(file)?;
+                journal_state.load_journal(journal);
+            },
+            err => match mode {
+                OpenMode::Edit => {
+                    log::warn!("journal file doesn't exist, saving will create it")
+                },
+                OpenMode::Read => {
+                    err?;
+                },
+            },
         }
 
         Ok(Self {
-            journal_path: Some(path),
+            journal_path: match mode {
+                OpenMode::Edit => Some(path),
+                OpenMode::Read => None,
+            },
             journal: journal_state,
         })
     }
@@ -103,8 +127,16 @@ pub fn run() {
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     match app.settings().last_journal_path() {
-        Some(path) => window::open(app, RwLock::new(AppState::open(path)?)),
-        None => window::open(app, RwLock::new(AppState::default())),
+        Some(path) => window::open(app, RwLock::new(AppState::open(path, OpenMode::Edit)?)),
+        None => {
+            let default_journal_path = app
+                .path()
+                .resolve(DEFAULT_JOURNAL_PATH, tauri::path::BaseDirectory::Resource)
+                .unwrap();
+
+            let state = AppState::open(default_journal_path, OpenMode::Read)?;
+            window::open(app, RwLock::new(state))
+        },
     };
 
     Ok(())
