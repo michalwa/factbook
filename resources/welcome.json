@@ -23,6 +23,10 @@
     {
       "name": "Ordering",
       "definition": "@\"Ordering\"; @order; @id(N), order(N)"
+    },
+    {
+      "name": "Arbitrary goals",
+      "definition": "  (@\"Arbitrary goals\"; @goals; @end), order(6)\n; @id(N), { M is N }, order(M)"
     }
   ],
   "entries": [
@@ -88,7 +92,7 @@
     },
     {
       "created_at": "2026-06-18T01:53:16.870610100+02:00",
-      "content": "You can define a custom @order of entries within a view by using `order(X)`. The argument `X` is assigned to an entry once it matches the view and is later used to sort entries before they are displayed.\n\nIf not explicitly specified, ordering defaults to entry creation order.\n\nTo see it in action, try removing the `order(_)` term as well as the preceding comma from the definition of this view."
+      "content": "You can define a custom @order of entries within a view by using `order(X)`. The argument `X` is assigned to an entry once it matches the view and is later used to sort entries before they are displayed.\n\nIf not explicitly specified, ordering defaults to entry creation order.\n\nTo see it in action, try removing the term `order(N)` as well as the preceding comma from the definition of this view."
     },
     {
       "created_at": "2026-06-18T01:53:19.846523200+02:00",
@@ -105,6 +109,18 @@
     {
       "created_at": "2026-06-18T01:53:41.887050400+02:00",
       "content": "@id(3)"
+    },
+    {
+      "created_at": "2026-06-19T12:00:36.459178722+02:00",
+      "content": "@id(5)\n\nClick on @\"Arbitrary goals\" to continue."
+    },
+    {
+      "created_at": "2026-06-19T12:04:49.607005381+02:00",
+      "content": "To allow you to take full advantage of Prolog, the view language allows evaluating arbitrary Prolog @goals via the `{ Goal }` syntax.\n\nNote that goals are COMPLETELY UNRESTRICTED in the current version of factbook and may be used to do harmful things. Be careful of what you're doing, especially if pasting code from other users.\n\nAs a basic example, this view uses the Prolog predicate `is` to evaluate an arithmetic expression as the ordering term.\n\n    { M is N }\n\nPlay around with this expression, try substituting `N` for `-N` or `N + 3` and see what happens!\n\nAlso note that using `order(-M)` does not have the same effect as using the `is` predicate. This is because for a numeric value `M`, `-M` does not implicitly evaluate to a numeric value. Instead, it is simply the compound term composed of the functor `-` and a single argument: '-'(M) in canonical notation. It is the task of the `is` predicate to translate this compound term into a number."
+    },
+    {
+      "created_at": "2026-06-19T12:18:56.089620676+02:00",
+      "content": "This chapter marks the @end of the tutorial for now. Have fun and break things."
     }
   ]
 }
