@@ -33,22 +33,28 @@
   background: var(--theme-accent) !important;
 }
 
-.editor
-  :global(.cm-tooltip-autocomplete li[aria-selected="true"] .cm-completionIcon),
-.editor
-  :global(
-    .cm-tooltip-autocomplete li[aria-selected="true"] .cm-completionLabel
-  ) {
+.editor li[aria-selected="true"] :global(.cm-completionIcon),
+.editor li[aria-selected="true"] :global(.cm-completionLabel),
+.editor li[aria-selected="true"] :global(.cm-completionDetail) {
   color: var(--theme-accent-contrast);
+}
+
+.editor :global(.cm-completionIcon) {
+  color: var(--theme-label-foreground);
+  opacity: 1;
 }
 
 .editor :global(.cm-completionLabel) {
   font-weight: normal;
 }
 
-.editor :global(.cm-completionIcon) {
-  color: var(--theme-label-foreground);
-  opacity: 1;
+.editor :global(.cm-completionDetail) {
+  color: var(--theme-foreground-muted);
+  font-style: normal;
+}
+
+.editor :global(.cm-completionIcon-function ~ .cm-completionDetail) {
+  margin-left: 0;
 }
 
 .editor :global(.cm-highlight-punctuation),
@@ -57,7 +63,8 @@
 }
 
 .editor :global(.cm-highlight-ident),
-.editor :global(.cm-completionIcon-type + .cm-completionLabel) {
+.editor :global(.cm-completionIcon-constant + .cm-completionLabel),
+.editor :global(.cm-completionIcon-function + .cm-completionLabel) {
   color: var(--theme-highlight-1);
 }
 

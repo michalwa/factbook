@@ -21,7 +21,7 @@ export const tagCompletions = StateField.define({
  */
 export function getTagCompletionOptions(state) {
   return state.field(tagCompletions).map(({ kind, name, arity }) => {
-    name =
+    const quoted =
       kind === "string"
         ? `"${name}"`
         : /^[a-z][A-Za-z0-9_]*$/.test(name)
@@ -30,18 +30,20 @@ export function getTagCompletionOptions(state) {
 
     /** @type {import("@codemirror/autocomplete").Completion} */
     const completion = {
-      label:
-        kind === "atom" && arity ? `${name}(${argPlaceholders(arity)})` : name,
-      displayLabel: arity ? `${name}/${arity}` : name,
-      type: kind === "atom" ? "type" : "text",
+      displayLabel: quoted,
+      label: `${quoted}${placeholderArgs(arity)}`,
+      info: `${quoted}${placeholderArgs(arity)}`,
+      detail: arity && `/${arity}`,
+      type: kind === "atom" ? (arity ? "function" : "constant") : "text",
+      sortText: `${name}${String(arity).padStart(3, "0")}`,
     };
 
     return completion;
   });
 }
 
-function argPlaceholders(arity) {
-  return Array.from({ length: arity }).fill("_").join(", ");
+function placeholderArgs(arity) {
+  return arity ? `(${Array.from({ length: arity }).fill("_").join(", ")})` : "";
 }
 
 export const tagCompletionTriggerRegexp = /@['"]?\w*$/;

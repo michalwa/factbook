@@ -12,10 +12,8 @@ import { useTags } from "@/api/tag";
  * @returns {import("@codemirror/autocomplete").CompletionResult | undefined}
  */
 function entryLanguageComplete(context) {
-  const slice = context.state.sliceDoc(0, context.pos);
-  console.log(slice);
-
-  const match = tagCompletionTriggerRegexp.exec(slice);
+  const upToCursor = context.state.sliceDoc(0, context.pos);
+  const match = tagCompletionTriggerRegexp.exec(upToCursor);
   if (!match) return;
 
   const options = getTagCompletionOptions(context.state);
