@@ -2,6 +2,7 @@ use crate::lang::Span;
 use chrono::{DateTime, Local};
 use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -139,26 +140,30 @@ pub struct Journal {
     pub(crate) entries: Vec<PersistedEntry>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommonTagCount<'a> {
+    #[serde(flatten)]
+    pub tag: CommonTag<'a>,
+    pub count: usize,
+}
+
+/// Representation of a [`TagKey`](crate::search::TagKey) used for code
+/// autocompletion. This can only represent tags which make sense as
+/// autocomplete suggestions: atoms, strings, and functors.
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Tag {
-    pub name: String,
+pub struct CommonTag<'a> {
+    pub name: Cow<'a, str>,
     #[serde(flatten)]
-    pub kind: TagKind,
+    pub kind: CommonTagKind,
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "kind")]
-pub enum TagKind {
-    Atom { arity: usize },
+pub enum CommonTagKind {
+    Atom,
+    Functor { arity: usize },
     String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TagCount {
-    #[serde(flatten)]
-    pub tag: Tag,
-    pub count: usize,
 }

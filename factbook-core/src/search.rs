@@ -2,10 +2,40 @@ use crate::model::{Entry, EntryId, ViewId};
 use crate::{EntryStorage, State};
 use factbook_swipl::blob::{CopyBlob, ScopedBlob, ScopedBlobData};
 use factbook_swipl::query::open_query;
-use factbook_swipl::{Context, Record};
+use factbook_swipl::term::{Term, TermKind};
+use factbook_swipl::{Context, RawFunctor, Record};
 use sparse_tags::Store;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
+
+/// Simplified representation of a tag type used to index and look up similar
+/// tags
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TagKey {
+    Functor(RawFunctor),
+    Atom(String),
+    String(String),
+    Other,
+}
+
+impl From<&Term<'_>> for TagKey {
+    fn from(value: &Term) -> Self {
+        // The invariant of this mapping required for the search to be able to
+        // find all valid matches is the following:
+        //
+        // For any two terms `t1` and `t2`, if `TagKey::from(t1) != TagKey::from(t2)`
+        // then `!t1.unify(t2)`. In other words, `t1.unify(t2)` requires that
+        // `TagKey::from(t1) == TagKey::from(t2)`.
+        match value.kind() {
+            TermKind::Compound | TermKind::ListPair => {
+                TagKey::Functor(value.get::<RawFunctor>().unwrap())
+            },
+            TermKind::Atom => TagKey::Atom(value.atom_chars().unwrap().into()),
+            TermKind::String => TagKey::String(value.string_chars().unwrap().into()),
+            _ => TagKey::Other,
+        }
+    }
+}
 
 impl State<'_> {
     pub fn for_each_view_entry<F>(&self, view: ViewId, mut f: F)
@@ -84,10 +114,10 @@ struct ViewContext<'a> {
 
 pub(crate) mod predicates {
     use crate::model::EntryId;
-    use crate::search::ViewContext;
+    use crate::search::{TagKey, ViewContext};
     use factbook_swipl::foreign::{Nondet, Semidet, predicate};
     use factbook_swipl::term::TermKind;
-    use factbook_swipl::{Atom, Context, RawFunctor, Record};
+    use factbook_swipl::{Atom, Context, Record};
     use sparse_tags::Store;
 
     #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
@@ -131,13 +161,15 @@ pub(crate) mod predicates {
                             .map(move |(_, tag)| (entry_id, tag)),
                     )
                 } else if tag.kind() != TermKind::Variable {
-                    log::debug!("entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by tag");
+                    let key = TagKey::from(&tag);
 
-                    let functor = tag.get::<RawFunctor>();
+                    log::debug!(
+                        "entry_tag({ctx_arg:?}, {entry_id:?}, {tag:?}): query by tag {key:?}"
+                    );
 
                     Box::new(
                         ctx.entries
-                            .tags_by_key(&functor)
+                            .tags_by_key(&key)
                             .map(move |(entry_id, tag)| (EntryId(entry_id), tag)),
                     )
                 } else {
