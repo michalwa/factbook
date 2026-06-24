@@ -5,6 +5,9 @@ import {
 } from "@codemirror/language";
 import { parser } from "./viewParser.gen";
 import { styleTags, tags as t } from "@lezer/highlight";
+import { autocompletion } from "@codemirror/autocomplete";
+import { syntaxTree } from "@codemirror/language";
+import { getTagCompletionOptions, tagCompletions } from "./autocomplete";
 
 const viewHighlight = styleTags({
   Comment: t.comment,
@@ -34,6 +37,33 @@ const viewHighlightStyle = HighlightStyle.define([
   { tag: t.string, class: "cm-highlight-string" },
 ]);
 
+/**
+ * @param {import("@codemirror/autocomplete").CompletionContext} context
+ *
+ * @returns {import("@codemirror/autocomplete").CompletionResult | undefined}
+ */
+function viewLanguageComplete(context) {
+  let nodeBefore = syntaxTree(context.state).resolveInner(context.pos, -1);
+
+  if (nodeBefore.name === "Ident") nodeBefore = nodeBefore.prevSibling;
+
+  if (
+    nodeBefore &&
+    context.state.sliceDoc(nodeBefore.from, nodeBefore.to) === "'"
+  ) {
+    nodeBefore = nodeBefore.prevSibling;
+  }
+
+  if (nodeBefore?.name === "@") {
+    const options = getTagCompletionOptions(context.state);
+    return {
+      from: nodeBefore.to,
+      options,
+      validFor: /@'?\w*/,
+    };
+  }
+}
+
 const viewLanguage = LRLanguage.define({
   parser: parser.configure({
     props: [viewHighlight],
@@ -43,4 +73,7 @@ const viewLanguage = LRLanguage.define({
 export const viewLanguageExtension = [
   viewLanguage,
   syntaxHighlighting(viewHighlightStyle),
+  tagCompletions,
+  viewLanguage.data.of({ autocomplete: viewLanguageComplete }),
+  autocompletion(),
 ];

@@ -2,6 +2,7 @@ import { createRoot, createSignal, onCleanup } from "solid-js";
 import CodeEditor from "@/components/CodeEditor";
 import styles from "@/styles/Entry";
 import { format as formatDate } from "date-fns";
+import { entryLanguageExtension } from "@/language/entryLanguage";
 
 export default function Entry(props) {
   const formattedTimestamp = () =>
@@ -28,6 +29,7 @@ export default function Entry(props) {
                 onChangeDeferred={props.onContentChange}
                 onEmptyBackspace={props.onRemove}
                 spans={spans()}
+                extension={entryLanguageExtension}
               />
             ),
             dispose,

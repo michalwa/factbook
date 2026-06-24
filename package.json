@@ -16,6 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "@bigmistqke/solid-contenteditable": "^0.0.14",
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.2.0",
     "@codemirror/view": "^6.12.0",
