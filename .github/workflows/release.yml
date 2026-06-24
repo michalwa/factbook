@@ -76,3 +76,4 @@ jobs:
           tagName: v__VERSION__
           releaseName: v__VERSION__
           args: --config ${{ matrix.config }}
+          generateReleaseNotes: true
