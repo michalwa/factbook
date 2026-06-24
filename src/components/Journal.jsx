@@ -34,10 +34,11 @@ import {
   PanelBottomOpen,
   PanelBottomClose,
   Plus,
+  CircleQuestionMark,
 } from "lucide-solid";
 
 export default function Journal() {
-  const { createJournal, openJournal } = useAppState();
+  const { createJournal, openJournal, openDefaultJournal } = useAppState();
   const {
     views,
     getView,
@@ -83,6 +84,13 @@ export default function Journal() {
               <IconButton
                 icon={leftPanelCollapsed() ? PanelLeftOpen : PanelLeftClose}
                 onClick={toggleLeftPanelCollapsed}
+              />
+            </PanelControls>
+            <PanelControls placement="bottom" sticky="right">
+              <IconButton
+                icon={CircleQuestionMark}
+                onClick={openDefaultJournal}
+                title="Help"
               />
             </PanelControls>
             <Show when={!leftPanelCollapsed()}>

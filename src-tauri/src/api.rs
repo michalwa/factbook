@@ -1,5 +1,6 @@
+use crate::OpenMode;
 use crate::util::SerializeIterOnce;
-use crate::window::{self, WindowScopedManager, WindowState};
+use crate::window::{self, WindowScopedManager, WindowState, WindowStatesExt};
 use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
@@ -46,7 +47,7 @@ pub async fn open_journal(window: Window) {
         .blocking_pick_file()
     {
         let path = path.into_path().unwrap();
-        let state = crate::AppState::open(path).unwrap();
+        let state = crate::AppState::open(path, OpenMode::Edit).unwrap();
         window::open(window.app_handle(), RwLock::new(state));
     }
 }
@@ -71,6 +72,7 @@ pub async fn save_journal(window: Window) -> Result<SaveJournalResponse, ()> {
                 return Ok(SaveJournalResponse { success: false });
             };
 
+            state.default = false;
             state.journal_path = Some(path.into_path().unwrap());
             state.journal_path.as_ref().unwrap()
         },
@@ -86,6 +88,25 @@ pub async fn save_journal(window: Window) -> Result<SaveJournalResponse, ()> {
     serde_json::to_writer_pretty(file, &state.journal.to_journal()).unwrap();
 
     Ok(SaveJournalResponse { success: true })
+}
+
+#[tauri::command]
+pub async fn open_default_journal(app: AppHandle) {
+    let windows = app.window_states::<RwLock<crate::AppState>>();
+
+    if let Some((label, _)) = windows
+        .states()
+        .iter()
+        .find(|(_, state)| state.read().unwrap().default)
+    {
+        app.get_webview_window(label)
+            .and_then(|w| w.set_focus().ok());
+    } else {
+        window::open(
+            &app,
+            RwLock::new(crate::AppState::open_default(&app).unwrap()),
+        );
+    }
 }
 
 #[tauri::command]
