@@ -1,12 +1,10 @@
 use crate::model::{
-    CommonTag, CommonTagCount, CommonTagKind, Entry, EntryId, Journal, PersistedEntry,
-    PersistedView, View, ViewId,
+    CommonTag, CommonTagCount, Entry, EntryId, Journal, PersistedEntry, PersistedView, View, ViewId,
 };
 use crate::search::TagKey;
 use factbook_swipl::{Context, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -59,7 +57,6 @@ impl<'a> State<'a> {
 
     pub fn entries(&self) -> Entries<'_> {
         Entries {
-            session: self.session,
             store: self.entries.read().unwrap(),
         }
     }
@@ -148,7 +145,6 @@ impl ViewsMut<'_> {
 }
 
 pub struct Entries<'a> {
-    session: &'a Session,
     store: RwLockReadGuard<'a, EntryStorage>,
 }
 
@@ -162,26 +158,9 @@ impl<'a> Entries<'a> {
     }
 
     pub fn common_tags(&'a self) -> impl Iterator<Item = CommonTag<'a>> {
-        let pl = self.session.0.engine();
-        let list_functor = pl.functor::<2>("[|]");
-
-        self.store.tags().filter_map(move |(_, key, _)| match key {
-            TagKey::Functor(functor) if functor != &*list_functor => Some(CommonTag {
-                name: Cow::Owned(functor.name()),
-                kind: CommonTagKind::Functor {
-                    arity: functor.arity(),
-                },
-            }),
-            TagKey::Atom(name) => Some(CommonTag {
-                name: Cow::Borrowed(name),
-                kind: CommonTagKind::Atom,
-            }),
-            TagKey::String(name) => Some(CommonTag {
-                name: Cow::Borrowed(name),
-                kind: CommonTagKind::String,
-            }),
-            _ => None,
-        })
+        self.store
+            .tags()
+            .filter_map(move |(_, key, _)| CommonTag::from_key(key))
     }
 
     pub fn common_tag_counts(&'a self) -> impl Iterator<Item = CommonTagCount<'a>> {

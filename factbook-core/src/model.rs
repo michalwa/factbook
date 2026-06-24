@@ -1,4 +1,5 @@
 use crate::lang::Span;
+use crate::search::TagKey;
 use chrono::{DateTime, Local};
 use factbook_swipl::blob::{CopyBlob, CopyBlobData};
 use serde::{Deserialize, Serialize};
@@ -166,4 +167,26 @@ pub enum CommonTagKind {
     Atom,
     Functor { arity: usize },
     String,
+}
+
+impl<'a> CommonTag<'a> {
+    pub fn from_key(key: &'a TagKey) -> Option<Self> {
+        match key {
+            TagKey::Functor(functor) => Some(CommonTag {
+                name: Cow::Owned(functor.name()),
+                kind: CommonTagKind::Functor {
+                    arity: functor.arity(),
+                },
+            }),
+            TagKey::Atom(name) => Some(CommonTag {
+                name: Cow::Borrowed(name),
+                kind: CommonTagKind::Atom,
+            }),
+            TagKey::String(name) => Some(CommonTag {
+                name: Cow::Borrowed(name),
+                kind: CommonTagKind::String,
+            }),
+            _ => None,
+        }
+    }
 }
