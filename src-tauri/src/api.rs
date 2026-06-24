@@ -2,9 +2,8 @@ use crate::OpenMode;
 use crate::util::SerializeIterOnce;
 use crate::window::{self, WindowScopedManager, WindowState, WindowStatesExt};
 use factbook_core::lang::{self, Span};
-use factbook_core::model::{self, EntryId, Tag, ViewId};
+use factbook_core::model::{self, EntryId, TagCount, ViewId};
 use serde::Serialize;
-use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -207,9 +206,9 @@ pub fn parse_entry_content(content: &str) -> Vec<Span> {
 }
 
 #[tauri::command]
-pub fn get_tags(state: AppState) -> HashSet<Tag> {
+pub fn get_tags(state: AppState) -> Vec<TagCount> {
     let state = state.read().unwrap();
-    state.journal.entries().tags().collect()
+    state.journal.entries().tag_counts().collect()
 }
 
 fn journal_file_picker<R: Runtime>(window: &Window<R>) -> FileDialogBuilder<R> {

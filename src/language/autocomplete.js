@@ -1,6 +1,6 @@
 import { StateField } from "@codemirror/state";
 
-/** @typedef {{ kind: "atom" | "string", name: string, arity: number }} Tag */
+/** @typedef {{ kind: "atom" | "string", name: string, arity: number, count: number }} Tag */
 
 /**
  * @type {StateField<Tag[]>}
@@ -20,7 +20,7 @@ export const tagCompletions = StateField.define({
  * @returns {import("@codemirror/autocomplete").Completion[]}
  */
 export function getTagCompletionOptions(state) {
-  return state.field(tagCompletions).map(({ kind, name, arity }) => {
+  return state.field(tagCompletions).map(({ kind, name, arity, count }) => {
     const quoted =
       kind === "string"
         ? `"${name}"`
@@ -36,6 +36,7 @@ export function getTagCompletionOptions(state) {
       detail: arity && `/${arity}`,
       type: kind === "atom" ? (arity ? "function" : "constant") : "text",
       sortText: `${name}${String(arity).padStart(3, "0")}`,
+      boost: count,
     };
 
     return completion;

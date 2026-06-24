@@ -1,10 +1,11 @@
 use crate::model::{
-    Entry, EntryId, Journal, PersistedEntry, PersistedView, Tag, TagKind, View, ViewId,
+    Entry, EntryId, Journal, PersistedEntry, PersistedView, Tag, TagCount, TagKind, View, ViewId,
 };
 use factbook_swipl::term::TermKind;
 use factbook_swipl::{Context, RawFunctor, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
+use std::collections::HashMap;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod lang;
@@ -186,6 +187,18 @@ impl<'a> Entries<'a> {
                     }
                 },
             })
+    }
+
+    pub fn tag_counts(&self) -> impl Iterator<Item = TagCount> {
+        let mut counts = HashMap::new();
+
+        for tag in self.tags() {
+            *counts.entry(tag).or_default() += 1;
+        }
+
+        counts
+            .into_iter()
+            .map(|(tag, count)| TagCount { tag, count })
     }
 }
 

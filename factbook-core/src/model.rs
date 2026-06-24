@@ -154,3 +154,11 @@ pub enum TagKind {
     Atom { arity: usize },
     String,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCount {
+    #[serde(flatten)]
+    pub tag: Tag,
+    pub count: usize,
+}
