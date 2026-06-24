@@ -1,7 +1,6 @@
-import { StateEffect } from "@codemirror/state";
 import { StateField } from "@codemirror/state";
 
-/** @typedef {{ type: "atom" | "string", name: string, arity: number }} Tag */
+/** @typedef {{ kind: "atom" | "string", name: string, arity: number }} Tag */
 
 /**
  * @type {StateField<Tag[]>}
@@ -11,17 +10,9 @@ export const tagCompletions = StateField.define({
     return [];
   },
   update(value, tx) {
-    for (const effect of tx.effects) {
-      if (effect.is(setTagCompletions)) value = effect.value;
-    }
     return value;
   },
 });
-
-/**
- * @type {StateEffect<Tag[]>}
- */
-export const setTagCompletions = StateEffect.define({});
 
 /**
  * @param {import("@codemirror/state").EditorState} state
@@ -29,9 +20,9 @@ export const setTagCompletions = StateEffect.define({});
  * @returns {import("@codemirror/autocomplete").Completion[]}
  */
 export function getTagCompletionOptions(state) {
-  return state.field(tagCompletions).map(({ type, name, arity }) => {
+  return state.field(tagCompletions).map(({ kind, name, arity }) => {
     name =
-      type === "string"
+      kind === "string"
         ? `"${name}"`
         : /^[a-z][A-Za-z0-9_]*$/.test(name)
           ? name
@@ -40,8 +31,8 @@ export function getTagCompletionOptions(state) {
     /** @type {import("@codemirror/autocomplete").Completion} */
     const completion = {
       label:
-        type === "atom" && arity ? `${name}(${argPlaceholders(arity)})` : name,
-      displayLabel: type === "atom" ? `${name}/${arity}` : name,
+        kind === "atom" && arity ? `${name}(${argPlaceholders(arity)})` : name,
+      displayLabel: arity ? `${name}/${arity}` : name,
     };
 
     return completion;
@@ -51,3 +42,5 @@ export function getTagCompletionOptions(state) {
 function argPlaceholders(arity) {
   return Array.from({ length: arity }).fill("_").join(", ");
 }
+
+export const tagCompletionTriggerRegexp = /@['"]?\w*$/;

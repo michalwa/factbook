@@ -7,7 +7,12 @@ import { parser } from "./viewParser.gen";
 import { styleTags, tags as t } from "@lezer/highlight";
 import { autocompletion } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
-import { getTagCompletionOptions, tagCompletions } from "./autocomplete";
+import {
+  getTagCompletionOptions,
+  tagCompletions,
+  tagCompletionTriggerRegexp,
+} from "./autocomplete";
+import { useTags } from "@/api/tag";
 
 const viewHighlight = styleTags({
   Comment: t.comment,
@@ -49,7 +54,7 @@ function viewLanguageComplete(context) {
 
   if (
     nodeBefore &&
-    context.state.sliceDoc(nodeBefore.from, nodeBefore.to) === "'"
+    ["'", '"'].includes(context.state.sliceDoc(nodeBefore.from, nodeBefore.to))
   ) {
     nodeBefore = nodeBefore.prevSibling;
   }
@@ -59,7 +64,7 @@ function viewLanguageComplete(context) {
     return {
       from: nodeBefore.to,
       options,
-      validFor: /@'?\w*/,
+      validFor: tagCompletionTriggerRegexp,
     };
   }
 }
@@ -70,10 +75,20 @@ const viewLanguage = LRLanguage.define({
   }),
 });
 
-export const viewLanguageExtension = [
-  viewLanguage,
-  syntaxHighlighting(viewHighlightStyle),
-  tagCompletions,
-  viewLanguage.data.of({ autocomplete: viewLanguageComplete }),
-  autocompletion(),
-];
+export function createViewLanguageExtension() {
+  const { tags } = useTags();
+
+  return {
+    viewLanguageExtension: () => {
+      const tagsValue = tags();
+
+      return [
+        viewLanguage,
+        syntaxHighlighting(viewHighlightStyle),
+        tagCompletions.init(() => tagsValue),
+        viewLanguage.data.of({ autocomplete: viewLanguageComplete }),
+        autocompletion(),
+      ];
+    },
+  };
+}
