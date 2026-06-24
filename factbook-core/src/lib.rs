@@ -160,17 +160,18 @@ impl<'a> Entries<'a> {
     }
 
     pub fn tags(&'a self) -> impl Iterator<Item = Tag> {
+        let mut pl = self.session.0.engine();
+        let list_functor = pl.functor::<2>("[|]");
+
         self.store
             .tags()
-            .filter_map(|(_, functor, tag)| match functor {
+            .filter_map(move |(_, functor, tag)| match functor {
+                Some(functor) if functor == &*list_functor => None,
                 Some(functor) => Some(Tag {
                     name: functor.name(),
-                    kind: TagKind::Atom {
-                        arity: functor.arity(),
-                    },
+                    kind: TagKind::Atom { arity: functor.arity() },
                 }),
                 None => {
-                    let mut pl = self.session.0.engine();
                     let pl = pl.frame();
                     let term = pl.new_term().put(tag);
 
