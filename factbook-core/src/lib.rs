@@ -169,7 +169,9 @@ impl<'a> Entries<'a> {
                 Some(functor) if functor == &*list_functor => None,
                 Some(functor) => Some(Tag {
                     name: functor.name(),
-                    kind: TagKind::Atom { arity: functor.arity() },
+                    kind: TagKind::Atom {
+                        arity: functor.arity(),
+                    },
                 }),
                 None => {
                     let pl = pl.frame();
