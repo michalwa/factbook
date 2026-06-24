@@ -245,6 +245,22 @@ impl<'a> Term<'a> {
         )
     }
 
+    /// Returns the value of the string object stored in the term reference, or
+    /// `None` if it's not an atom.
+    pub fn string_chars(&self) -> Option<&str> {
+        let mut len: usize = 0;
+        let mut chars: *mut u8 = std::ptr::null_mut();
+
+        if !unsafe { pl::PL_get_string(self.ptr.get(), &raw mut chars as _, &raw mut len) } {
+            return None;
+        }
+
+        Some(
+            str::from_utf8(unsafe { slice::from_raw_parts(chars, len) })
+                .expect("PL_get_string returned invalid UTF-8"),
+        )
+    }
+
     /// Extracts a value from the term
     pub fn get<T: FromTerm>(self) -> Option<T> {
         T::from_term(self)
@@ -622,13 +638,19 @@ mod test {
     #[test]
     fn get_raw_functor() {
         let engine = crate::test::SESSION.engine();
-        let func = engine.functor::<2>("foo");
+        let func = engine.functor::<2>("fą");
 
-        let t1 = term! { &engine => foo(bar, baz) };
+        let t1 = term! { &engine => fą(bar, baz) };
         let t2 = term! { &engine => 42 };
 
         assert_eq!(t1.get::<RawFunctor>(), Some(func.0));
         assert_eq!(t2.get::<RawFunctor>(), None);
+
+        let foo = t1.get::<RawFunctor>().unwrap();
+
+        assert_eq!(foo.name(), "fą");
+        assert_eq!(foo.arity(), 2);
+        assert_eq!(foo.to_string(), "fą/2");
     }
 
     #[test]

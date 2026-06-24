@@ -5,6 +5,7 @@ use std::ffi::CStr;
 use std::fmt::{self, Write};
 use std::marker::PhantomData;
 use std::num::NonZero;
+use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use swipl_fli as pl;
 
@@ -366,6 +367,14 @@ impl Atom {
 #[derive(Clone, Copy)]
 pub struct Functor<const ARITY: usize>(RawFunctor);
 
+impl<const ARITY: usize> Deref for Functor<ARITY> {
+    type Target = RawFunctor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// Used to identify a functor, but cannot be used to instantiate it
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RawFunctor {
@@ -379,6 +388,21 @@ pub struct RawFunctor {
 unsafe impl Send for RawFunctor {}
 unsafe impl Sync for RawFunctor {}
 
+impl RawFunctor {
+    pub fn name(&self) -> String {
+        // TODO: Should we call `pl::PL_unregister_atom(atom)` afterwards?
+        let atom = unsafe { pl::PL_functor_name(self.ptr.get()) };
+        unsafe { CStr::from_ptr(pl::PL_atom_chars(atom)) }
+            .to_str()
+            .expect("atom is not valid UTF-8")
+            .to_owned()
+    }
+
+    pub fn arity(&self) -> usize {
+        unsafe { pl::PL_functor_arity_sz(self.ptr.get()) }
+    }
+}
+
 impl fmt::Debug for RawFunctor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("<functor:{}>", self.ptr))
@@ -387,11 +411,7 @@ impl fmt::Debug for RawFunctor {
 
 impl fmt::Display for RawFunctor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let atom = unsafe { pl::PL_functor_name(self.ptr.get()) };
-        let name = unsafe { CStr::from_ptr(pl::PL_atom_chars(atom)) }.to_string_lossy();
-        let arity = unsafe { pl::PL_functor_arity_sz(self.ptr.get()) };
-
-        f.write_fmt(format_args!("{name}/{arity}"))
+        f.write_fmt(format_args!("{}/{}", self.name(), self.arity()))
     }
 }
 

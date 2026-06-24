@@ -138,3 +138,27 @@ pub struct Journal {
     pub(crate) views: Vec<PersistedView>,
     pub(crate) entries: Vec<PersistedEntry>,
 }
+
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tag {
+    pub name: String,
+    #[serde(flatten)]
+    pub kind: TagKind,
+}
+
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "kind")]
+pub enum TagKind {
+    Atom { arity: usize },
+    String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCount {
+    #[serde(flatten)]
+    pub tag: Tag,
+    pub count: usize,
+}

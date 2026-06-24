@@ -1,7 +1,11 @@
-use crate::model::{Entry, EntryId, Journal, PersistedEntry, PersistedView, View, ViewId};
+use crate::model::{
+    Entry, EntryId, Journal, PersistedEntry, PersistedView, Tag, TagCount, TagKind, View, ViewId,
+};
+use factbook_swipl::term::TermKind;
 use factbook_swipl::{Context, RawFunctor, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
+use std::collections::HashMap;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub mod lang;
@@ -52,13 +56,16 @@ impl<'a> State<'a> {
     }
 
     pub fn entries(&self) -> Entries<'_> {
-        Entries(self.entries.read().unwrap())
+        Entries {
+            session: self.session,
+            store: self.entries.read().unwrap(),
+        }
     }
 
     pub fn entries_mut(&self) -> EntriesMut<'_> {
         EntriesMut {
-            store: self.entries.write().unwrap(),
             session: self.session,
+            store: self.entries.write().unwrap(),
         }
     }
 
@@ -138,15 +145,63 @@ impl ViewsMut<'_> {
     }
 }
 
-pub struct Entries<'a>(RwLockReadGuard<'a, EntryStorage>);
+pub struct Entries<'a> {
+    session: &'a Session,
+    store: RwLockReadGuard<'a, EntryStorage>,
+}
 
 impl<'a> Entries<'a> {
     pub fn iter(&'a self) -> impl Iterator<Item = (EntryId, &'a Entry)> {
-        self.0.entries().map(|(id, entry)| (EntryId(id), entry))
+        self.store.entries().map(|(id, entry)| (EntryId(id), entry))
     }
 
     pub fn get(&'a self, id: EntryId) -> &'a Entry {
-        self.0.entry_data(id.0)
+        self.store.entry_data(id.0)
+    }
+
+    pub fn tags(&'a self) -> impl Iterator<Item = Tag> {
+        let mut pl = self.session.0.engine();
+        let list_functor = pl.functor::<2>("[|]");
+
+        self.store
+            .tags()
+            .filter_map(move |(_, functor, tag)| match functor {
+                Some(functor) if functor == &*list_functor => None,
+                Some(functor) => Some(Tag {
+                    name: functor.name(),
+                    kind: TagKind::Atom {
+                        arity: functor.arity(),
+                    },
+                }),
+                None => {
+                    let pl = pl.frame();
+                    let term = pl.new_term().put(tag);
+
+                    match term.kind() {
+                        TermKind::String => Some(Tag {
+                            name: term.string_chars().unwrap().to_owned(),
+                            kind: TagKind::String,
+                        }),
+                        TermKind::Atom => Some(Tag {
+                            name: term.atom_chars().unwrap().to_owned(),
+                            kind: TagKind::Atom { arity: 0 },
+                        }),
+                        _ => None,
+                    }
+                },
+            })
+    }
+
+    pub fn tag_counts(&self) -> impl Iterator<Item = TagCount> {
+        let mut counts = HashMap::new();
+
+        for tag in self.tags() {
+            *counts.entry(tag).or_default() += 1;
+        }
+
+        counts
+            .into_iter()
+            .map(|(tag, count)| TagCount { tag, count })
     }
 }
 
@@ -196,8 +251,10 @@ impl<'a> EntriesMut<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::model::{EntryId, ViewId};
+    use crate::model::{EntryId, Tag, ViewId};
     use crate::{Session, State};
+    use pretty_assertions::assert_eq;
+    use std::collections::HashSet;
     use std::sync::LazyLock;
     use test_log::test;
 
@@ -355,5 +412,48 @@ mod test {
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
         assert_eq!(matches, ["@bar(1)", "@bar(2)", "@bar(3)"]);
+    }
+
+    #[test]
+    fn get_tags() {
+        use crate::model::TagKind as T;
+
+        let (state, _) = &*FIXTURES;
+
+        let mut tags = state
+            .entries()
+            .tags()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        tags.sort();
+
+        assert_eq!(tags, [
+            Tag {
+                name: "bar".into(),
+                kind: T::Atom { arity: 0 },
+            },
+            Tag {
+                name: "bar".into(),
+                kind: T::Atom { arity: 1 },
+            },
+            Tag {
+                name: "baz".into(),
+                kind: T::Atom { arity: 2 },
+            },
+            Tag {
+                name: "foo".into(),
+                kind: T::Atom { arity: 0 },
+            },
+            Tag {
+                name: "foo".into(),
+                kind: T::Atom { arity: 2 },
+            },
+            Tag {
+                name: "string".into(),
+                kind: T::String,
+            },
+        ]);
     }
 }

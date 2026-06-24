@@ -11,6 +11,9 @@ importers:
       '@bigmistqke/solid-contenteditable':
         specifier: ^0.0.14
         version: 0.0.14(solid-js@1.9.9)
+      '@codemirror/autocomplete':
+        specifier: ^6.20.3
+        version: 6.20.3
       '@codemirror/language':
         specifier: ^6.12.3
         version: 6.12.3
@@ -244,6 +247,9 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
+
+  '@codemirror/autocomplete@6.20.3':
+    resolution: {integrity: sha512-tlosUqb+3BbxCxZdu4tKeRghPFC+QM7q4X5YhKV2eCmPG+1r2F3f4AaSz5sCrFqUtX4Jh20VFTKecl16MgiV9g==}
 
   '@codemirror/language@6.12.3':
     resolution: {integrity: sha512-QwCZW6Tt1siP37Jet9Tb02Zs81TQt6qQrZR2H+eGMcFsL1zMrk2/b9CLC7/9ieP1fjIUMgviLWMmgiHoJrj+ZA==}
@@ -1567,6 +1573,13 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 4.1.2
       prettier: 2.8.8
+
+  '@codemirror/autocomplete@6.20.3':
+    dependencies:
+      '@codemirror/language': 6.12.3
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.6
+      '@lezer/common': 1.5.2
 
   '@codemirror/language@6.12.3':
     dependencies:
