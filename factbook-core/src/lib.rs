@@ -1,8 +1,8 @@
 use crate::model::{
-    Entry, EntryId, Journal, PersistedEntry, PersistedView, Tag, TagCount, TagKind, View, ViewId,
+    CommonTag, CommonTagCount, Entry, EntryId, Journal, PersistedEntry, PersistedView, View, ViewId,
 };
-use factbook_swipl::term::TermKind;
-use factbook_swipl::{Context, RawFunctor, Record};
+use crate::search::TagKey;
+use factbook_swipl::{Context, Record};
 use sparse_tags::{IndexedStore, Store};
 use stable_vec::StableVec;
 use std::collections::HashMap;
@@ -36,7 +36,7 @@ pub struct State<'s> {
 }
 
 type ViewStorage = StableVec<View>;
-type EntryStorage = IndexedStore<Option<RawFunctor>, Record, Entry>;
+type EntryStorage = IndexedStore<TagKey, Record, Entry>;
 
 impl<'a> State<'a> {
     pub fn new(session: &'a Session) -> Self {
@@ -57,7 +57,6 @@ impl<'a> State<'a> {
 
     pub fn entries(&self) -> Entries<'_> {
         Entries {
-            session: self.session,
             store: self.entries.read().unwrap(),
         }
     }
@@ -146,7 +145,6 @@ impl ViewsMut<'_> {
 }
 
 pub struct Entries<'a> {
-    session: &'a Session,
     store: RwLockReadGuard<'a, EntryStorage>,
 }
 
@@ -159,49 +157,22 @@ impl<'a> Entries<'a> {
         self.store.entry_data(id.0)
     }
 
-    pub fn tags(&'a self) -> impl Iterator<Item = Tag> {
-        let mut pl = self.session.0.engine();
-        let list_functor = pl.functor::<2>("[|]");
-
+    pub fn common_tags(&'a self) -> impl Iterator<Item = CommonTag<'a>> {
         self.store
             .tags()
-            .filter_map(move |(_, functor, tag)| match functor {
-                Some(functor) if functor == &*list_functor => None,
-                Some(functor) => Some(Tag {
-                    name: functor.name(),
-                    kind: TagKind::Atom {
-                        arity: functor.arity(),
-                    },
-                }),
-                None => {
-                    let pl = pl.frame();
-                    let term = pl.new_term().put(tag);
-
-                    match term.kind() {
-                        TermKind::String => Some(Tag {
-                            name: term.string_chars().unwrap().to_owned(),
-                            kind: TagKind::String,
-                        }),
-                        TermKind::Atom => Some(Tag {
-                            name: term.atom_chars().unwrap().to_owned(),
-                            kind: TagKind::Atom { arity: 0 },
-                        }),
-                        _ => None,
-                    }
-                },
-            })
+            .filter_map(move |(_, key, _)| CommonTag::from_key(key))
     }
 
-    pub fn tag_counts(&self) -> impl Iterator<Item = TagCount> {
+    pub fn common_tag_counts(&'a self) -> impl Iterator<Item = CommonTagCount<'a>> {
         let mut counts = HashMap::new();
 
-        for tag in self.tags() {
+        for tag in self.common_tags() {
             *counts.entry(tag).or_default() += 1;
         }
 
         counts
             .into_iter()
-            .map(|(tag, count)| TagCount { tag, count })
+            .map(|(tag, count)| CommonTagCount { tag, count })
     }
 }
 
@@ -240,8 +211,7 @@ impl<'a> EntriesMut<'a> {
         let parsed = lang::parse(content, Some(&pl));
 
         for tag in parsed.tags {
-            // Non-functor terms like numbers or strings are assigned the `None` key
-            let key = tag.get::<RawFunctor>();
+            let key = TagKey::from(&tag);
             self.store.insert_tag(id.0, key, tag.record());
         }
 
@@ -251,7 +221,7 @@ impl<'a> EntriesMut<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::model::{EntryId, Tag, ViewId};
+    use crate::model::{CommonTag, EntryId, ViewId};
     use crate::{Session, State};
     use pretty_assertions::assert_eq;
     use std::collections::HashSet;
@@ -416,13 +386,13 @@ mod test {
 
     #[test]
     fn get_tags() {
-        use crate::model::TagKind as T;
+        use crate::model::CommonTagKind as T;
 
         let (state, _) = &*FIXTURES;
 
-        let mut tags = state
-            .entries()
-            .tags()
+        let entries = state.entries();
+        let mut tags = entries
+            .common_tags()
             .collect::<HashSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
@@ -430,27 +400,27 @@ mod test {
         tags.sort();
 
         assert_eq!(tags, [
-            Tag {
+            CommonTag {
                 name: "bar".into(),
-                kind: T::Atom { arity: 0 },
+                kind: T::Atom,
             },
-            Tag {
+            CommonTag {
                 name: "bar".into(),
-                kind: T::Atom { arity: 1 },
+                kind: T::Functor { arity: 1 },
             },
-            Tag {
+            CommonTag {
                 name: "baz".into(),
-                kind: T::Atom { arity: 2 },
+                kind: T::Functor { arity: 2 },
             },
-            Tag {
+            CommonTag {
                 name: "foo".into(),
-                kind: T::Atom { arity: 0 },
+                kind: T::Atom,
             },
-            Tag {
+            CommonTag {
                 name: "foo".into(),
-                kind: T::Atom { arity: 2 },
+                kind: T::Functor { arity: 2 },
             },
-            Tag {
+            CommonTag {
                 name: "string".into(),
                 kind: T::String,
             },

@@ -1,6 +1,16 @@
 import { StateField } from "@codemirror/state";
 
-/** @typedef {{ kind: "atom" | "string", name: string, arity: number, count: number }} Tag */
+/** @typedef {{
+ *   kind: "atom" | "string",
+ *   name: string,
+ *   count: number
+ * } | {
+ *   kind: "functor",
+ *   name: string,
+ *   arity: number,
+ *   count: number,
+ * }} Tag
+ */
 
 /**
  * @type {StateField<Tag[]>}
@@ -12,6 +22,12 @@ export const tagCompletions = StateField.define({
   update(value, tx) {
     return value;
   },
+});
+
+const tagCompletionTypeMap = Object.freeze({
+  atom: "constant",
+  functor: "function",
+  string: "text",
 });
 
 /**
@@ -31,11 +47,12 @@ export function getTagCompletionOptions(state) {
     /** @type {import("@codemirror/autocomplete").Completion} */
     const completion = {
       displayLabel: quoted,
-      label: `${quoted}${placeholderArgs(arity)}`,
-      info: `${quoted}${placeholderArgs(arity)}`,
-      detail: arity && `/${arity}`,
-      type: kind === "atom" ? (arity ? "function" : "constant") : "text",
-      sortText: `${name}${String(arity).padStart(3, "0")}`,
+      label:
+        kind === "functor" ? `${quoted}(${placeholderArgs(arity)})` : quoted,
+      detail: kind === "functor" ? `/${arity}` : undefined,
+      type: tagCompletionTypeMap[kind],
+      sortText:
+        kind === "functor" ? `${name}${String(arity).padStart(3, "0")}` : name,
       boost: count,
     };
 
@@ -44,7 +61,7 @@ export function getTagCompletionOptions(state) {
 }
 
 function placeholderArgs(arity) {
-  return arity ? `(${Array.from({ length: arity }).fill("_").join(", ")})` : "";
+  return Array.from({ length: arity }).fill("_").join(", ");
 }
 
 export const tagCompletionTriggerRegexp = /@['"]?\w*$/;

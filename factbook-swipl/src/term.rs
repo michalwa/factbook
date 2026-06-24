@@ -261,6 +261,17 @@ impl<'a> Term<'a> {
         )
     }
 
+    /// Returns the length of the list stored in the term reference or `None` if
+    /// it's not a "proper" list as defined in the source documentation.
+    /// * https://www.swi-prolog.org/pldoc/doc_for?object=c(%27PL_skip_list%27)
+    pub fn list_len(&self) -> Option<usize> {
+        let mut len: usize = 0;
+        match unsafe { pl::PL_skip_list(self.ptr.get(), 0, &raw mut len) } as _ {
+            pl::PL_LIST => Some(len),
+            _ => None,
+        }
+    }
+
     /// Extracts a value from the term
     pub fn get<T: FromTerm>(self) -> Option<T> {
         T::from_term(self)
@@ -651,6 +662,23 @@ mod test {
         assert_eq!(foo.name(), "fą");
         assert_eq!(foo.arity(), 2);
         assert_eq!(foo.to_string(), "fą/2");
+    }
+
+    #[test]
+    fn list_len() {
+        let engine = crate::test::SESSION.engine();
+
+        let t1 = term! { &engine => foo };
+        let t2 = engine.new_term().put_list([]);
+        let t3 = term! { &engine => [foo] };
+        let t4 = term! { &engine => [foo, bar] };
+        let t5 = term! { &engine => "[|]"(foo, _) };
+
+        assert_eq!(t1.list_len(), None);
+        assert_eq!(t2.list_len(), Some(0));
+        assert_eq!(t3.list_len(), Some(1));
+        assert_eq!(t4.list_len(), Some(2));
+        assert_eq!(t5.list_len(), None);
     }
 
     #[test]
