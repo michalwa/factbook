@@ -18,23 +18,58 @@
   padding: 0;
 }
 
+.editor :global(.cm-tooltip) {
+  background: var(--theme-panel-background);
+  border: none;
+  border-radius: var(--round-default);
+  overflow: hidden;
+}
+
+.editor :global(.cm-tooltip-autocomplete) li {
+  font-family: var(--font-monospace);
+}
+
+.editor :global(.cm-tooltip-autocomplete) li[aria-selected="true"] {
+  background: var(--theme-accent) !important;
+}
+
+.editor
+  :global(.cm-tooltip-autocomplete li[aria-selected="true"] .cm-completionIcon),
+.editor
+  :global(
+    .cm-tooltip-autocomplete li[aria-selected="true"] .cm-completionLabel
+  ) {
+  color: var(--theme-accent-contrast);
+}
+
+.editor :global(.cm-completionLabel) {
+  font-weight: normal;
+}
+
+.editor :global(.cm-completionIcon) {
+  color: var(--theme-label-foreground);
+  opacity: 1;
+}
+
 .editor :global(.cm-highlight-punctuation),
 .editor :global(.cm-highlight-comment) {
   color: var(--theme-foreground-muted);
 }
 
-.editor :global(.cm-highlight-ident) {
+.editor :global(.cm-highlight-ident),
+.editor :global(.cm-completionIcon-type + .cm-completionLabel) {
   color: var(--theme-highlight-1);
 }
 
-.editor :global(.cm-highlight-argument) :global(.cm-highlight-ident),
-.editor :global(.cm-highlight-ident) :global(.cm-highlight-argument),
+.editor :global(.cm-highlight-argument .cm-highlight-ident),
+.editor :global(.cm-highlight-ident .cm-highlight-argument),
 .editor :global(.cm-highlight-argument.cm-highlight-ident) {
   color: var(--theme-highlight-2);
 }
 
 .editor :global(.cm-highlight-string),
-.editor :global(.cm-highlight-number) {
+.editor :global(.cm-highlight-number),
+.editor :global(.cm-completionIcon-text + .cm-completionLabel) {
   color: var(--theme-highlight-3);
 }
 

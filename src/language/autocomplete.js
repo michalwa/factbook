@@ -33,6 +33,7 @@ export function getTagCompletionOptions(state) {
       label:
         kind === "atom" && arity ? `${name}(${argPlaceholders(arity)})` : name,
       displayLabel: arity ? `${name}/${arity}` : name,
+      type: kind === "atom" ? "type" : "text",
     };
 
     return completion;
