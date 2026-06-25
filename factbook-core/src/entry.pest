@@ -1,10 +1,11 @@
-entry    = ${ SOI ~ text? ~ (((WHITESPACE+ | SOI) ~ tag ~ &(WHITESPACE | EOI) | "@" | WHITESPACE+) ~ text?)* ~ EOI }
-tag      = ${ at ~ term }
-term     =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
-parens   = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
-list     = !{ lsquare ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rsquare }
-compound = ${ #functor = (ident | quoted) ~ args }
-args     = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
+entry     = ${ SOI ~ text? ~ ((tag_delim | "@" | WHITESPACE+) ~ text?)* ~ EOI }
+tag_delim = _{ ((WHITESPACE | lpunct)+ | SOI) ~ tag ~ &(WHITESPACE | rpunct | EOI) }
+tag       = ${ at ~ term }
+term      =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
+parens    = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
+list      = !{ lsquare ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rsquare }
+compound  = ${ #functor = (ident | quoted) ~ args }
+args      = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
 
 ident       = @{ 'a'..'z' ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 variable    = @{ ('A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
@@ -20,6 +21,11 @@ rparen  = @{ ")" }
 lsquare = @{ "[" }
 rsquare = @{ "]" }
 comma   = @{ "," }
+
+// This punctuation is allowed to immediately precede or follow tags without
+// invalidating them
+lpunct = @{ "(" | "[" | "{" }
+rpunct = @{ "." | "," | ";" | ":" | ")" | "]" | "}" }
 
 text = _{ (!("@" | WHITESPACE) ~ ANY)* }
 
