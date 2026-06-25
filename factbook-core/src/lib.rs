@@ -223,6 +223,7 @@ impl<'a> EntriesMut<'a> {
 mod test {
     use crate::model::{CommonTag, EntryId, ViewId};
     use crate::{Session, State};
+    use factbook_swipl::{Context, term};
     use pretty_assertions::assert_eq;
     use std::collections::HashSet;
     use std::sync::LazyLock;
@@ -269,6 +270,13 @@ mod test {
         let view = state.views_mut().create();
         state.set_view_definition(view, definition.into());
         view
+    }
+
+    #[test]
+    fn prolog_tests() {
+        let pl = SESSION.0.engine();
+        let goal = term! { &pl => run_tests(_, [format(log)]) };
+        assert!(pl.call(goal, None).unwrap());
     }
 
     #[test]
