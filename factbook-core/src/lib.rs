@@ -133,8 +133,8 @@ impl ViewsMut<'_> {
         ViewId(self.0.push(Default::default()))
     }
 
-    pub fn remove(&mut self, id: ViewId) -> View {
-        self.0.remove(id.0).unwrap()
+    pub fn remove(&mut self, id: ViewId) -> Option<View> {
+        self.0.remove(id.0)
     }
 
     pub fn set_name(&mut self, id: ViewId, name: String) {
@@ -151,8 +151,10 @@ impl<'a> Entries<'a> {
         self.store.entries().map(|(id, entry)| (EntryId(id), entry))
     }
 
-    pub fn get(&'a self, id: EntryId) -> &'a Entry {
-        self.store.entry_data(id.0)
+    pub fn get(&'a self, id: EntryId) -> Option<&'a Entry> {
+        self.store
+            .entry_exists(id.0)
+            .then(|| self.store.entry_data(id.0))
     }
 
     pub fn common_tags(&'a self) -> impl Iterator<Item = CommonTag<'a>> {
@@ -184,13 +186,17 @@ impl<'a> EntriesMut<'a> {
         EntryId(self.store.insert_entry(Default::default()))
     }
 
-    pub fn remove(&mut self, id: EntryId) -> Entry {
-        self.store.remove_entry(id.0)
+    pub fn remove(&mut self, id: EntryId) -> Option<Entry> {
+        self.store
+            .entry_exists(id.0)
+            .then(|| self.store.remove_entry(id.0))
     }
 
     pub fn set_content(&mut self, id: EntryId, content: String) {
-        self.store.entry_data_mut(id.0).content = content;
-        self.update_entry(id);
+        if self.store.entry_exists(id.0) {
+            self.store.entry_data_mut(id.0).content = content;
+            self.update_entry(id);
+        }
     }
 
     fn insert(&mut self, entry: Entry) {

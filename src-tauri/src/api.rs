@@ -194,7 +194,7 @@ pub fn set_entry_content(state: AppState, id: EntryId, content: String) -> ipc::
     state.journal.entries_mut().set_content(id, content);
 
     let entries = state.journal.entries();
-    ipc::Response::new(serde_json::to_string(entries.get(id)).unwrap())
+    ipc::Response::new(serde_json::to_string(&entries.get(id)).unwrap())
 }
 
 /// A faster endpoint which allows parsing spans after every keystroke. Unlike
