@@ -74,7 +74,7 @@ human_time_value_( N, _,  N) :- integer(N).
 human_time_value_(+N, X0, X) :- X is X0 + N.
 human_time_value_(-N, X0, X) :- X is X0 - N.
 
-human_time_spec([Y, M, D|_])           --> "same", ws, "time", ws, human_time_spec_([Y, M, D|_]).
+human_time_spec([Y, M, D|_])           --> same_time_(human_time_spec_([Y, M, D|_])).
 human_time_spec([])                    --> "now".
 human_time_spec([_, _, _, 0, 0, 0])    --> "today".
 human_time_spec(S)                     --> human_time_spec_(S).
@@ -83,37 +83,31 @@ human_time_spec(week_start( 1))        --> "next", ws, "week".
 human_time_spec(week_start( 0))        --> "this", ws, "week".
 human_time_spec(week_start(-1))        --> "last", ws, "week".
 
-human_time_spec([_, _, + 7|_])         --> "same", ws, "time", ws, "next", ws, "week".
-human_time_spec([_, _, - 7|_])         --> "same", ws, "time", ws, "last", ws, "week".
+human_time_spec([_, _, + 7|_])         --> same_time_(( "next", ws, "week" )).
+human_time_spec([_, _, - 7|_])         --> same_time_(( "last", ws, "week" )).
 
+% `human_time_spec_` are expressions which can be prefixed with `same time` and
+% have a generic result (`next/last week` are an exception)
 human_time_spec_([Y, M, D, 0, 0, 0])   --> integer(Y), "-", integer(M), "-", integer(D).
 
 human_time_spec_([_, _, + 1, 0, 0, 0]) --> "tomorrow".
 human_time_spec_([_, _, - 1, 0, 0, 0]) --> "yesterday".
 
-human_time_spec_([+ N, _, _, 0, 0, 0]) --> "in", ws, integer(N), ws, "years".
-human_time_spec_([_, + N, _, 0, 0, 0]) --> "in", ws, integer(N), ws, "months".
-human_time_spec_([_, _, + N, 0, 0, 0]) --> "in", ws, integer(N), ws, "days".
-human_time_spec_([_, _, + N, 0, 0, 0]) --> "in", ws, integer(W), ws, "weeks", { N is W * 7 }.
-human_time_spec_([_, _, _, + N, _, _]) --> "in", ws, integer(N), ws, "hours".
-human_time_spec_([_, _, _, _, + N, _]) --> "in", ws, integer(N), ws, "minutes".
-human_time_spec_([_, _, _, _, _, + N]) --> "in", ws, integer(N), ws, "seconds".
+human_time_spec_([+ N, _, _, 0, 0, 0]) --> from_now_(quantity_(N, "year")).
+human_time_spec_([_, + N, _, 0, 0, 0]) --> from_now_(quantity_(N, "month")).
+human_time_spec_([_, _, + N, 0, 0, 0]) --> from_now_(quantity_(N, "day")).
+human_time_spec_([_, _, + N, 0, 0, 0]) --> from_now_(quantity_(W, "week")), { N is W * 7 }.
+human_time_spec_([_, _, _, + N, _, _]) --> from_now_(quantity_(N, "hour")).
+human_time_spec_([_, _, _, _, + N, _]) --> from_now_(quantity_(N, "minute")).
+human_time_spec_([_, _, _, _, _, + N]) --> from_now_(quantity_(N, "second")).
 
-human_time_spec_([+ N, _, _, 0, 0, 0]) --> integer(N), ws, "years",   ws, "from", ws, "now".
-human_time_spec_([_, + N, _, 0, 0, 0]) --> integer(N), ws, "months",  ws, "from", ws, "now".
-human_time_spec_([_, _, + N, 0, 0, 0]) --> integer(N), ws, "days",    ws, "from", ws, "now".
-human_time_spec_([_, _, + N, 0, 0, 0]) --> integer(W), ws, "weeks",   ws, "from", ws, "now", { N is W * 7 }.
-human_time_spec_([_, _, _, + N, _, _]) --> integer(N), ws, "hours",   ws, "from", ws, "now".
-human_time_spec_([_, _, _, _, + N, _]) --> integer(N), ws, "minutes", ws, "from", ws, "now".
-human_time_spec_([_, _, _, _, _, + N]) --> integer(N), ws, "seconds", ws, "from", ws, "now".
-
-human_time_spec_([- N, _, _, 0, 0, 0]) --> integer(N), ws, "years",   ws, "ago".
-human_time_spec_([_, - N, _, 0, 0, 0]) --> integer(N), ws, "months",  ws, "ago".
-human_time_spec_([_, _, - N, 0, 0, 0]) --> integer(N), ws, "days",    ws, "ago".
-human_time_spec_([_, _, - N, 0, 0, 0]) --> integer(W), ws, "weeks",   ws, "ago", { N is W * 7 }.
-human_time_spec_([_, _, _, - N, _, _]) --> integer(N), ws, "hours",   ws, "ago".
-human_time_spec_([_, _, _, _, - N, _]) --> integer(N), ws, "minutes", ws, "ago".
-human_time_spec_([_, _, _, _, _, - N]) --> integer(N), ws, "seconds", ws, "ago".
+human_time_spec_([- N, _, _, 0, 0, 0]) --> quantity_(N, "year"),   ws, "ago".
+human_time_spec_([_, - N, _, 0, 0, 0]) --> quantity_(N, "month"),  ws, "ago".
+human_time_spec_([_, _, - N, 0, 0, 0]) --> quantity_(N, "day"),    ws, "ago".
+human_time_spec_([_, _, - N, 0, 0, 0]) --> quantity_(W, "week"),   ws, "ago", { N is W * 7 }.
+human_time_spec_([_, _, _, - N, _, _]) --> quantity_(N, "hour"),   ws, "ago".
+human_time_spec_([_, _, _, _, - N, _]) --> quantity_(N, "minute"), ws, "ago".
+human_time_spec_([_, _, _, _, _, - N]) --> quantity_(N, "second"), ws, "ago".
 
 human_time_spec_([+ 1, 1, 1, 0, 0, 0]) --> "next", ws, "year".
 human_time_spec_([_, + 1, 1, 0, 0, 0]) --> "next", ws, "month".
@@ -125,6 +119,16 @@ human_time_spec_([_, _, 1, 0, 0, 0])   --> "this", ws, "month".
 human_time_spec_([- 1, 1, 1, 0, 0, 0]) --> "last",     ws, "year".
 human_time_spec_([_, - 1, 1, 0, 0, 0]) --> "last",     ws, "month".
 human_time_spec_([_, _, - 1, 0, 0, 0]) --> "previous", ws, "day".
+
+same_time_(P) --> "same", ws, "time", ws, P.
+from_now_(P)  --> P, ws, "from", ws, "now".
+from_now_(P)  --> "in", ws, P.
+
+% quantity_(N, Unit)
+%
+% Handles plural inflections of `U` for `N != 1`
+quantity_(1, U) --> integer(N), { N == 1 }, ws, U.
+quantity_(N, U) --> integer(N), ws, U, "s".
 
 integer(I) --> digit(D), digits(Ds), { number_codes(I, [D|Ds]) }.
 
@@ -193,6 +197,10 @@ test(human_datetime_in_2_hours, nondet) :-
   date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
   human_datetime("in 2 hours", T0, date(2020, 1, 2, 15, 14, 15.0, _, _, _)).
 
+test(human_datetime_in_1_hour, nondet) :-
+  date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
+  human_datetime("in 1 hour", T0, date(2020, 1, 2, 14, 14, 15.0, _, _, _)).
+
 test(human_datetime_in_2_minutes, nondet) :-
   date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
   human_datetime("in 2 minutes", T0, date(2020, 1, 2, 13, 16, 15.0, _, _, _)).
@@ -221,6 +229,10 @@ test(human_datetime_2_weeks_ago, nondet) :-
 test(human_datetime_2_hours_ago, nondet) :-
   date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
   human_datetime("2 hours ago", T0, date(2020, 1, 2, 11, 14, 15.0, _, _, _)).
+
+test(human_datetime_1_hour_ago, nondet) :-
+  date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
+  human_datetime("1 hour ago", T0, date(2020, 1, 2, 12, 14, 15.0, _, _, _)).
 
 test(human_datetime_2_minutes_ago, nondet) :-
   date_time_stamp(date(2020, 1, 2, 13, 14, 15.0, _, _, _), T0),
