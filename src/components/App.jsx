@@ -1,8 +1,10 @@
 import { createAppState } from "@/api/appState";
 import Journal from "@/components/Journal";
 import styles from "@/styles/App";
+import { DocumentEventListener } from "@solid-primitives/event-listener";
 import { MetaProvider, Title } from "@solidjs/meta";
 import { createHotkey } from "@tanstack/solid-hotkeys";
+import { createSignal } from "solid-js";
 
 export default function App() {
   const {
@@ -14,6 +16,13 @@ export default function App() {
 
   createHotkey("Mod+S", () => saveJournal());
 
+  const [modKeyPressed, setModKeyPressed] = createSignal(false);
+
+  const updateModKeyState = (event) => {
+    console.log(event);
+    setModKeyPressed(event.ctrlKey || event.metaKey);
+  };
+
   return (
     <AppStateProvider>
       <MetaProvider>
@@ -23,9 +32,13 @@ export default function App() {
             : "factbook"}
         </Title>
       </MetaProvider>
-      <div class={styles.app}>
+      <div class={`${styles.app} ${modKeyPressed() ? "mod-key-pressed" : ""}`}>
         <Journal />
       </div>
+      <DocumentEventListener
+        onKeyDown={updateModKeyState}
+        onKeyUp={updateModKeyState}
+      />
     </AppStateProvider>
   );
 }

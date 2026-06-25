@@ -83,3 +83,17 @@
 .editor :global(.cm-highlight-variable) {
   color: var(--theme-highlight-4);
 }
+
+.editor :global(.cm-highlight-url) {
+  color: var(--theme-accent-foreground);
+}
+
+:global(.mod-key-pressed) .editor :global(.cm-highlight-url):hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Highlight links embedded in comments in the view editor */
+:global(.mod-key-pressed) .editor :global(.cm-highlight-url:hover *) {
+  color: var(--text-accent-foreground);
+}

@@ -5,10 +5,8 @@ import {
 import styles from "@/styles/CodeEditor";
 import { EditorView } from "@codemirror/view";
 import { debounce } from "@solid-primitives/scheduled";
-import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
-import { StateEffect } from "@codemirror/state";
-import { StateField } from "@codemirror/state";
-import { Decoration } from "@codemirror/view";
+import { createEffect, createSignal, on, onCleanup } from "solid-js";
+import { spanHighlight, updateSpans, urlHighlight } from "@/language/common";
 
 /** @typedef {{ start: number, len: number, kind: string }} Span */
 
@@ -81,17 +79,17 @@ export default function CodeEditor(props) {
 
   createEditorControlledValue(editorView, incomingValue);
 
-  createExtension(EditorView.lineWrapping);
-  createExtension(
+  createExtension([
+    EditorView.lineWrapping,
     EditorView.domEventHandlers({
       keydown(event, view) {
         if (event.key === "Backspace" && view.state.doc.length === 0)
           props.onEmptyBackspace?.();
       },
     }),
-  );
-
-  createExtension(spanHighlight);
+    spanHighlight,
+    urlHighlight,
+  ]);
 
   createEffect(
     on(spans, (spans) =>
@@ -103,37 +101,3 @@ export default function CodeEditor(props) {
 
   return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
 }
-
-/** @type {import("@codemirror/state").StateEffectType<Token[]>} */
-const updateSpans = StateEffect.define();
-
-const spanHighlight = StateField.define({
-  create() {
-    return Decoration.none;
-  },
-  update(decorations, transaction) {
-    const docLength = transaction.state.doc.length;
-
-    decorations = decorations.map(transaction.changes);
-
-    for (const effect of transaction.effects) {
-      if (effect.is(updateSpans)) {
-        decorations = Decoration.set(
-          effect.value
-            .filter(({ start, len }) => start + len <= docLength)
-            .map(({ kind, start, len }) =>
-              Decoration.mark({ class: `cm-highlight-${kind}` }).range(
-                start,
-                start + len,
-              ),
-            ),
-        );
-      }
-    }
-
-    return decorations;
-  },
-  provide(field) {
-    return EditorView.decorations.from(field);
-  },
-});
