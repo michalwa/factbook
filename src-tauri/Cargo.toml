@@ -1,6 +1,6 @@
 [package]
 name = "factbook"
-version = "0.4.0"
+version = "0.5.0"
 description = "Personal knowledge base app based on logic programming"
 authors = ["michalwa <michalwa2003@gmail.com>"]
 edition = "2024"
