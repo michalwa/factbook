@@ -18,11 +18,9 @@ pub struct Session(factbook_swipl::Session<'static>);
 
 impl Session {
     pub fn new() -> Option<Self> {
-        Some(Self(
-            factbook_swipl::Session::init(SWIPL_STATE)?
-                .register_predicate::<search::predicates::EntryTag>()
-                .register_predicate::<search::predicates::SetEntryOrderKey>(),
-        ))
+        factbook_swipl::Session::init(SWIPL_STATE)
+            .map(crate::search::predicates::register)
+            .map(Self)
     }
 }
 
@@ -223,7 +221,10 @@ impl<'a> EntriesMut<'a> {
 mod test {
     use crate::model::{CommonTag, EntryId, ViewId};
     use crate::{Session, State};
+    use chrono::{Local, TimeZone, Timelike};
+    use factbook_swipl::{Context, term};
     use pretty_assertions::assert_eq;
+    use sparse_tags::Store;
     use std::collections::HashSet;
     use std::sync::LazyLock;
     use test_log::test;
@@ -269,6 +270,13 @@ mod test {
         let view = state.views_mut().create();
         state.set_view_definition(view, definition.into());
         view
+    }
+
+    #[test]
+    fn prolog_tests() {
+        let pl = SESSION.0.engine();
+        let goal = term! { &pl => run_tests(_, [format(log)]) };
+        assert!(pl.call(goal, None).unwrap());
     }
 
     #[test]
@@ -382,6 +390,39 @@ mod test {
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
         assert_eq!(matches, ["@bar(1)", "@bar(2)", "@bar(3)"]);
+    }
+
+    #[test]
+    fn view_created() {
+        let created_at = Local
+            .with_ymd_and_hms(2021, 2, 3, 13, 14, 15)
+            .unwrap()
+            .with_nanosecond(123_000_000)
+            .unwrap();
+
+        let (state, entry_ids) = &*FIXTURES;
+
+        state
+            .entries
+            .write()
+            .unwrap()
+            .entry_data_mut(entry_ids[0].0)
+            .created_at = created_at;
+
+        let view = create_view(
+            state,
+            "
+            created(T),
+            {
+                stamp_date_time(T, date(2021, 2, 3, 13, 14, S, _, _, _), local),
+                abs(S - 15.123) < 0.0001 % expected deviation in sub-second precision
+            }
+            ",
+        );
+
+        let mut matches = Vec::new();
+        state.for_each_view_entry(view, |id, _| matches.push(id));
+        assert_eq!(matches, [entry_ids[0]]);
     }
 
     #[test]

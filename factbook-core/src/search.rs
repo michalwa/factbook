@@ -115,10 +115,18 @@ struct ViewContext<'a> {
 pub(crate) mod predicates {
     use crate::model::EntryId;
     use crate::search::{TagKey, ViewContext};
+    use chrono::{Datelike, Timelike};
     use factbook_swipl::foreign::{Nondet, Semidet, predicate};
-    use factbook_swipl::term::TermKind;
-    use factbook_swipl::{Atom, Context, Record};
+    use factbook_swipl::term::{Term, TermKind};
+    use factbook_swipl::{Atom, Context, Record, Session, term};
     use sparse_tags::Store;
+
+    pub(crate) fn register(session: Session) -> Session {
+        session
+            .register_predicate::<EntryTag>()
+            .register_predicate::<SetEntryOrderKey>()
+            .register_predicate::<EntryCreated>()
+    }
 
     #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
     pub(crate) struct EntryTag<'a> {
@@ -186,15 +194,7 @@ pub(crate) mod predicates {
             for (found_entry_id, found_tag) in self.iter.as_mut().unwrap() {
                 let pl = pl.frame();
 
-                // If `entry_id` is already instantiated, manually compare instead of
-                // unifying terms, because unifying blobs like this will always fail,
-                // even if they have the same contents
-                let entry_matched = match entry_id.get::<EntryId>() {
-                    Some(entry_id) => entry_id == found_entry_id,
-                    None => entry_id.unify(found_entry_id),
-                };
-
-                if entry_matched && tag.unify(found_tag) {
+                if unify_entry_id(found_entry_id, entry_id) && tag.unify(found_tag) {
                     pl.close();
                     return true;
                 }
@@ -239,6 +239,83 @@ pub(crate) mod predicates {
             }
 
             true
+        }
+    }
+
+    #[predicate(entry_created(ctx, entry_id, timestamp) nondet)]
+    pub(crate) struct EntryCreated<'a> {
+        iter: Option<Box<dyn Iterator<Item = EntryId> + 'a>>,
+    }
+
+    impl Nondet for EntryCreated<'_> {
+        fn init(_: &impl Context) -> Self {
+            Self { iter: None }
+        }
+
+        fn next(
+            &mut self,
+            pl: &mut impl Context,
+            [ctx_arg, entry_id_arg, timestamp]: Self::Args<'_>,
+        ) -> bool {
+            let Some(ctx_atom) = ctx_arg.get::<Atom>() else {
+                log::error!(
+                    "entry_created(C, _, _): C must be of type ViewContext, got {ctx_arg:?}"
+                );
+                return false;
+            };
+            let Some(ctx) = ctx_atom.scoped_blob::<ViewContext>() else {
+                log::error!(
+                    "entry_created(C, _, _): C must be of type ViewContext, got {ctx_arg:?}"
+                );
+                return false;
+            };
+
+            let iter = self
+                .iter
+                .get_or_insert_with(|| match entry_id_arg.get::<EntryId>() {
+                    Some(entry_id) => Box::new(std::iter::once(entry_id)),
+                    None => Box::new(ctx.entries.entry_ids().map(EntryId)),
+                });
+
+            for entry_id in iter {
+                let pl = pl.frame();
+
+                if unify_entry_id(entry_id, entry_id_arg) {
+                    let created_at = &ctx.entries.entry_data(entry_id.0).created_at;
+                    let second = created_at.second() as f64
+                        + created_at.nanosecond() as f64 / 1_000_000_000.0;
+
+                    let date = term! {
+                        &pl => date(
+                            {created_at.year()},
+                            {created_at.month()},
+                            {created_at.day()},
+                            {created_at.hour()},
+                            {created_at.minute()},
+                            {second},
+                            _, _, _
+                        )
+                    };
+                    let goal = term! { &pl => date_time_stamp({date}, {timestamp}) };
+
+                    if pl.call(goal, None).unwrap() {
+                        pl.close();
+                        return true;
+                    }
+                }
+            }
+
+            false
+        }
+    }
+
+    fn unify_entry_id(lhs: EntryId, rhs: Term<'_>) -> bool {
+        // If `entry_id` is already instantiated, manually compare instead of
+        // unifying terms, because unifying blobs like this will always fail,
+        // even if they have the same contents
+        match rhs.get::<EntryId>() {
+            Some(entry_id) => entry_id == lhs,
+            None => rhs.unify(lhs),
         }
     }
 }
