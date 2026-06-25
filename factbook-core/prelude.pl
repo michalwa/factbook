@@ -10,13 +10,14 @@
 %
 % Free variable serves as a catch-all wildcard view (e.g. `_`) and prevents
 % further clauses from matching uninstantiated views.
-view_entry(_, V,        _) :- var(V), !.
-view_entry(_, { G },    _) :- G.
-view_entry(C, @T,       E) :- entry_tag(C, E, T).
-view_entry(C, (X, Y),   E) :- view_entry(C, X, E), view_entry(C, Y, E).
-view_entry(C, (X; Y),   E) :- view_entry(C, X, E); view_entry(C, Y, E).
-view_entry(C, E1: V,    _) :- view_entry(C, V, E1).
-view_entry(C, order(X), E) :- set_entry_order_key(C, E, X).
+view_entry(_, V,          _) :- var(V), !.
+view_entry(_, { G },      _) :- G.
+view_entry(C, @T,         E) :- entry_tag(C, E, T).
+view_entry(C, (X, Y),     E) :- view_entry(C, X, E), view_entry(C, Y, E).
+view_entry(C, (X; Y),     E) :- view_entry(C, X, E); view_entry(C, Y, E).
+view_entry(C, E1: V,      _) :- view_entry(C, V, E1).
+view_entry(C, order(X),   E) :- set_entry_order_key(C, E, X).
+view_entry(C, created(T), E) :- entry_created(C, E, T).
 
 
 % human_datetime(TimeOrKeyword, T)
