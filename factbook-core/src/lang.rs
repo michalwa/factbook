@@ -422,4 +422,34 @@ mod test {
             s(S::Punctuation, 29, 1),
         ]);
     }
+
+    #[test]
+    fn parse_terminating_punct() {
+        let engine = crate::test::SESSION.0.engine();
+        let (tags, spans) = parse("@a. @b, @c; @d: (@e) [@f] {@g} ((@h [[@i]] @j}}", &engine);
+
+        assert_eq!(tags, ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]);
+        assert_eq!(spans, [
+            s(S::Punctuation, 0, 1),
+            s(S::Ident, 1, 1),
+            s(S::Punctuation, 4, 1),
+            s(S::Ident, 5, 1),
+            s(S::Punctuation, 8, 1),
+            s(S::Ident, 9, 1),
+            s(S::Punctuation, 12, 1),
+            s(S::Ident, 13, 1),
+            s(S::Punctuation, 17, 1),
+            s(S::Ident, 18, 1),
+            s(S::Punctuation, 22, 1),
+            s(S::Ident, 23, 1),
+            s(S::Punctuation, 27, 1),
+            s(S::Ident, 28, 1),
+            s(S::Punctuation, 33, 1),
+            s(S::Ident, 34, 1),
+            s(S::Punctuation, 38, 1),
+            s(S::Ident, 39, 1),
+            s(S::Punctuation, 43, 1),
+            s(S::Ident, 44, 1),
+        ]);
+    }
 }
