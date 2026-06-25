@@ -18,10 +18,8 @@ export default function App() {
 
   const [modKeyPressed, setModKeyPressed] = createSignal(false);
 
-  const updateModKeyState = (event) => {
-    console.log(event);
+  const updateModKeyState = (event) =>
     setModKeyPressed(event.ctrlKey || event.metaKey);
-  };
 
   return (
     <AppStateProvider>
@@ -38,6 +36,8 @@ export default function App() {
       <DocumentEventListener
         onKeyDown={updateModKeyState}
         onKeyUp={updateModKeyState}
+        onMouseEnter={updateModKeyState}
+        onMouseLeave={() => setModKeyPressed(false)}
       />
     </AppStateProvider>
   );
