@@ -268,11 +268,10 @@ mod test {
             s(S::Functor, 11, 3),
             s(S::Ident, 11, 3),
             s(S::Punctuation, 14, 1),
-            // FIXME: `#argument` nodes consume trailing whitespace
-            s(S::Argument, 16, 4),
+            s(S::Argument, 16, 3),
             s(S::Ident, 16, 3),
             s(S::Punctuation, 20, 1),
-            s(S::Argument, 22, 2),
+            s(S::Argument, 22, 1),
             s(S::Number, 22, 1),
             s(S::Punctuation, 24, 1),
         ]);
@@ -481,6 +480,31 @@ mod test {
             s(S::Ident, 39, 1),
             s(S::Punctuation, 43, 1),
             s(S::Ident, 44, 1),
+        ]);
+    }
+
+    #[test]
+    fn parse_whitespace() {
+        let engine = crate::test::SESSION.0.engine();
+        let (tags, spans) = parse("@foo( bar ) @1+2+3 @4 + 5", &engine);
+
+        assert_eq!(tags, ["foo(bar)", "1+2+3", "4"]);
+        assert_eq!(spans, [
+            s(S::Punctuation, 0, 1), // @
+            s(S::Functor, 1, 3),     // foo
+            s(S::Ident, 1, 3),
+            s(S::Punctuation, 4, 1), // (
+            s(S::Argument, 6, 3),    // bar
+            s(S::Ident, 6, 3),
+            s(S::Punctuation, 10, 1), // )
+            s(S::Punctuation, 12, 1), // @
+            s(S::Number, 13, 1),      // 1
+            s(S::Operator, 14, 1),    // +
+            s(S::Number, 15, 1),      // 2
+            s(S::Operator, 16, 1),    // +
+            s(S::Number, 17, 1),      // 3
+            s(S::Punctuation, 19, 1), // @
+            s(S::Number, 20, 1),      // 4
         ]);
     }
 }
