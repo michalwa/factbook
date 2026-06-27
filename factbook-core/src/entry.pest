@@ -28,7 +28,7 @@ comma   = @{ "," }
 // This punctuation is allowed to immediately precede or follow tags without
 // invalidating them
 lpunct = @{ "(" | "[" | "{" }
-rpunct = @{ "." | "," | ";" | ":" | ")" | "]" | "}" }
+rpunct = @{ "." | "," | ";" | ":" | "!" | "?" | ")" | "]" | "}" }
 
 text = _{ (!("@" | WHITESPACE) ~ ANY)* }
 
