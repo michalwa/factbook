@@ -8,16 +8,21 @@ import { debounce } from "@solid-primitives/scheduled";
 import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import { defaultKeymap } from "@codemirror/commands";
 
-export default function createCodeEditor({ onInit } = {}) {
+/**
+ * @param {object} config
+ * @param {() => any} config.onSynced Called after the editor has been initially
+ *   populated with content provided by the `value` prop
+ */
+export default function createCodeEditor(config = {}) {
   // This is the value read back from CodeMirror, not updated with the prop
   const [value, setValue] = createSignal();
-  let incomingValueJustChanged = true;
+  let synced = false;
 
   const { ref, editorView, createExtension } = createCodeMirror({
     onValueChange(value) {
-      if (incomingValueJustChanged) {
-        incomingValueJustChanged = false;
-        onInit?.();
+      if (!synced) {
+        synced = true;
+        config.onSynced?.();
       } else {
         setValue(value);
       }
@@ -57,11 +62,7 @@ export default function createCodeEditor({ onInit } = {}) {
     const [incomingValue, setIncomingValue] = createSignal(props.value);
     createEffect(() => {
       const value = props.value;
-
-      if (!editorView()?.hasFocus) {
-        incomingValueJustChanged = true;
-        setIncomingValue(value);
-      }
+      if (!editorView()?.hasFocus) setIncomingValue(value);
     });
 
     createEditorControlledValue(editorView, incomingValue);

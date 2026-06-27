@@ -6,7 +6,6 @@
 use factbook_swipl::term::Term;
 use factbook_swipl::{Context, Engine};
 use pest::Parser;
-use pest::iterators::Pair;
 use pest_derive::Parser;
 use serde::Serialize;
 
@@ -42,7 +41,6 @@ pub enum SpanKind {
     Operator,
     Functor,
     Argument,
-    Checkbox { on: String, off: String },
 }
 
 impl Span {
@@ -82,85 +80,55 @@ pub fn parse<'c>(input: &str, ctx: Option<&'c impl Context>) -> ParseResult<'c> 
 
     // The parser should never fail, because it includes `Rule::text` which
     // matches arbitrary input
-    for pair in EntryParser::parse(Rule::entry, input).unwrap() {
-        visit_pair(pair, ctx, input, &mut tags, &mut spans);
+    for pair in EntryParser::parse(Rule::entry, input).unwrap().flatten() {
+        use SpanKind as S;
+
+        if let Some(kind) = match pair.as_node_tag() {
+            Some("functor") => Some(S::Functor),
+            Some("argument") => Some(S::Argument),
+            _ => None,
+        } {
+            spans.push(Span::from_pair(kind, &pair, input));
+        }
+
+        if let Some(kind) = match pair.as_rule() {
+            Rule::tag => {
+                let [_, term] = pair
+                    .clone()
+                    .into_inner()
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
+
+                if let Some(ctx) = ctx
+                    && let Ok(tag) = ctx
+                        .new_term()
+                        .put_parsed(term.as_str())
+                        .map_err(|e| log::warn!("failed to parse tag: {e:?}"))
+                {
+                    tags.push(tag);
+                }
+
+                None
+            },
+            Rule::at
+            | Rule::lparen
+            | Rule::rparen
+            | Rule::lsquare
+            | Rule::rsquare
+            | Rule::comma => Some(S::Punctuation),
+            Rule::ident | Rule::quoted => Some(S::Ident),
+            Rule::string => Some(S::String),
+            Rule::number => Some(S::Number),
+            Rule::variable => Some(S::Variable),
+            Rule::operator | Rule::operator_ex => Some(S::Operator),
+            _ => None,
+        } {
+            spans.push(Span::from_pair(kind, &pair, input));
+        }
     }
 
     ParseResult { tags, spans }
-}
-
-fn visit_pair<'c>(
-    pair: Pair<Rule>,
-    ctx: Option<&'c impl Context>,
-    input: &str,
-    tags: &mut Vec<Term<'c>>,
-    spans: &mut Vec<Span>,
-) {
-    use SpanKind as S;
-
-    if let Some(kind) = match pair.as_node_tag() {
-        Some("functor") => Some(S::Functor),
-        Some("argument") => Some(S::Argument),
-        _ => None,
-    } {
-        spans.push(Span::from_pair(kind, &pair, input));
-    }
-
-    if let Some(kind) = match pair.as_rule() {
-        Rule::tag => {
-            let [_, term] = pair
-                .clone()
-                .into_inner()
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap();
-
-            if let Some(ctx) = ctx
-                && let Ok(tag) = ctx
-                    .new_term()
-                    .put_parsed(term.as_str())
-                    .map_err(|e| log::warn!("failed to parse tag: {e:?}"))
-            {
-                tags.push(tag);
-            }
-
-            let pairs = term.clone().into_inner();
-
-            if let Some(functor) = pairs.find_first_tagged("functor") {
-                // TODO: Make generic
-                #[allow(clippy::collapsible_if)]
-                if functor.as_str() == "todo" {
-                    if let Some(argument) = pairs.find_first_tagged("argument") {
-                        spans.push(Span::from_pair(
-                            S::Checkbox {
-                                on: "x".into(),
-                                off: "_".into(),
-                            },
-                            &argument,
-                            input,
-                        ));
-                    }
-                }
-            }
-
-            None
-        },
-        Rule::at | Rule::lparen | Rule::rparen | Rule::lsquare | Rule::rsquare | Rule::comma => {
-            Some(S::Punctuation)
-        },
-        Rule::ident | Rule::quoted => Some(S::Ident),
-        Rule::string => Some(S::String),
-        Rule::number => Some(S::Number),
-        Rule::variable => Some(S::Variable),
-        Rule::operator | Rule::operator_ex => Some(S::Operator),
-        _ => None,
-    } {
-        spans.push(Span::from_pair(kind, &pair, input));
-    }
-
-    for pair in pair.into_inner() {
-        visit_pair(pair, ctx, input, tags, spans);
-    }
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ export default function Entry(props) {
 
   const [spans, setSpans] = createSignal();
   const { CodeEditor, editorDispatch } = createCodeEditor({
-    onInit: () => setSpans(props.spans),
+    onSynced: () => setSpans(props.spans),
   });
   const { entryLanguageExtension } = createEntryLanguageExtension();
 
