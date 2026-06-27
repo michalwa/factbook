@@ -30,6 +30,7 @@
   --theme-panel-background: #101521;
   --theme-scrollbar-foreground: #2c4171;
   --theme-selection-background: #1e3261;
+  --round-small: 0.15rem;
   --round-default: 0.3rem;
   --round-full: 9999px;
   --padding-panel: 1rem;

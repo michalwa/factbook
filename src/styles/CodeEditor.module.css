@@ -97,3 +97,35 @@
 :global(.mod-key-pressed) .editor :global(.cm-highlight-url:hover *) {
   color: var(--text-accent-foreground);
 }
+
+.editor :global(.cm-checkbox) {
+  margin: 0;
+  font-size: inherit;
+  width: 0.9em;
+  visibility: hidden;
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.editor :global(.cm-checkbox)::before {
+  content: " ";
+  position: absolute;
+  visibility: visible;
+  font-size: 8pt;
+  width: 1.2em;
+  height: 1.2em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--theme-badge-background);
+  border-radius: var(--round-small);
+}
+
+.editor :global(.cm-checkbox):checked:before {
+  content: "\2714";
+  background: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}

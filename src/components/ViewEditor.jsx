@@ -1,7 +1,8 @@
-import CodeEditor from "@/components/CodeEditor";
+import createCodeEditor from "@/components/CodeEditor";
 import { createViewLanguageExtension } from "@/language/viewLanguage";
 
 export default function ViewEditor(props) {
+  const { CodeEditor } = createCodeEditor();
   const { viewLanguageExtension } = createViewLanguageExtension();
 
   return (

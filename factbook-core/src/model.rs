@@ -161,8 +161,7 @@ pub struct CommonTag<'a> {
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(tag = "kind")]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum CommonTagKind {
     Atom,
     Functor { arity: usize },

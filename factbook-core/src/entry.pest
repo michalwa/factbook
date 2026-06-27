@@ -1,18 +1,21 @@
 entry     = ${ SOI ~ text? ~ ((tag_delim | "@" | WHITESPACE+) ~ text?)* ~ EOI }
 tag_delim = _{ ((WHITESPACE | lpunct)+ | SOI) ~ tag ~ &(WHITESPACE | rpunct | EOI) }
-tag       = ${ at ~ term }
-term      =  { operator? ~ (parens | list | compound | ident | quoted | number | string | variable) ~ (operator ~ term)? }
-parens    = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
-list      = !{ lsquare ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rsquare }
-compound  = ${ #functor = (ident | quoted) ~ args }
-args      = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
+tag       = ${ at ~ term_top }
+term_top  = ${ operator? ~ term_inner ~ (operator ~ term_top)? }
+// Explicit whitepace to avoid consuming trailing whitespace greedily
+term       = ${ operator? ~ ws ~ term_inner ~ (ws ~ operator ~ ws ~ term)? }
+term_inner =  { parens | list | compound | ident | quoted | number | string | variable }
+parens     = !{ lparen ~ term ~ (operator_ex ~ term)* ~ rparen }
+list       = !{ lsquare ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rsquare }
+compound   = ${ #functor = (ident | quoted) ~ args }
+args       = !{ lparen ~ (#argument = term ~ (comma ~ #argument = term)*)? ~ rparen }
 
 ident       = @{ 'a'..'z' ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 variable    = @{ ('A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 number      = @{ '0'..'9'+ ~ ("." ~ '0'..'9'+)? }
 quoted      = @{ "'" ~ ("\\'" | !"'" ~ ANY)* ~ "'" }
 string      = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
-operator    = @{ ("!" | "#" | "$" | "^" | "&" | "*" | "-" | "+" | "=" | "\\" | "|" | ";" | "." | "<" | ">" | "/")+ }
+operator    = @{ ("!" | "#" | "$" | "^" | "&" | "*" | "-" | "+" | "=" | "\\" | "|" | ";" | "." | "<" | ">" | "/" | "?")+ }
 operator_ex = @{ (operator | "@" | ",")+ }
 
 at      = @{ "@" }
@@ -28,5 +31,7 @@ lpunct = @{ "(" | "[" | "{" }
 rpunct = @{ "." | "," | ";" | ":" | ")" | "]" | "}" }
 
 text = _{ (!("@" | WHITESPACE) ~ ANY)* }
+
+ws = _{ WHITESPACE* }
 
 WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
