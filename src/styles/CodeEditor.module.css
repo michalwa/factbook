@@ -97,3 +97,7 @@
 :global(.mod-key-pressed) .editor :global(.cm-highlight-url:hover *) {
   color: var(--text-accent-foreground);
 }
+
+:global(.cm-checkbox) > input {
+  margin: 0;
+}

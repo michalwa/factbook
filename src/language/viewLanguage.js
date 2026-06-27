@@ -13,6 +13,7 @@ import {
   tagCompletionTriggerRegexp,
 } from "./autocomplete";
 import { useTags } from "@/api/tag";
+import { urlHighlight } from "./common";
 
 const viewHighlight = styleTags({
   Comment: t.comment,
@@ -83,6 +84,7 @@ export function createViewLanguageExtension() {
       const tagsValue = tags();
 
       return [
+        urlHighlight,
         viewLanguage,
         syntaxHighlighting(viewHighlightStyle),
         tagCompletions.init(() => tagsValue),

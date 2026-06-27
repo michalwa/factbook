@@ -1,16 +1,26 @@
-import { createRoot, createSignal, onCleanup } from "solid-js";
-import CodeEditor from "@/components/CodeEditor";
+import { createEffect, createRoot, createSignal, onCleanup } from "solid-js";
+import createCodeEditor from "@/components/CodeEditor";
 import styles from "@/styles/Entry";
 import { format as formatDate } from "date-fns";
-import { createEntryLanguageExtension } from "@/language/entryLanguage";
+import {
+  createEntryLanguageExtension,
+  updateSpans,
+} from "@/language/entryLanguage";
+import { on } from "solid-js";
 
 export default function Entry(props) {
   const formattedTimestamp = () =>
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
-  const [spans, setSpans] = createSignal(props.spans);
-
+  const [spans, setSpans] = createSignal();
+  const { CodeEditor, editorDispatch } = createCodeEditor({
+    onInit: () => setSpans(props.spans),
+  });
   const { entryLanguageExtension } = createEntryLanguageExtension();
+
+  createEffect(
+    on(spans, (spans) => editorDispatch(updateSpans.of(spans ?? []))),
+  );
 
   return (
     <div class={styles.entry}>
@@ -30,7 +40,6 @@ export default function Entry(props) {
                 }
                 onChangeDeferred={props.onContentChange}
                 onEmptyBackspace={props.onRemove}
-                spans={spans()}
                 extension={entryLanguageExtension()}
               />
             ),
