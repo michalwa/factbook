@@ -19,10 +19,9 @@ pub struct ParseResult<'c> {
 }
 
 /// Span of entry content with an attached semantic tag
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Span {
-    #[serde(flatten)]
     pub kind: SpanKind,
     /// Character offset from the start of the input string
     pub start: usize,
@@ -30,8 +29,8 @@ pub struct Span {
     pub len: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum SpanKind {
     Punctuation,
     Ident,
