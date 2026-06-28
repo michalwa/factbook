@@ -17,13 +17,17 @@ export default function Status() {
   const { dirty, lastSaved } = useAppState();
 
   const [lastSavedString, setLastSavedString] = createSignal();
+  const [lastSavedDetailedString, setLastSavedDetailedString] = createSignal();
 
   onMount(() => {
     const interval = setInterval(() => {
       const lastSavedValue = lastSaved();
       if (lastSavedValue) {
         setLastSavedString(
-          formatDistanceToNow(lastSaved(), { addSuffix: true }),
+          formatDistanceToNow(lastSavedValue, { addSuffix: true }),
+        );
+        setLastSavedDetailedString(
+          formatDate(lastSavedValue, "yyyy-MM-dd hh:mm:ss"),
         );
       }
     });
@@ -44,24 +48,26 @@ export default function Status() {
 
   return (
     <div class={styles.container}>
-      <Show when={lastSaved()}>
-        <span
-          ref={saveStatusRef}
-          class={`${styles.label} ${dirty() ? styles.labelDirty : ""}`}
-          title={`last saved ${formatDate(lastSaved(), "yyyy-MM-dd hh:mm:ss")}`}
-        >
-          <Switch>
-            <Match when={dirty()}>
-              <Asterisk class={styles.icon} />
-              unsaved changes
-            </Match>
-            <Match when={!dirty()}>
-              <Check class={styles.icon} />
-              {lastSavedString()}
-            </Match>
-          </Switch>
-        </span>
-      </Show>
+      <span
+        ref={saveStatusRef}
+        class={`${styles.label} ${dirty() ? styles.labelDirty : ""}`}
+        title={
+          lastSavedDetailedString()
+            ? `last saved ${lastSavedDetailedString()}`
+            : ""
+        }
+      >
+        <Switch>
+          <Match when={dirty()}>
+            <Asterisk class={styles.icon} />
+            unsaved changes
+          </Match>
+          <Match when={!dirty() && lastSaved()}>
+            <Check class={styles.icon} />
+            {lastSavedString()}
+          </Match>
+        </Switch>
+      </span>
     </div>
   );
 }
