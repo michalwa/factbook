@@ -26,7 +26,7 @@ export default function Status() {
           formatDistanceToNow(lastSavedValue, { addSuffix: true }),
         );
         setLastSavedDetailedString(
-          formatDate(lastSavedValue, "yyyy-MM-dd hh:mm:ss"),
+          formatDate(lastSavedValue, "yyyy-MM-dd HH:mm:ss"),
         );
       }
     });
