@@ -17,6 +17,7 @@ import { useEntries } from "@/api/entry";
 import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
 import ViewEditor from "@/components/ViewEditor";
+import Status from "@/components/Status";
 import { createMemo, createSignal, Show } from "solid-js";
 import { createToggle } from "@/utils";
 import { Key } from "@solid-primitives/keyed";
@@ -259,6 +260,7 @@ export default function Journal() {
             />
           </Entries>
         </EntriesContainer>
+        <Status />
       </Workspace>
     </TagsContextProvider>
   );

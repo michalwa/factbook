@@ -1,0 +1,40 @@
+.container {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 0.4rem 0.5rem;
+  transition: none;
+}
+
+.label {
+  font-size: 9pt;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--theme-label-foreground);
+}
+
+.labelDirty {
+  color: var(--theme-accent-foreground);
+}
+
+.labelClean {
+  animation: accent-flash 0.3s;
+}
+
+.icon {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+@keyframes accent-flash {
+  from {
+    color: var(--theme-label-foreground);
+  }
+  20% {
+    color: var(--theme-accent-foreground);
+  }
+  to {
+    color: var(--theme-label-foreground);
+  }
+}

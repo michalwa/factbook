@@ -19,6 +19,7 @@ export function createAppState() {
   );
 
   const [dirty, setDirty] = createSignal(false);
+  const [lastSaved, setLastSaved] = createSignal();
 
   const createJournal = () => invoke("create_journal");
   const openJournal = () => invoke("open_journal");
@@ -26,6 +27,7 @@ export function createAppState() {
     const { success } = await invoke("save_journal");
     if (success) {
       setDirty(false);
+      setLastSaved(new Date());
       refetchJournalPath();
     }
   };
@@ -41,6 +43,7 @@ export function createAppState() {
     openDefaultJournal,
     dirty,
     setDirty,
+    lastSaved,
   };
 
   const Provider = (props) => (
