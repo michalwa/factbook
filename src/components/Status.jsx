@@ -8,7 +8,6 @@ import {
   on,
   onCleanup,
   onMount,
-  Show,
   Switch,
 } from "solid-js";
 import { useAppState } from "@/api/appState";
