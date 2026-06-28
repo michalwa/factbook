@@ -65,29 +65,28 @@ impl Default for Entry {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
-#[serde(default)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PersistedView {
+    pub id: ViewId,
     pub name: String,
     pub definition: String,
 }
 
-impl From<&View> for PersistedView {
-    fn from(value: &View) -> Self {
-        let View {
-            name, definition, ..
-        } = value;
-
+impl PersistedView {
+    pub fn new(id: ViewId, view: &View) -> Self {
         Self {
-            name: name.clone(),
-            definition: definition.clone(),
+            id,
+            name: view.name.clone(),
+            definition: view.definition.clone(),
         }
     }
 }
 
 impl From<PersistedView> for View {
     fn from(value: PersistedView) -> Self {
-        let PersistedView { name, definition } = value;
+        let PersistedView {
+            name, definition, ..
+        } = value;
 
         Self {
             name,
@@ -97,15 +96,14 @@ impl From<PersistedView> for View {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
-#[serde(default)]
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PersistedEntry {
     pub created_at: DateTime<Local>,
     pub content: String,
 }
 
-impl From<&Entry> for PersistedEntry {
-    fn from(value: &Entry) -> Self {
+impl PersistedEntry {
+    pub fn new(value: &Entry) -> Self {
         let Entry {
             created_at,
             content,

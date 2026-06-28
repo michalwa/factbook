@@ -49,12 +49,12 @@ impl AppState {
         let path = path.into();
         log::info!("loading journal file: {}", path.display());
 
-        let journal_state = factbook_core::State::new(&SESSION);
+        let mut journal_state = factbook_core::State::new(&SESSION);
 
         match File::open(&path) {
-            Ok(file) => {
-                let journal = serde_json::from_reader(file)?;
-                journal_state.load_journal(journal);
+            Ok(file) => match serde_json::from_reader(file) {
+                Ok(journal) => journal_state.load_journal(journal),
+                Err(err) => log::error!("invalid journal file: {err}"),
             },
             err => match mode {
                 OpenMode::Edit => {

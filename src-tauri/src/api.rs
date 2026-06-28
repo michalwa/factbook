@@ -112,9 +112,9 @@ pub async fn open_default_journal(app: AppHandle) {
 #[tauri::command]
 pub fn get_views(state: AppState) -> ipc::Response {
     let state = state.read().unwrap();
-    let views = state.journal.views();
-    let views = views
-        .iter()
+    let views = state
+        .journal
+        .views()
         .map(|(id, view)| View { id, view })
         .collect::<Vec<_>>();
 
@@ -125,25 +125,25 @@ pub fn get_views(state: AppState) -> ipc::Response {
 
 #[tauri::command]
 pub fn create_view(state: AppState) -> ViewId {
-    let state = state.write().unwrap();
-    state.journal.views_mut().create()
+    let mut state = state.write().unwrap();
+    state.journal.create_view()
 }
 
 #[tauri::command]
 pub fn remove_view(state: AppState, id: ViewId) {
-    let state = state.write().unwrap();
-    state.journal.views_mut().remove(id);
+    let mut state = state.write().unwrap();
+    state.journal.remove_view(id);
 }
 
 #[tauri::command]
 pub fn set_view_name(state: AppState, id: ViewId, name: String) {
-    let state = state.write().unwrap();
-    state.journal.views_mut().set_name(id, name);
+    let mut state = state.write().unwrap();
+    state.journal.set_view_name(id, name);
 }
 
 #[tauri::command]
 pub fn set_view_definition(state: AppState, id: ViewId, definition: String) {
-    let state = state.write().unwrap();
+    let mut state = state.write().unwrap();
     state.journal.set_view_definition(id, definition);
 }
 
@@ -166,7 +166,6 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
         state
             .journal
             .entries()
-            .iter()
             .for_each(|(id, entry)| seq.serialize_element(&Entry { id, entry }).unwrap());
     }
 
@@ -178,23 +177,22 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
 
 #[tauri::command]
 pub fn create_entry(state: AppState) -> EntryId {
-    let state = state.write().unwrap();
-    state.journal.entries_mut().create()
+    let mut state = state.write().unwrap();
+    state.journal.create_entry()
 }
 
 #[tauri::command]
 pub fn remove_entry(state: AppState, id: EntryId) {
-    let state = state.write().unwrap();
-    state.journal.entries_mut().remove(id);
+    let mut state = state.write().unwrap();
+    state.journal.remove_entry(id);
 }
 
 #[tauri::command]
 pub fn set_entry_content(state: AppState, id: EntryId, content: String) -> ipc::Response {
-    let state = state.write().unwrap();
-    state.journal.entries_mut().set_content(id, content);
+    let mut state = state.write().unwrap();
+    state.journal.set_entry_content(id, content);
 
-    let entries = state.journal.entries();
-    ipc::Response::new(serde_json::to_string(&entries.get(id)).unwrap())
+    ipc::Response::new(serde_json::to_string(&state.journal.entry(id)).unwrap())
 }
 
 /// A faster endpoint which allows parsing spans after every keystroke. Unlike
@@ -208,9 +206,7 @@ pub fn parse_entry_content(content: &str) -> Vec<Span> {
 #[tauri::command]
 pub fn get_tags(state: AppState) -> ipc::Response {
     let state = state.read().unwrap();
-    let entries = state.journal.entries();
-
-    let counts = entries.common_tag_counts();
+    let counts = state.journal.common_tag_counts();
     let response = serde_json::to_string(&SerializeIterOnce::new(counts)).unwrap();
     ipc::Response::new(response)
 }

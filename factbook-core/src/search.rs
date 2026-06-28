@@ -38,16 +38,17 @@ impl From<&Term<'_>> for TagKey {
 }
 
 impl State<'_> {
-    pub fn for_each_view_entry<F>(&self, view: ViewId, mut f: F)
+    pub fn for_each_view_entry<F>(&self, view_id: ViewId, mut f: F)
     where
         F: FnMut(EntryId, &Entry),
     {
+        let Some(view) = self.views.get(&view_id) else {
+            return;
+        };
+
         let mut pl = self.session.0.engine();
 
-        let views = self.views.read().unwrap();
-        let view_definition = &views[view.0].definition;
-
-        let view_term = match pl.new_term().put_parsed(view_definition) {
+        let view_term = match pl.new_term().put_parsed(&view.definition) {
             Ok(view_term) => view_term,
             Err(ex) => {
                 log::warn!("failed to parse view: {ex:?}");
@@ -55,11 +56,10 @@ impl State<'_> {
             },
         };
 
-        let entries = self.entries.read().unwrap();
         let mut order_keys = BTreeMap::new();
 
         let ctx_blob = ScopedBlob::new(ViewContext {
-            entries: &entries,
+            entries: &self.entries,
             order_keys: Mutex::new(&mut order_keys),
         });
 
@@ -75,7 +75,11 @@ impl State<'_> {
                 // view like `_`, and we should iterate all entries
                 log::debug!("query returned uninstantiated entry ID, returning all entries");
 
-                collected.extend(entries.entries().map(|(id, entry)| (EntryId(id), entry)));
+                collected.extend(
+                    self.entries
+                        .entries()
+                        .map(|(id, entry)| (EntryId(id), entry)),
+                );
 
                 // Ignore other solutions
                 break;
@@ -86,7 +90,11 @@ impl State<'_> {
         drop(ctx_blob);
 
         if !visited.is_empty() {
-            collected.extend(visited.into_iter().map(|id| (id, entries.entry_data(id.0))));
+            collected.extend(
+                visited
+                    .into_iter()
+                    .map(|id| (id, self.entries.entry_data(id.0))),
+            );
         }
 
         {

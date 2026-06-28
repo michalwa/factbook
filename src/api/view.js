@@ -10,11 +10,11 @@ export const defaultView = {
 export function useViews() {
   const { setDirty } = useAppState();
 
-  const [createdViews, { refetch: refetchViews, mutate: mutateViews }] =
+  const [editableViews, { refetch: refetchViews, mutate: mutateViews }] =
     createResource(() => invoke("get_views"));
-  const views = () => [defaultView, ...(createdViews() ?? [])];
+  const views = () => [defaultView, ...(editableViews() ?? [])];
 
-  const getView = (id) => views().find((view) => view.id === id);
+  const getEditableView = (id) => editableViews()?.find((view) => view.id === id);
 
   const setViewName = async (id, name) => {
     setDirty(true);
@@ -47,7 +47,7 @@ export function useViews() {
   return {
     views,
     refetchViews,
-    getView,
+    getEditableView,
     setViewName,
     setViewDefinition,
     createView,

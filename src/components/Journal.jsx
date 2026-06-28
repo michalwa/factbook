@@ -55,7 +55,7 @@ export default function Journal() {
 
   const {
     views,
-    getView,
+    getEditableView,
     setViewName,
     setViewDefinition: setViewDefinitionImpl,
     createView: createViewImpl,
@@ -71,7 +71,9 @@ export default function Journal() {
     removeEntry,
   } = useEntries(currentViewId);
 
-  const currentView = createMemo(() => getView(currentViewId()));
+  const currentEditableView = createMemo(() =>
+    getEditableView(currentViewId()),
+  );
 
   const setViewDefinition = async (...args) => {
     await setViewDefinitionImpl(...args);
@@ -206,7 +208,7 @@ export default function Journal() {
         </Panel>
         <EntriesContainer
           after={
-            <Show when={currentView()}>
+            <Show when={currentEditableView()}>
               <Panel
                 orientation="vertical"
                 collapsed={bottomPanelCollapsed()}
@@ -227,7 +229,7 @@ export default function Journal() {
               >
                 <Label style="panel">Edit view</Label>
                 <ViewEditor
-                  definition={currentView().definition}
+                  definition={currentEditableView().definition}
                   onDefinitionChange={(definition) =>
                     setViewDefinition(currentViewId(), definition)
                   }
@@ -238,10 +240,10 @@ export default function Journal() {
           }
         >
           {/* TODO: Show total entry count */}
-          <Show when={leftPanelCollapsed() && currentView()}>
+          <Show when={leftPanelCollapsed() && currentEditableView()}>
             <EntriesHeader>
-              {currentView().name || "(untitled)"}
-              <Badge size="large">{currentView().entryCount}</Badge>
+              {currentEditableView().name || "(untitled)"}
+              <Badge size="large">{currentEditableView().entryCount}</Badge>
             </EntriesHeader>
           </Show>
           <Entries>
