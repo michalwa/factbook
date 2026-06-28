@@ -8,6 +8,7 @@
     "log:default",
     "dialog:default",
     "store:default",
-    "opener:default"
+    "opener:default",
+    "core:window:allow-destroy"
   ]
 }

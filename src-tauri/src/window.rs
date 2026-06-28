@@ -125,7 +125,6 @@ impl<R: Runtime, M: Manager<R> + AnyWindow> WindowScopedManager<R> for M {
             let handle = self.app_handle().clone();
             let label = self.label().to_owned();
 
-            #[allow(clippy::single_match)]
             self.on_window_event(move |e| match e {
                 WindowEvent::Destroyed => {
                     log::debug!("window {label:?} destroyed, dropping state");

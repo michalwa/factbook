@@ -1,9 +1,11 @@
+#![allow(clippy::single_match)]
+
 use crate::settings::SettingsExt;
 use crate::window::WindowStateData;
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::{LazyLock, RwLock};
-use tauri::{App, AppHandle, Manager, Runtime};
+use tauri::{App, AppHandle, Manager, RunEvent, Runtime, WindowEvent};
 
 mod api;
 mod settings;
@@ -139,8 +141,15 @@ pub fn run() {
             api::parse_entry_content,
             api::get_tags,
         ])
-        .run(tauri::generate_context!())
-        .expect("error running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error running tauri application")
+        .run(|_, event| match event {
+            RunEvent::WindowEvent {
+                event: WindowEvent::CloseRequested { api, .. },
+                ..
+            } => api.prevent_close(),
+            _ => (),
+        });
 }
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {

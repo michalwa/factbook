@@ -5,6 +5,8 @@ import { DocumentEventListener } from "@solid-primitives/event-listener";
 import { MetaProvider, Title } from "@solidjs/meta";
 import { createHotkey } from "@tanstack/solid-hotkeys";
 import { createSignal } from "solid-js";
+import { onCloseRequested } from "@/api/event";
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 export default function App() {
   const {
@@ -21,13 +23,27 @@ export default function App() {
   const updateModKeyState = (event) =>
     setModKeyPressed(event.ctrlKey || event.metaKey);
 
+  onCloseRequested(async ({ close }) => {
+    if (
+      !dirty() ||
+      (await confirm(
+        "Are you sure you want to exit? Unsaved changes will be lost!",
+        { kind: "warning" },
+      ))
+    ) {
+      close();
+    }
+  });
+
   return (
     <AppStateProvider>
       <MetaProvider>
         <Title>
-          {journalBasename()
-            ? `${dirty() ? "*" : ""}${journalBasename()} \u2014 factbook`
-            : "factbook"}
+          {dirty()
+            ? `*${journalBasename() ?? "(untitled)"} \u2014 factbook`
+            : journalBasename()
+              ? `${journalBasename()} \u2014 factbook`
+              : "factbook"}
         </Title>
       </MetaProvider>
       <div class={`${styles.app} ${modKeyPressed() ? "mod-key-pressed" : ""}`}>
