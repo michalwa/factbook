@@ -22,7 +22,7 @@ import { createMemo, Show } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import { useAppState } from "@/api/appState";
 import { createTagsContext } from "@/api/tag";
-import { useSettingsStore } from "@/api/store";
+import { useJournalSettings } from "@/api/store";
 import {
   FilePlusCorner,
   FolderOpen,
@@ -43,19 +43,15 @@ export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
     useAppState();
 
-  const { createJournalSetting } = useSettingsStore();
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = createJournalSetting({
-    journalPath,
-    key: "left_panel_collapsed",
-  });
-  const [bottomPanelCollapsed, setBottomPanelCollapsed] = createJournalSetting({
-    journalPath,
-    key: "bottom_panel_collapsed",
-  });
-  const [currentViewId, setCurrentViewId] = createJournalSetting({
-    journalPath,
-    key: "current_view_id",
-  });
+  const { createJournalSetting } = useJournalSettings({ journalPath });
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = createJournalSetting(
+    "left_panel_collapsed",
+  );
+  const [bottomPanelCollapsed, setBottomPanelCollapsed] = createJournalSetting(
+    "bottom_panel_collapsed",
+  );
+  const [currentViewId, setCurrentViewId] =
+    createJournalSetting("current_view_id");
 
   const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
 

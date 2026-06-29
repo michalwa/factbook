@@ -14,7 +14,8 @@ export function useViews() {
     createResource(() => invoke("get_views"));
   const views = () => [defaultView, ...(editableViews() ?? [])];
 
-  const getEditableView = (id) => editableViews()?.find((view) => view.id === id);
+  const getEditableView = (id) =>
+    editableViews()?.find((view) => view.id === id);
 
   const setViewName = async (id, name) => {
     setDirty(true);

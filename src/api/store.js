@@ -1,10 +1,10 @@
 import { load as loadStore } from "@tauri-apps/plugin-store";
 import { createEffect, createResource, createSignal, on } from "solid-js";
 
-export function useSettingsStore() {
+export function useJournalSettings({ journalPath }) {
   const [store] = createResource(() => loadStore("settings.json"));
 
-  const createJournalSetting = ({ journalPath, key }) => {
+  const createJournalSetting = (key) => {
     const [lastStored] = createResource(
       () => [store(), journalPath()],
       async ([store, path]) =>
