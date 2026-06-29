@@ -19,7 +19,7 @@ export function createAppState() {
   );
 
   const [dirty, setDirty] = createSignal(false);
-  const [lastSaved, setLastSaved] = createSignal();
+  const [lastSaved, setLastSaved] = createSignal(new Date());
 
   const createJournal = () => invoke("create_journal");
   const openJournal = () => invoke("open_journal");

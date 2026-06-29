@@ -61,7 +61,7 @@ export default function Status() {
             <Asterisk class={styles.icon} />
             unsaved changes
           </Match>
-          <Match when={!dirty() && lastSaved()}>
+          <Match when={!dirty()}>
             <Check class={styles.icon} />
             {lastSavedString()}
           </Match>
