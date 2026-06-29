@@ -4,20 +4,6 @@ import { createEffect, createResource, createSignal, on } from "solid-js";
 export function useSettingsStore() {
   const [store] = createResource(() => loadStore("settings.json"));
 
-  const createSetting = (key) => {
-    const [get, { mutate, refetch }] = createResource(
-      store,
-      async (store) => await store?.get(key),
-    );
-
-    const set = async (value) => {
-      await store()?.set(key, value);
-      mutate(value);
-    };
-
-    return [get, set, { refetch }];
-  };
-
   const createJournalSetting = ({ journalPath, key }) => {
     const [lastStored] = createResource(
       () => [store(), journalPath()],
@@ -46,5 +32,5 @@ export function useSettingsStore() {
     return [get, set];
   };
 
-  return { createSetting, createJournalSetting };
+  return { createJournalSetting };
 }

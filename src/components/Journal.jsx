@@ -43,13 +43,15 @@ export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
     useAppState();
 
-  const { createSetting, createJournalSetting } = useSettingsStore();
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = createSetting(
-    "left_panel_collapsed",
-  );
-  const [bottomPanelCollapsed, setBottomPanelCollapsed] = createSetting(
-    "bottom_panel_collapsed",
-  );
+  const { createJournalSetting } = useSettingsStore();
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = createJournalSetting({
+    journalPath,
+    key: "left_panel_collapsed",
+  });
+  const [bottomPanelCollapsed, setBottomPanelCollapsed] = createJournalSetting({
+    journalPath,
+    key: "bottom_panel_collapsed",
+  });
   const [currentViewId, setCurrentViewId] = createJournalSetting({
     journalPath,
     key: "current_view_id",
