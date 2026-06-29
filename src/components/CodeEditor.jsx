@@ -20,6 +20,8 @@ export default function createCodeEditor(config = {}) {
 
   const { ref, editorView, createExtension } = createCodeMirror({
     onValueChange(value) {
+      // First change event is fired after the editor content is set to the prop
+      // value, we don't want to fire a normal change event yet
       if (!synced) {
         synced = true;
         config.onSynced?.();
@@ -58,15 +60,22 @@ export default function createCodeEditor(config = {}) {
 
     onCleanup(() => onChangeDeferred(value()));
 
-    // Prevent updating the editor while it's focused
+    // Create indirection between prop and editor to prevent updating the editor
+    // while it's focused
     const [incomingValue, setIncomingValue] = createSignal(props.value);
-    createEffect(() => {
-      const value = props.value;
-      if (!editorView()?.hasFocus) {
-        synced = false;
-        setIncomingValue(value);
-      }
-    });
+    createEffect(
+      on(
+        () => props.value,
+        (v) => {
+          // Need to manually compare, because `props.value` seems to trigger
+          // reactivity even if the new value equals the old value
+          if (incomingValue() !== v && !editorView()?.hasFocus) {
+            synced = false;
+            setIncomingValue(v);
+          }
+        },
+      ),
+    );
 
     createEditorControlledValue(editorView, incomingValue);
 
