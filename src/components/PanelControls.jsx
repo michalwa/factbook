@@ -9,7 +9,7 @@ export default function PanelControls(props) {
 
   return (
     <div
-      class={`${styles.controls} ${placementClasses()} ${styles[`sticky-${props.sticky}`]}`}
+      class={`${styles.controls} ${placementClasses()} ${styles[`sticky-${props.sticky}`]} ${props.class}`}
     >
       {props.children}
     </div>

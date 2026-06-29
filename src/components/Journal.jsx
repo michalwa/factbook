@@ -213,7 +213,11 @@ export default function Journal() {
                 orientation="vertical"
                 collapsed={bottomPanelCollapsed()}
                 controls={
-                  <PanelControls placement="right" sticky="top">
+                  <PanelControls
+                    placement="right"
+                    sticky="top"
+                    class={bottomPanelCollapsed() ? styles.statusMargin : ""}
+                  >
                     <IconButton
                       icon={
                         bottomPanelCollapsed()
