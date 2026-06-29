@@ -118,10 +118,18 @@ impl<'s> State<'s> {
         }
 
         for view in journal.views {
-            let id = view.id;
-            self.views.insert(id, view.into());
-            self.last_view_id = self.last_view_id.max(id);
-            self.update_view(id);
+            match view.id {
+                Some(id) => {
+                    self.views.insert(id, view.into());
+                    self.last_view_id = self.last_view_id.max(id);
+                },
+                None => {
+                    self.last_view_id.0 += 1;
+                    self.views.insert(self.last_view_id, view.into());
+                },
+            }
+
+            self.update_view(self.last_view_id);
         }
     }
 

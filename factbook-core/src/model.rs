@@ -67,7 +67,8 @@ impl Default for Entry {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct PersistedView {
-    pub id: ViewId,
+    // Optional for backward compatbility (https://github.com/michalwa/factbook/pull/79)
+    pub id: Option<ViewId>,
     pub name: String,
     pub definition: String,
 }
@@ -75,7 +76,7 @@ pub(crate) struct PersistedView {
 impl PersistedView {
     pub fn new(id: ViewId, view: &View) -> Self {
         Self {
-            id,
+            id: Some(id),
             name: view.name.clone(),
             definition: view.definition.clone(),
         }
