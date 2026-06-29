@@ -40,16 +40,20 @@ import {
 } from "lucide-solid";
 
 export default function Journal() {
-  const { createJournal, openJournal, openDefaultJournal } = useAppState();
+  const { journalPath, createJournal, openJournal, openDefaultJournal } =
+    useAppState();
 
-  const { createSetting } = useSettingsStore();
+  const { createSetting, createJournalSetting } = useSettingsStore();
   const [leftPanelCollapsed, setLeftPanelCollapsed] = createSetting(
     "left_panel_collapsed",
   );
   const [bottomPanelCollapsed, setBottomPanelCollapsed] = createSetting(
     "bottom_panel_collapsed",
   );
-  const [currentViewId, setCurrentViewId] = createSetting("current_view_id");
+  const [currentViewId, setCurrentViewId] = createJournalSetting({
+    journalPath,
+    key: "current_view_id",
+  });
 
   const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
 

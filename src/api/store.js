@@ -1,20 +1,50 @@
 import { load as loadStore } from "@tauri-apps/plugin-store";
-import { createResource } from "solid-js";
+import { createEffect, createResource, createSignal, on } from "solid-js";
 
 export function useSettingsStore() {
   const [store] = createResource(() => loadStore("settings.json"));
 
   const createSetting = (key) => {
-    const [value, { mutate, refetch }] = createResource(
+    const [get, { mutate, refetch }] = createResource(
       store,
       async (store) => await store?.get(key),
     );
+
     const set = async (value) => {
       await store()?.set(key, value);
       mutate(value);
     };
-    return [value, set, { refetch }];
+
+    return [get, set, { refetch }];
   };
 
-  return { createSetting };
+  const createJournalSetting = ({ journalPath, key }) => {
+    const [lastStored] = createResource(
+      () => [store(), journalPath()],
+      async ([store, path]) =>
+        path && (await store?.get("journal_settings"))?.[path]?.[key],
+    );
+
+    const [get, set] = createSignal();
+    createEffect(() => set(lastStored()));
+    createEffect(
+      on(get, async (value) => {
+        const path = journalPath();
+        if (!path) return;
+
+        const allSettings = await store().get("journal_settings");
+        await store().set("journal_settings", {
+          ...allSettings,
+          [path]: {
+            ...allSettings[path],
+            [key]: value,
+          },
+        });
+      }),
+    );
+
+    return [get, set];
+  };
+
+  return { createSetting, createJournalSetting };
 }
