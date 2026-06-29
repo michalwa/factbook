@@ -4,9 +4,7 @@ use crate::model::{
 use crate::search::TagKey;
 use factbook_swipl::{Context, Record};
 use sparse_tags::{IndexedStore, Store};
-use stable_vec::StableVec;
-use std::collections::HashMap;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::collections::{BTreeMap, HashMap};
 
 pub mod lang;
 pub mod model;
@@ -25,145 +23,83 @@ impl Session {
 }
 
 pub struct State<'s> {
-    // FIXME: Due to the interior `RwLock`s, you can currently introduce a
-    // deadlock by borrowing something mutably from the state and then calling
-    // a method which requires another lock
-    views: RwLock<ViewStorage>,
-    entries: RwLock<EntryStorage>,
+    views: BTreeMap<ViewId, View>,
+    entries: EntryStorage,
+    last_view_id: ViewId,
     session: &'s Session,
 }
 
-type ViewStorage = StableVec<View>;
-type EntryStorage = IndexedStore<TagKey, Record, Entry>;
+pub(crate) type EntryStorage = IndexedStore<TagKey, Record, Entry>;
 
-impl<'a> State<'a> {
-    pub fn new(session: &'a Session) -> Self {
+impl<'s> State<'s> {
+    pub fn new(session: &'s Session) -> Self {
         Self {
             views: Default::default(),
             entries: Default::default(),
+            last_view_id: ViewId(0),
             session,
         }
     }
 
-    pub fn views(&self) -> Views<'_> {
-        Views(self.views.read().unwrap())
+    pub fn views(&self) -> impl Iterator<Item = (ViewId, &View)> {
+        self.views.iter().map(|(id, view)| (*id, view))
     }
 
-    pub fn views_mut(&self) -> ViewsMut<'_> {
-        ViewsMut(self.views.write().unwrap())
+    pub fn create_view(&mut self) -> ViewId {
+        self.last_view_id.0 += 1;
+        self.views.insert(self.last_view_id, Default::default());
+        self.last_view_id
     }
 
-    pub fn entries(&self) -> Entries<'_> {
-        Entries {
-            store: self.entries.read().unwrap(),
-        }
+    pub fn remove_view(&mut self, id: ViewId) -> Option<View> {
+        self.views.remove(&id)
     }
 
-    pub fn entries_mut(&self) -> EntriesMut<'_> {
-        EntriesMut {
-            session: self.session,
-            store: self.entries.write().unwrap(),
-        }
+    pub fn set_view_name(&mut self, id: ViewId, name: String) {
+        self.views.get_mut(&id).unwrap().name = name;
     }
 
-    pub fn set_view_definition(&self, id: ViewId, definition: String) {
-        let mut views = self.views.write().unwrap();
-        views[id.0].definition = definition;
-        drop(views); // can't hold `views` while calling `for_each_view_entry`
-
+    pub fn set_view_definition(&mut self, id: ViewId, definition: String) {
+        self.views.get_mut(&id).unwrap().definition = definition;
         self.update_view(id);
     }
 
-    pub fn load_journal(&self, journal: Journal) {
-        for entry in journal.entries {
-            self.entries_mut().insert(entry.into());
-        }
-
-        for view in journal.views {
-            self.insert_view(view.into());
-        }
-    }
-
-    pub fn to_journal(&self) -> Journal {
-        let entries = self
+    pub fn entries(&self) -> impl Iterator<Item = (EntryId, &Entry)> {
+        self.entries
             .entries()
-            .iter()
-            .map(|(_, e)| PersistedEntry::from(e))
-            .collect::<Vec<_>>();
-
-        let views = self
-            .views()
-            .0
-            .values()
-            .map(PersistedView::from)
-            .collect::<Vec<_>>();
-
-        Journal { entries, views }
+            .map(|(id, entry)| (EntryId(id), entry))
     }
 
-    fn insert_view(&self, view: View) {
-        let mut views = self.views_mut();
-        let id = ViewId(views.0.push(view));
-        drop(views);
-
-        self.update_view(id);
-    }
-
-    fn update_view(&self, id: ViewId) {
-        let mut entry_count = 0;
-        self.for_each_view_entry(id, |_, _| entry_count += 1);
-
-        let mut views = self.views.write().unwrap();
-        views[id.0].entry_count = entry_count;
-    }
-}
-
-pub struct Views<'a>(RwLockReadGuard<'a, ViewStorage>);
-
-impl<'a> Views<'a> {
-    pub fn iter(&'a self) -> impl Iterator<Item = (ViewId, &'a View)> {
-        self.0.iter().map(|(id, view)| (ViewId(id), view))
-    }
-}
-
-pub struct ViewsMut<'a>(RwLockWriteGuard<'a, ViewStorage>);
-
-impl ViewsMut<'_> {
-    pub fn create(&mut self) -> ViewId {
-        ViewId(self.0.push(Default::default()))
-    }
-
-    pub fn remove(&mut self, id: ViewId) -> Option<View> {
-        self.0.remove(id.0)
-    }
-
-    pub fn set_name(&mut self, id: ViewId, name: String) {
-        self.0[id.0].name = name;
-    }
-}
-
-pub struct Entries<'a> {
-    store: RwLockReadGuard<'a, EntryStorage>,
-}
-
-impl<'a> Entries<'a> {
-    pub fn iter(&'a self) -> impl Iterator<Item = (EntryId, &'a Entry)> {
-        self.store.entries().map(|(id, entry)| (EntryId(id), entry))
-    }
-
-    pub fn get(&'a self, id: EntryId) -> Option<&'a Entry> {
-        self.store
+    pub fn entry(&self, id: EntryId) -> Option<&Entry> {
+        self.entries
             .entry_exists(id.0)
-            .then(|| self.store.entry_data(id.0))
+            .then(|| self.entries.entry_data(id.0))
     }
 
-    pub fn common_tags(&'a self) -> impl Iterator<Item = CommonTag<'a>> {
-        self.store
+    pub fn create_entry(&mut self) -> EntryId {
+        EntryId(self.entries.insert_entry(Default::default()))
+    }
+
+    pub fn remove_entry(&mut self, id: EntryId) -> Option<Entry> {
+        self.entries
+            .entry_exists(id.0)
+            .then(|| self.entries.remove_entry(id.0))
+    }
+
+    pub fn set_entry_content(&mut self, id: EntryId, content: String) {
+        if self.entries.entry_exists(id.0) {
+            self.entries.entry_data_mut(id.0).content = content;
+            self.update_entry(id);
+        }
+    }
+
+    pub fn common_tags(&self) -> impl Iterator<Item = CommonTag<'_>> {
+        self.entries
             .tags()
             .filter_map(move |(_, key, _)| CommonTag::from_key(key))
     }
 
-    pub fn common_tag_counts(&'a self) -> impl Iterator<Item = CommonTagCount<'a>> {
+    pub fn common_tag_counts(&self) -> impl Iterator<Item = CommonTagCount<'_>> {
         let mut counts = HashMap::new();
 
         for tag in self.common_tags() {
@@ -174,40 +110,55 @@ impl<'a> Entries<'a> {
             .into_iter()
             .map(|(tag, count)| CommonTagCount { tag, count })
     }
-}
 
-pub struct EntriesMut<'a> {
-    session: &'a Session,
-    store: RwLockWriteGuard<'a, EntryStorage>,
-}
+    pub fn load_journal(&mut self, journal: Journal) {
+        for entry in journal.entries {
+            let id = self.entries.insert_entry(entry.into());
+            self.update_entry(EntryId(id));
+        }
 
-impl<'a> EntriesMut<'a> {
-    pub fn create(&mut self) -> EntryId {
-        EntryId(self.store.insert_entry(Default::default()))
-    }
+        for view in journal.views {
+            match view.id {
+                Some(id) => {
+                    self.views.insert(id, view.into());
+                    self.last_view_id = self.last_view_id.max(id);
+                },
+                None => {
+                    self.last_view_id.0 += 1;
+                    self.views.insert(self.last_view_id, view.into());
+                },
+            }
 
-    pub fn remove(&mut self, id: EntryId) -> Option<Entry> {
-        self.store
-            .entry_exists(id.0)
-            .then(|| self.store.remove_entry(id.0))
-    }
-
-    pub fn set_content(&mut self, id: EntryId, content: String) {
-        if self.store.entry_exists(id.0) {
-            self.store.entry_data_mut(id.0).content = content;
-            self.update_entry(id);
+            self.update_view(self.last_view_id);
         }
     }
 
-    fn insert(&mut self, entry: Entry) {
-        let id = EntryId(self.store.insert_entry(entry));
-        self.update_entry(id);
+    pub fn to_journal(&self) -> Journal {
+        let entries = self
+            .entries
+            .entries()
+            .map(|(_, e)| PersistedEntry::new(e))
+            .collect::<Vec<_>>();
+
+        let views = self
+            .views
+            .iter()
+            .map(|(id, view)| PersistedView::new(*id, view))
+            .collect::<Vec<_>>();
+
+        Journal { entries, views }
+    }
+
+    fn update_view(&mut self, id: ViewId) {
+        let mut entry_count = 0;
+        self.for_each_view_entry(id, |_, _| entry_count += 1);
+        self.views.get_mut(&id).unwrap().entry_count = entry_count;
     }
 
     fn update_entry(&mut self, id: EntryId) {
-        self.store.clear_entry(id.0);
+        self.entries.clear_entry(id.0);
 
-        let content = &self.store.entry_data(id.0).content;
+        let content = &self.entries.entry_data(id.0).content;
 
         let mut engine = self.session.0.engine();
         let pl = engine.frame();
@@ -216,10 +167,11 @@ impl<'a> EntriesMut<'a> {
 
         for tag in parsed.tags {
             let key = TagKey::from(&tag);
-            self.store.insert_tag(id.0, key, tag.record());
+            self.entries.insert_tag(id.0, key, tag.record());
         }
 
-        self.store.entry_data_mut(id.0).spans = (!parsed.spans.is_empty()).then_some(parsed.spans);
+        self.entries.entry_data_mut(id.0).spans =
+            (!parsed.spans.is_empty()).then_some(parsed.spans);
     }
 }
 
@@ -237,14 +189,10 @@ mod test {
 
     pub(crate) static SESSION: LazyLock<Session> = LazyLock::new(|| Session::new().unwrap());
 
-    static FIXTURES: LazyLock<(State<'static>, Vec<EntryId>)> = LazyLock::new(generate_fixtures);
-
     fn generate_fixtures() -> (State<'static>, Vec<EntryId>) {
-        let state = State::new(&SESSION);
+        let mut state = State::new(&SESSION);
 
         let entry_ids = {
-            let mut entries = state.entries_mut();
-
             [
                 "",
                 "@foo",
@@ -262,8 +210,8 @@ mod test {
             ]
             .into_iter()
             .map(|content| {
-                let entry = entries.create();
-                entries.set_content(entry, content.into());
+                let entry = state.create_entry();
+                state.set_entry_content(entry, content.into());
                 entry
             })
             .collect()
@@ -272,8 +220,8 @@ mod test {
         (state, entry_ids)
     }
 
-    fn create_view(state: &State, definition: impl Into<String>) -> ViewId {
-        let view = state.views_mut().create();
+    fn create_view(state: &mut State, definition: impl Into<String>) -> ViewId {
+        let view = state.create_view();
         state.set_view_definition(view, definition.into());
         view
     }
@@ -287,8 +235,8 @@ mod test {
 
     #[test]
     fn view_empty() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |id, _| matches.push(id));
@@ -297,18 +245,18 @@ mod test {
 
     #[test]
     fn view_any() {
-        let (state, entry_ids) = &*FIXTURES;
-        let view = create_view(state, "_");
+        let (mut state, entry_ids) = generate_fixtures();
+        let view = create_view(&mut state, "_");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |id, _| matches.push(id));
-        assert_eq!(&matches, entry_ids);
+        assert_eq!(matches, entry_ids);
     }
 
     #[test]
     fn view_single_tag() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@foo");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@foo");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -317,8 +265,8 @@ mod test {
 
     #[test]
     fn view_single_tag_with_wildcard_args() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@foo(_, _)");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@foo(_, _)");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -327,8 +275,8 @@ mod test {
 
     #[test]
     fn view_conjunction() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@foo, @bar");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@foo, @bar");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -337,8 +285,8 @@ mod test {
 
     #[test]
     fn view_disjunction() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@foo; @bar");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@foo; @bar");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -348,8 +296,8 @@ mod test {
 
     #[test]
     fn view_single_tag_with_unified_args() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@foo(X, X)");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@foo(X, X)");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -358,9 +306,9 @@ mod test {
 
     #[test]
     fn view_existence() {
-        let (state, _) = &*FIXTURES;
+        let (mut state, _) = generate_fixtures();
         // @bar(X), such that there exists a an entry with @foo(X, _)
-        let view = create_view(state, "@bar(X), _: @foo(X, _)");
+        let view = create_view(&mut state, "@bar(X), _: @foo(X, _)");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -369,9 +317,9 @@ mod test {
 
     #[test]
     fn view_existence_mapping() {
-        let (state, _) = &*FIXTURES;
+        let (mut state, _) = generate_fixtures();
         // @bar(X), such that there exists a an entry with @baz(1, X)
-        let view = create_view(state, "@bar(X), _: @baz(1, X)");
+        let view = create_view(&mut state, "@bar(X), _: @baz(1, X)");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -380,8 +328,8 @@ mod test {
 
     #[test]
     fn view_non_functor_tags() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, r#"@42; @"string""#);
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, r#"@42; @"string""#);
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -390,8 +338,8 @@ mod test {
 
     #[test]
     fn view_order() {
-        let (state, _) = &*FIXTURES;
-        let view = create_view(state, "@bar(X), order(X)");
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "@bar(X), order(X)");
 
         let mut matches = Vec::new();
         state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
@@ -406,17 +354,12 @@ mod test {
             .with_nanosecond(123_000_000)
             .unwrap();
 
-        let (state, entry_ids) = &*FIXTURES;
+        let (mut state, entry_ids) = generate_fixtures();
 
-        state
-            .entries
-            .write()
-            .unwrap()
-            .entry_data_mut(entry_ids[0].0)
-            .created_at = created_at;
+        state.entries.entry_data_mut(entry_ids[0].0).created_at = created_at;
 
         let view = create_view(
-            state,
+            &mut state,
             "
             created(T),
             {
@@ -435,10 +378,9 @@ mod test {
     fn get_tags() {
         use crate::model::CommonTagKind as T;
 
-        let (state, _) = &*FIXTURES;
+        let (state, _) = generate_fixtures();
 
-        let entries = state.entries();
-        let mut tags = entries
+        let mut tags = state
             .common_tags()
             .collect::<HashSet<_>>()
             .into_iter()

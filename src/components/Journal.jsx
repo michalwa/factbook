@@ -18,11 +18,11 @@ import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
 import ViewEditor from "@/components/ViewEditor";
 import Status from "@/components/Status";
-import { createMemo, createSignal, Show } from "solid-js";
-import { createToggle } from "@/utils";
+import { createMemo, Show } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import { useAppState } from "@/api/appState";
 import { createTagsContext } from "@/api/tag";
+import { useJournalSettings } from "@/api/store";
 import {
   FilePlusCorner,
   FolderOpen,
@@ -40,18 +40,29 @@ import {
 } from "lucide-solid";
 
 export default function Journal() {
-  const { createJournal, openJournal, openDefaultJournal } = useAppState();
+  const { journalPath, createJournal, openJournal, openDefaultJournal } =
+    useAppState();
+
+  const { createJournalSetting } = useJournalSettings({ journalPath });
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = createJournalSetting(
+    "left_panel_collapsed",
+  );
+  const [bottomPanelCollapsed, setBottomPanelCollapsed] = createJournalSetting(
+    "bottom_panel_collapsed",
+  );
+  const [currentViewId, setCurrentViewId] =
+    createJournalSetting("current_view_id");
+
+  const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
+
   const {
     views,
-    getView,
+    getEditableView,
     setViewName,
     setViewDefinition: setViewDefinitionImpl,
     createView: createViewImpl,
     removeView: removeViewImpl,
   } = useViews();
-
-  const [currentViewId, setCurrentViewId] = createSignal(null);
-  const currentView = createMemo(() => getView(currentViewId()));
 
   const {
     entries,
@@ -62,7 +73,9 @@ export default function Journal() {
     removeEntry,
   } = useEntries(currentViewId);
 
-  const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
+  const currentEditableView = createMemo(() =>
+    getEditableView(currentViewId()),
+  );
 
   const setViewDefinition = async (...args) => {
     await setViewDefinitionImpl(...args);
@@ -81,9 +94,6 @@ export default function Journal() {
     return result;
   };
 
-  const [leftPanelCollapsed, toggleLeftPanelCollapsed] = createToggle();
-  const [bottomPanelCollapsed, toggleBottomPanelCollapsed] = createToggle();
-
   return (
     <TagsContextProvider>
       <Workspace>
@@ -95,7 +105,7 @@ export default function Journal() {
               <PanelControls placement="top" sticky="right">
                 <IconButton
                   icon={leftPanelCollapsed() ? PanelLeftOpen : PanelLeftClose}
-                  onClick={toggleLeftPanelCollapsed}
+                  onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed())}
                 />
               </PanelControls>
               <PanelControls placement="bottom" sticky="right">
@@ -200,26 +210,32 @@ export default function Journal() {
         </Panel>
         <EntriesContainer
           after={
-            <Show when={currentViewId() !== defaultView.id}>
+            <Show when={currentEditableView()}>
               <Panel
                 orientation="vertical"
                 collapsed={bottomPanelCollapsed()}
                 controls={
-                  <PanelControls placement="right" sticky="top">
+                  <PanelControls
+                    placement="right"
+                    sticky="top"
+                    class={bottomPanelCollapsed() ? styles.statusMargin : ""}
+                  >
                     <IconButton
                       icon={
                         bottomPanelCollapsed()
                           ? PanelBottomOpen
                           : PanelBottomClose
                       }
-                      onClick={toggleBottomPanelCollapsed}
+                      onClick={() =>
+                        setBottomPanelCollapsed(!bottomPanelCollapsed())
+                      }
                     />
                   </PanelControls>
                 }
               >
                 <Label style="panel">Edit view</Label>
                 <ViewEditor
-                  definition={currentView().definition}
+                  definition={currentEditableView().definition}
                   onDefinitionChange={(definition) =>
                     setViewDefinition(currentViewId(), definition)
                   }
@@ -230,12 +246,10 @@ export default function Journal() {
           }
         >
           {/* TODO: Show total entry count */}
-          <Show
-            when={leftPanelCollapsed() && currentViewId() !== defaultView.id}
-          >
+          <Show when={leftPanelCollapsed() && currentEditableView()}>
             <EntriesHeader>
-              {currentView().name || "(untitled)"}
-              <Badge size="large">{currentView().entryCount}</Badge>
+              {currentEditableView().name || "(untitled)"}
+              <Badge size="large">{currentEditableView().entryCount}</Badge>
             </EntriesHeader>
           </Show>
           <Entries>
