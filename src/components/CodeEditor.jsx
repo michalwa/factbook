@@ -62,7 +62,10 @@ export default function createCodeEditor(config = {}) {
     const [incomingValue, setIncomingValue] = createSignal(props.value);
     createEffect(() => {
       const value = props.value;
-      if (!editorView()?.hasFocus) setIncomingValue(value);
+      if (!editorView()?.hasFocus) {
+        synced = false;
+        setIncomingValue(value);
+      }
     });
 
     createEditorControlledValue(editorView, incomingValue);
