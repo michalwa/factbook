@@ -42,8 +42,9 @@ export default function Entry(props) {
 
   onCleanup(() => {
     // Delay disposing the editor to prevent height changes ruining the
-    // list transition
-    setTimeout(disposeEditor, 1000);
+    // list transition. The timeout should be at least as long as the transition
+    // defined in `../styles/TransitionGroup.module.css`
+    setTimeout(disposeEditor, 200);
   });
 
   return (
