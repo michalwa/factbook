@@ -1,16 +1,17 @@
 .enter,
-.exit {
+.exit,
+.move {
   transition:
     opacity 0.2s,
     transform 0.2s;
 }
 
-.move {
-  transition: transform 0.2s;
+.exit {
+  transform: translateY(var(--transition-translate-y, 0));
 }
 
 .enterFrom,
 .exitTo {
-  transform: translateX(-1rem);
+  transform: translate(-1rem, var(--transition-translate-y, 0));
   opacity: 0;
 }

@@ -43,7 +43,7 @@ export default function Entry(props) {
   onCleanup(() => {
     // Delay disposing the editor to prevent height changes ruining the
     // list transition
-    queueMicrotask(disposeEditor);
+    setTimeout(disposeEditor, 1000);
   });
 
   return (
