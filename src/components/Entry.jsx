@@ -12,15 +12,39 @@ export default function Entry(props) {
   const formattedTimestamp = () =>
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
-  const [spans, setSpans] = createSignal();
-  const { CodeEditor, editorDispatch } = createCodeEditor({
-    onSynced: () => setSpans(props.spans),
-  });
-  const { entryLanguageExtension } = createEntryLanguageExtension();
+  const { Editor, dispose: disposeEditor } = createRoot((dispose) => {
+    const [spans, setSpans] = createSignal();
+    const { entryLanguageExtension } = createEntryLanguageExtension();
+    const { CodeEditor, editorDispatch } = createCodeEditor({
+      onSynced: () => setSpans(props.spans),
+    });
 
-  createEffect(
-    on(spans, (spans) => editorDispatch(updateSpans.of(spans ?? []))),
-  );
+    createEffect(
+      on(spans, (spans) => editorDispatch(updateSpans.of(spans ?? []))),
+    );
+
+    return {
+      Editor: () => (
+        <CodeEditor
+          class={styles.content}
+          value={props.content}
+          onChange={async (content) =>
+            setSpans(await props.parseSpans(content))
+          }
+          onChangeDeferred={props.onContentChange}
+          onEmptyBackspace={props.onRemove}
+          extension={entryLanguageExtension()}
+        />
+      ),
+      dispose,
+    };
+  });
+
+  onCleanup(() => {
+    // Delay disposing the editor to prevent height changes ruining the
+    // list transition
+    queueMicrotask(disposeEditor);
+  });
 
   return (
     <div class={styles.entry}>
@@ -28,33 +52,7 @@ export default function Entry(props) {
         {formattedTimestamp()}
       </time>
       <div class={styles.divider}></div>
-      {() => {
-        const { editor, dispose } = createRoot((dispose) => {
-          return {
-            editor: (
-              <CodeEditor
-                class={styles.content}
-                value={props.content}
-                onChange={async (content) =>
-                  setSpans(await props.parseSpans(content))
-                }
-                onChangeDeferred={props.onContentChange}
-                onEmptyBackspace={props.onRemove}
-                extension={entryLanguageExtension()}
-              />
-            ),
-            dispose,
-          };
-        });
-
-        onCleanup(() => {
-          // Delay disposing the editor to prevent height changes ruining the
-          // list transition
-          queueMicrotask(dispose);
-        });
-
-        return editor;
-      }}
+      <Editor />
     </div>
   );
 }
