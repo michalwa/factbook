@@ -16,9 +16,9 @@ import Tabs from "@/components/Tabs";
 import { useEntries } from "@/api/entry";
 import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
-import ViewEditor from "@/components/ViewEditor";
+import createViewEditor from "@/components/ViewEditor";
 import Status from "@/components/Status";
-import { createMemo, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import { useAppState } from "@/api/appState";
 import { createTagsContext } from "@/api/tag";
@@ -40,6 +40,7 @@ import {
 } from "lucide-solid";
 import { neighbors } from "@/utils";
 import { destructure } from "@solid-primitives/destructure";
+import { createHotkey } from "@tanstack/solid-hotkeys";
 
 export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
@@ -71,7 +72,7 @@ export default function Journal() {
     refetchEntries,
     setEntryContent: setEntryContentImpl,
     parseEntryContent,
-    createEntry,
+    createEntry: createEntryImpl,
     removeEntry,
   } = useEntries(currentViewId);
 
@@ -95,6 +96,32 @@ export default function Journal() {
     refetchTags();
     return result;
   };
+  const createEntry = async () => {
+    const id = await createEntryImpl();
+    console.log(id);
+    focusEntry(entriesRef, { id });
+  };
+
+  const [lastFocusedEntryId, setLastFocusedEntryId] = createSignal();
+
+  const {
+    ViewEditor,
+    focus: focusViewEditor,
+    hasFocus: viewEditorHasFocus,
+  } = createViewEditor();
+
+  createHotkey("Mod+Enter", () => createEntry());
+  createHotkey("Mod+B", () => setLeftPanelCollapsed(!leftPanelCollapsed()));
+  createHotkey("Mod+E", () => {
+    if (viewEditorHasFocus()) {
+      setBottomPanelCollapsed(true);
+      const entryId = lastFocusedEntryId() ?? entries()?.[0]?.id;
+      if (entryId !== undefined) focusEntry(entriesRef, { id: entryId });
+    } else {
+      setBottomPanelCollapsed(false);
+      focusViewEditor();
+    }
+  });
 
   let entriesRef;
 
@@ -270,6 +297,8 @@ export default function Journal() {
                     id={entry().id}
                     timestamp={entry().createdAt}
                     content={entry().content}
+                    spans={entry().spans}
+                    parseSpans={parseEntryContent}
                     onContentChange={(content) =>
                       setEntryContent(entry().id, content)
                     }
@@ -289,8 +318,7 @@ export default function Journal() {
                       next() &&
                       focusEntry(entriesRef, { id: next().id, ...data })
                     }
-                    spans={entry().spans}
-                    parseSpans={parseEntryContent}
+                    onFocus={() => setLastFocusedEntryId(entry().id)}
                   />
                 );
               }}

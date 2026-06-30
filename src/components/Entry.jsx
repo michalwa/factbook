@@ -25,7 +25,7 @@ const entryFocusRequested = "entryFocusRequested";
  * @param {Element} parentRef
  * @param {object} detail
  * @param {number} detail.id The id of the entry to foucs
- * @param {"down" | "up"} detail.direction
+ * @param {"down" | "up" | undefined} detail.direction
  *   The direction relative to the previous entry, this will determine which
  *   line the cursor gets set to
  * @param {number | undefined} detail.cursorX
@@ -63,10 +63,12 @@ export default function Entry(props) {
       (event) => {
         if (event.detail.id === props.id) {
           focus();
-          moveTo({
-            line: event.detail.direction === "up" ? "last" : "first",
-            cursorX: event.detail.cursorX ?? 0,
-          });
+          if (event.detail.direction) {
+            moveTo({
+              line: event.detail.direction === "up" ? "last" : "first",
+              cursorX: event.detail.cursorX ?? 0,
+            });
+          }
         }
       },
     );
@@ -87,6 +89,7 @@ export default function Entry(props) {
           }
           onChangeDeferred={props.onContentChange}
           extension={[entryKeymap(), entryLanguageExtension()]}
+          onFocus={props.onFocus}
         />
       ),
       dispose,

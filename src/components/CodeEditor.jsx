@@ -1,6 +1,7 @@
 import {
   createCodeMirror,
   createEditorControlledValue,
+  createEditorFocus,
 } from "solid-codemirror";
 import styles from "@/styles/CodeEditor";
 import { EditorView, keymap } from "@codemirror/view";
@@ -9,7 +10,6 @@ import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import { defaultKeymap } from "@codemirror/commands";
 import { EditorSelection } from "@codemirror/state";
 import { indentWithTab } from "@codemirror/commands";
-import { continuedIndent } from "@codemirror/language";
 
 /**
  * @param {object} config
@@ -82,6 +82,11 @@ export default function createCodeEditor(config = {}) {
 
     createEditorControlledValue(editorView, incomingValue);
 
+    const { focused } = createEditorFocus(editorView);
+    createEffect(
+      on(focused, (value) => (value ? props.onFocus?.() : props.onBlur?.())),
+    );
+
     createExtension(EditorView.lineWrapping);
     createExtension(() => props.extension);
     // Register keymap after `props.extension` to allow overrides
@@ -92,6 +97,7 @@ export default function createCodeEditor(config = {}) {
 
   const dispatch = (effects) => editorView()?.dispatch({ effects });
   const focus = () => editorView()?.focus();
+  const hasFocus = () => editorView()?.hasFocus;
 
   const getCursorCoords = (view) =>
     view.coordsAtPos(
@@ -169,6 +175,7 @@ export default function createCodeEditor(config = {}) {
     CodeEditor,
     dispatch,
     focus,
+    hasFocus,
     isCursorAtTop,
     isCursorAtBottom,
     getCursorX,
