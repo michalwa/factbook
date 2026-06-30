@@ -3,7 +3,7 @@ import Button from "@/components/Button";
 import Entries from "@/components/Entries";
 import EntriesContainer from "@/components/EntriesContainer";
 import EntriesHeader from "@/components/EntriesHeader";
-import Entry from "@/components/Entry";
+import Entry, { focusEntry } from "@/components/Entry";
 import IconButton from "@/components/IconButton";
 import Label from "@/components/Label";
 import Panel from "@/components/Panel";
@@ -38,6 +38,8 @@ import {
   Plus,
   CircleQuestionMark,
 } from "lucide-solid";
+import { neighbors } from "@/utils";
+import { destructure } from "@solid-primitives/destructure";
 
 export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
@@ -93,6 +95,8 @@ export default function Journal() {
     refetchTags();
     return result;
   };
+
+  let entriesRef;
 
   return (
     <TagsContextProvider>
@@ -252,20 +256,34 @@ export default function Journal() {
               <Badge size="large">{currentEditableView().entryCount}</Badge>
             </EntriesHeader>
           </Show>
-          <Entries>
-            <Key each={entries()} by="id">
-              {(entry) => (
-                <Entry
-                  timestamp={entry().createdAt}
-                  content={entry().content}
-                  onContentChange={(content) =>
-                    setEntryContent(entry().id, content)
-                  }
-                  onRemove={() => removeEntry(entry().id)}
-                  spans={entry().spans}
-                  parseSpans={parseEntryContent}
-                />
-              )}
+          <Entries ref={entriesRef}>
+            <Key
+              each={neighbors(entries())}
+              by={([prev, entry, next]) => entry.id}
+            >
+              {(neighbors) => {
+                const [prev, entry, next] = destructure(neighbors);
+                return (
+                  <Entry
+                    parentRef={entriesRef}
+                    id={entry().id}
+                    timestamp={entry().createdAt}
+                    content={entry().content}
+                    onContentChange={(content) =>
+                      setEntryContent(entry().id, content)
+                    }
+                    onRemove={() => removeEntry(entry().id)}
+                    onNavigateUp={() =>
+                      prev() && focusEntry(entriesRef, prev().id)
+                    }
+                    onNavigateDown={() =>
+                      next() && focusEntry(entriesRef, next().id)
+                    }
+                    spans={entry().spans}
+                    parseSpans={parseEntryContent}
+                  />
+                );
+              }}
             </Key>
             <IconButton
               icon={Plus}

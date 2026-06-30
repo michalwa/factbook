@@ -79,23 +79,48 @@ export default function createCodeEditor(config = {}) {
 
     createEditorControlledValue(editorView, incomingValue);
 
-    createExtension([
-      EditorView.lineWrapping,
-      EditorView.domEventHandlers({
-        keydown(event, view) {
-          if (event.key === "Backspace" && view.state.doc.length === 0)
-            props.onEmptyBackspace?.();
-        },
-      }),
-      keymap.of(defaultKeymap),
-    ]);
-
+    createExtension(EditorView.lineWrapping);
     createExtension(() => props.extension);
+    // Register keymap after `props.extension` to allow overrides
+    createExtension(keymap.of(defaultKeymap));
 
     return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
   }
 
-  const editorDispatch = (effects) => editorView()?.dispatch({ effects });
+  const dispatch = (effects) => editorView()?.dispatch({ effects });
+  const focus = () => editorView()?.focus();
 
-  return { CodeEditor, editorDispatch };
+  /**
+   * @param {EditorView | undefined} view
+   * @returns {boolean}
+   */
+  const isCursorAtTop = (view = undefined) => {
+    view = view ?? editorView();
+    if (!view) return;
+
+    // It's pretty crazy that we have to compare the physical cursor position,
+    // I can feel this breaking easily
+    const cursor = view.coordsAtPos(
+      view.state.selection.main.head,
+      view.state.selection.main.assoc,
+    );
+    return cursor.top === view.documentTop;
+  };
+
+  /**
+   * @param {EditorView | undefined} view
+   * @returns {boolean}
+   */
+  const isCursorAtBottom = (view = undefined) => {
+    view = view ?? editorView().viewportLineBlocks;
+    if (!view) return;
+
+    const cursor = view.coordsAtPos(
+      view.state.selection.main.head,
+      view.state.selection.main.assoc,
+    );
+    return cursor.bottom === view.documentTop + view.contentHeight;
+  };
+
+  return { CodeEditor, dispatch, focus, isCursorAtTop, isCursorAtBottom };
 }

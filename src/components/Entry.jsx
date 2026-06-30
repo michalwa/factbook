@@ -1,4 +1,10 @@
-import { createEffect, createRoot, createSignal, onCleanup } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createRoot,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import createCodeEditor from "@/components/CodeEditor";
 import styles from "@/styles/Entry";
 import { format as formatDate } from "date-fns";
@@ -7,6 +13,23 @@ import {
   updateSpans,
 } from "@/language/entryLanguage";
 import { on } from "solid-js";
+import { keymap } from "@codemirror/view";
+import { createEventListener } from "@solid-primitives/event-listener";
+
+const entryFocusRequested = "entryFocusRequested";
+
+/**
+ * Dispatches an event on the given parent element that will cause a child
+ * `Entry` component with the specified entry id to become focused
+ *
+ * @param {Element} parentRef
+ * @param {number} id
+ */
+export function focusEntry(parentRef, id) {
+  parentRef.dispatchEvent(
+    new CustomEvent(entryFocusRequested, { detail: { id } }),
+  );
+}
 
 export default function Entry(props) {
   const formattedTimestamp = () =>
@@ -15,12 +38,22 @@ export default function Entry(props) {
   const { Editor, dispose: disposeEditor } = createRoot((dispose) => {
     const [spans, setSpans] = createSignal();
     const { entryLanguageExtension } = createEntryLanguageExtension();
-    const { CodeEditor, editorDispatch } = createCodeEditor({
-      onSynced: () => setSpans(props.spans),
+    const { CodeEditor, dispatch, focus, isCursorAtTop, isCursorAtBottom } =
+      createCodeEditor({
+        onSynced: () => setSpans(props.spans),
+      });
+
+    createEffect(on(spans, (spans) => dispatch(updateSpans.of(spans ?? []))));
+
+    const entryKeymap = createKeymap(props, {
+      isCursorAtTop,
+      isCursorAtBottom,
     });
 
-    createEffect(
-      on(spans, (spans) => editorDispatch(updateSpans.of(spans ?? []))),
+    createEventListener(
+      () => props.parentRef,
+      entryFocusRequested,
+      (event) => event.detail.id === props.id && focus(),
     );
 
     return {
@@ -32,8 +65,7 @@ export default function Entry(props) {
             setSpans(await props.parseSpans(content))
           }
           onChangeDeferred={props.onContentChange}
-          onEmptyBackspace={props.onRemove}
-          extension={entryLanguageExtension()}
+          extension={[entryKeymap(), entryLanguageExtension()]}
         />
       ),
       dispose,
@@ -55,5 +87,50 @@ export default function Entry(props) {
       <div class={styles.divider}></div>
       <Editor />
     </div>
+  );
+}
+
+function createKeymap(props, { isCursorAtTop, isCursorAtBottom }) {
+  return createMemo(() =>
+    keymap.of([
+      {
+        key: "Backspace",
+        run(view) {
+          if (view.state.doc.length === 0) props.onRemove?.();
+        },
+      },
+      {
+        key: "ArrowUp",
+        run(view) {
+          if (isCursorAtTop(view)) {
+            props.onNavigateUp?.();
+            return true;
+          }
+        },
+      },
+      {
+        key: "ArrowDown",
+        run(view) {
+          if (isCursorAtBottom(view)) {
+            props.onNavigateDown?.();
+            return true;
+          }
+        },
+      },
+      {
+        key: "PageUp",
+        run(view) {
+          props.onNavigateUp?.();
+          return true;
+        },
+      },
+      {
+        key: "PageDown",
+        run(view) {
+          props.onNavigateDown?.();
+          return true;
+        },
+      },
+    ]),
   );
 }
