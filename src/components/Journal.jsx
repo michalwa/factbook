@@ -257,6 +257,7 @@ export default function Journal() {
             </EntriesHeader>
           </Show>
           <Entries ref={entriesRef}>
+            {/* TODO: Move inside Entries */}
             <Key
               each={neighbors(entries())}
               by={([prev, entry, next]) => entry.id}
@@ -272,12 +273,21 @@ export default function Journal() {
                     onContentChange={(content) =>
                       setEntryContent(entry().id, content)
                     }
-                    onRemove={() => removeEntry(entry().id)}
-                    onNavigateUp={() =>
-                      prev() && focusEntry(entriesRef, prev().id)
+                    onRemove={() => {
+                      removeEntry(entry().id);
+                      prev() &&
+                        focusEntry(entriesRef, {
+                          id: prev().id,
+                          direction: "up",
+                        });
+                    }}
+                    onNavigateUp={(data) =>
+                      prev() &&
+                      focusEntry(entriesRef, { id: prev().id, ...data })
                     }
-                    onNavigateDown={() =>
-                      next() && focusEntry(entriesRef, next().id)
+                    onNavigateDown={(data) =>
+                      next() &&
+                      focusEntry(entriesRef, { id: next().id, ...data })
                     }
                     spans={entry().spans}
                     parseSpans={parseEntryContent}

@@ -23,12 +23,17 @@ const entryFocusRequested = "entryFocusRequested";
  * `Entry` component with the specified entry id to become focused
  *
  * @param {Element} parentRef
- * @param {number} id
+ * @param {object} detail
+ * @param {number} detail.id The id of the entry to foucs
+ * @param {"down" | "up"} detail.direction
+ *   The direction relative to the previous entry, this will determine which
+ *   line the cursor gets set to
+ * @param {number | undefined} detail.cursorX
+ *   The column in pixels where the cursor should be placed within the focused
+ *   entry
  */
-export function focusEntry(parentRef, id) {
-  parentRef.dispatchEvent(
-    new CustomEvent(entryFocusRequested, { detail: { id } }),
-  );
+export function focusEntry(parentRef, detail) {
+  parentRef.dispatchEvent(new CustomEvent(entryFocusRequested, { detail }));
 }
 
 export default function Entry(props) {
@@ -38,23 +43,39 @@ export default function Entry(props) {
   const { Editor, dispose: disposeEditor } = createRoot((dispose) => {
     const [spans, setSpans] = createSignal();
     const { entryLanguageExtension } = createEntryLanguageExtension();
-    const { CodeEditor, dispatch, focus, isCursorAtTop, isCursorAtBottom } =
-      createCodeEditor({
-        onSynced: () => setSpans(props.spans),
-      });
-
-    createEffect(on(spans, (spans) => dispatch(updateSpans.of(spans ?? []))));
-
-    const entryKeymap = createKeymap(props, {
+    const {
+      CodeEditor,
+      dispatch,
+      focus,
       isCursorAtTop,
       isCursorAtBottom,
+      getCursorX,
+      moveTo,
+    } = createCodeEditor({
+      onSynced: () => setSpans(props.spans),
     });
+
+    createEffect(on(spans, (spans) => dispatch(updateSpans.of(spans ?? []))));
 
     createEventListener(
       () => props.parentRef,
       entryFocusRequested,
-      (event) => event.detail.id === props.id && focus(),
+      (event) => {
+        if (event.detail.id === props.id) {
+          focus();
+          moveTo({
+            line: event.detail.direction === "up" ? "last" : "first",
+            cursorX: event.detail.cursorX ?? 0,
+          });
+        }
+      },
     );
+
+    const entryKeymap = createKeymap(props, {
+      isCursorAtTop,
+      isCursorAtBottom,
+      getCursorX,
+    });
 
     return {
       Editor: () => (
@@ -90,20 +111,32 @@ export default function Entry(props) {
   );
 }
 
-function createKeymap(props, { isCursorAtTop, isCursorAtBottom }) {
+function createKeymap(props, { isCursorAtTop, isCursorAtBottom, getCursorX }) {
+  const navigateUp = (view) =>
+    props.onNavigateUp?.({
+      cursorX: getCursorX(view),
+      direction: "up",
+    });
+  const navigateDown = (view) =>
+    props.onNavigateDown?.({
+      cursorX: getCursorX(view),
+      direction: "down",
+    });
+
   return createMemo(() =>
     keymap.of([
       {
         key: "Backspace",
         run(view) {
           if (view.state.doc.length === 0) props.onRemove?.();
+          return true;
         },
       },
       {
         key: "ArrowUp",
         run(view) {
           if (isCursorAtTop(view)) {
-            props.onNavigateUp?.();
+            navigateUp(view);
             return true;
           }
         },
@@ -112,7 +145,7 @@ function createKeymap(props, { isCursorAtTop, isCursorAtBottom }) {
         key: "ArrowDown",
         run(view) {
           if (isCursorAtBottom(view)) {
-            props.onNavigateDown?.();
+            navigateDown(view);
             return true;
           }
         },
@@ -120,14 +153,14 @@ function createKeymap(props, { isCursorAtTop, isCursorAtBottom }) {
       {
         key: "PageUp",
         run(view) {
-          props.onNavigateUp?.();
+          navigateUp(view);
           return true;
         },
       },
       {
         key: "PageDown",
         run(view) {
-          props.onNavigateDown?.();
+          navigateDown(view);
           return true;
         },
       },
