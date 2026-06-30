@@ -8,6 +8,8 @@ import { debounce } from "@solid-primitives/scheduled";
 import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import { defaultKeymap } from "@codemirror/commands";
 import { EditorSelection } from "@codemirror/state";
+import { indentWithTab } from "@codemirror/commands";
+import { continuedIndent } from "@codemirror/language";
 
 /**
  * @param {object} config
@@ -83,7 +85,7 @@ export default function createCodeEditor(config = {}) {
     createExtension(EditorView.lineWrapping);
     createExtension(() => props.extension);
     // Register keymap after `props.extension` to allow overrides
-    createExtension(keymap.of(defaultKeymap));
+    createExtension(keymap.of([defaultKeymap, indentWithTab]));
 
     return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
   }

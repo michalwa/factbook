@@ -126,13 +126,6 @@ function createKeymap(props, { isCursorAtTop, isCursorAtBottom, getCursorX }) {
   return createMemo(() =>
     keymap.of([
       {
-        key: "Backspace",
-        run(view) {
-          if (view.state.doc.length === 0) props.onRemove?.();
-          return true;
-        },
-      },
-      {
         key: "ArrowUp",
         run(view) {
           if (isCursorAtTop(view)) {
@@ -162,6 +155,22 @@ function createKeymap(props, { isCursorAtTop, isCursorAtBottom, getCursorX }) {
         run(view) {
           navigateDown(view);
           return true;
+        },
+      },
+      {
+        key: "Mod-k",
+        run(view) {
+          props.onRemove?.();
+          return true;
+        },
+      },
+      {
+        key: "Backspace",
+        run(view) {
+          if (view.state.doc.length === 0) {
+            props.onRemove?.();
+            return true;
+          }
         },
       },
     ]),
