@@ -99,9 +99,13 @@ export default function createCodeEditor(config = {}) {
   const focus = () => editorView()?.focus();
   const hasFocus = () => editorView()?.hasFocus;
 
+  /**
+   * @param {EditorView} view
+   * @returns {import("@codemirror/view").Rect | null}
+   */
   const getCursorCoords = (view) =>
     view.coordsAtPos(
-      view.state.selection.main.head,
+      view.state.selection.main.head || 0,
       view.state.selection.main.assoc || undefined,
     );
 
@@ -158,11 +162,14 @@ export default function createCodeEditor(config = {}) {
     const lineNumber =
       line === "first" ? 1 : line === "last" ? view.state.doc.lines : line;
     const docLine = view.state.doc.line(lineNumber);
-    const lineStart = view.coordsAtPos(docLine.from);
-    const pos = view.posAtCoords({
-      x: lineStart.left + cursorX,
-      y: lineStart.top,
-    });
+    const lineStart = view.coordsAtPos(docLine.from, 1);
+    const pos = view.posAtCoords(
+      {
+        x: lineStart.left + cursorX,
+        y: lineStart.top,
+      },
+      false,
+    );
 
     view.dispatch({
       selection: EditorSelection.create([
