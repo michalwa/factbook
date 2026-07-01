@@ -97,6 +97,7 @@ export default function createCodeEditor(config = {}) {
 
   const dispatch = (effects) => editorView()?.dispatch({ effects });
   const focus = () => editorView()?.focus();
+  const blur = () => editorView()?.contentDOM.blur();
   const hasFocus = () => editorView()?.hasFocus;
 
   /**
@@ -182,6 +183,7 @@ export default function createCodeEditor(config = {}) {
     CodeEditor,
     dispatch,
     focus,
+    blur,
     hasFocus,
     isCursorAtTop,
     isCursorAtBottom,

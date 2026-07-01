@@ -111,6 +111,7 @@ export default function Journal() {
   const {
     ViewEditor,
     focus: focusViewEditor,
+    blur: blurViewEditor,
     hasFocus: viewEditorHasFocus,
   } = createViewEditor();
 
@@ -127,10 +128,12 @@ export default function Journal() {
     }
   });
   createHotkey("Mod+PageUp", () => {
+    blurViewEditor(); // blur the editor to allow it to update
     const prev = getPreviousView(currentViewId());
     prev && setCurrentViewId(prev.id);
   });
   createHotkey("Mod+PageDown", () => {
+    blurViewEditor(); // blur the editor to allow it to update
     const next = getNextView(currentViewId());
     next && setCurrentViewId(next.id);
   });

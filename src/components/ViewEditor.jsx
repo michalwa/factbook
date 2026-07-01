@@ -2,7 +2,7 @@ import createCodeEditor from "@/components/CodeEditor";
 import { createViewLanguageExtension } from "@/language/viewLanguage";
 
 export default function createViewEditor() {
-  const { CodeEditor, focus, hasFocus } = createCodeEditor();
+  const { CodeEditor, focus, blur, hasFocus } = createCodeEditor();
 
   const ViewEditor = (props) => {
     const { viewLanguageExtension } = createViewLanguageExtension();
@@ -16,5 +16,5 @@ export default function createViewEditor() {
     );
   };
 
-  return { ViewEditor, focus, hasFocus };
+  return { ViewEditor, focus, blur, hasFocus };
 }
