@@ -1,12 +1,15 @@
 import {
   createCodeMirror,
   createEditorControlledValue,
+  createEditorFocus,
 } from "solid-codemirror";
 import styles from "@/styles/CodeEditor";
 import { EditorView, keymap } from "@codemirror/view";
 import { debounce } from "@solid-primitives/scheduled";
 import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import { defaultKeymap } from "@codemirror/commands";
+import { EditorSelection } from "@codemirror/state";
+import { indentWithTab } from "@codemirror/commands";
 
 /**
  * @param {object} config
@@ -79,23 +82,112 @@ export default function createCodeEditor(config = {}) {
 
     createEditorControlledValue(editorView, incomingValue);
 
-    createExtension([
-      EditorView.lineWrapping,
-      EditorView.domEventHandlers({
-        keydown(event, view) {
-          if (event.key === "Backspace" && view.state.doc.length === 0)
-            props.onEmptyBackspace?.();
-        },
-      }),
-      keymap.of(defaultKeymap),
-    ]);
+    const { focused } = createEditorFocus(editorView);
+    createEffect(
+      on(focused, (value) => (value ? props.onFocus?.() : props.onBlur?.())),
+    );
 
+    createExtension(EditorView.lineWrapping);
     createExtension(() => props.extension);
+    // Register keymap after `props.extension` to allow overrides
+    createExtension(keymap.of([...defaultKeymap, indentWithTab]));
 
     return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
   }
 
-  const editorDispatch = (effects) => editorView()?.dispatch({ effects });
+  const dispatch = (effects) => editorView()?.dispatch({ effects });
+  const focus = () => editorView()?.focus();
+  const blur = () => editorView()?.contentDOM.blur();
+  const hasFocus = () => editorView()?.hasFocus;
 
-  return { CodeEditor, editorDispatch };
+  /**
+   * @param {EditorView} view
+   * @returns {import("@codemirror/view").Rect | null}
+   */
+  const getCursorCoords = (view) =>
+    view.coordsAtPos(
+      view.state.selection.main.head || 0,
+      view.state.selection.main.assoc || undefined,
+    );
+
+  /**
+   * @param {EditorView | undefined} view
+   * @returns {boolean}
+   */
+  const isCursorAtTop = (view = undefined) => {
+    view = view ?? editorView();
+    if (!view) return;
+
+    // It's pretty crazy that we have to compare the physical cursor position,
+    // I can feel this breaking easily
+    const cursor = getCursorCoords(view);
+    return cursor.top === view.documentTop;
+  };
+
+  /**
+   * @param {EditorView | undefined} view
+   * @returns {boolean}
+   */
+  const isCursorAtBottom = (view = undefined) => {
+    view = view ?? editorView();
+    if (!view) return;
+
+    const cursor = getCursorCoords(view);
+    return cursor.bottom === view.documentTop + view.contentHeight;
+  };
+
+  /**
+   * @param {EditorView | undefined} view
+   * @returns {number}
+   */
+  const getCursorX = (view = undefined) => {
+    view = view ?? editorView();
+    if (!view) return;
+
+    const cursor = getCursorCoords(view);
+    const line = view.state.doc.lineAt(view.state.selection.main.head);
+    const lineStart = view.coordsAtPos(line.from);
+
+    return view.state.selection.main.goalColumn ?? cursor.left - lineStart.left;
+  };
+
+  /**
+   * @param {object} params
+   * @param {number | "first" | "last"} params.line The line number (1-based)
+   * @param {number} params.cursorX The cursor column in pixels
+   */
+  const moveTo = ({ line, cursorX }) => {
+    const view = editorView();
+    if (!view) return;
+
+    const lineNumber =
+      line === "first" ? 1 : line === "last" ? view.state.doc.lines : line;
+    const docLine = view.state.doc.line(lineNumber);
+    const lineStart = view.coordsAtPos(docLine.from, 1);
+    const pos = view.posAtCoords(
+      {
+        x: lineStart.left + cursorX,
+        y: lineStart.top,
+      },
+      false,
+    );
+
+    view.dispatch({
+      selection: EditorSelection.create([
+        EditorSelection.cursor(pos, undefined, undefined, cursorX),
+      ]),
+    });
+  };
+
+  return {
+    CodeEditor,
+    dispatch,
+    focus,
+    blur,
+    hasFocus,
+    isCursorAtTop,
+    isCursorAtBottom,
+    getCursorX,
+    moveTo,
+  };
 }

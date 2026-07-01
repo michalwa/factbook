@@ -23,6 +23,7 @@ export function useEntries(viewId) {
     setDirty(true);
     const id = await invoke("create_entry");
     mutateEntries((entries) => [...entries, { id, createdAt: new Date() }]);
+    return id;
   };
 
   const removeEntry = async (id) => {

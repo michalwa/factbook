@@ -24,6 +24,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@lezer/highlight": "^1.2.3",
     "@lezer/lr": "^1.4.10",
+    "@solid-primitives/destructure": "^0.2.3",
     "@solid-primitives/event-listener": "^2.4.5",
     "@solid-primitives/keyed": "^1.5.3",
     "@solid-primitives/refs": "^1.1.3",

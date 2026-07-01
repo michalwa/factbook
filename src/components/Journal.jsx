@@ -1,9 +1,8 @@
 import Badge from "@/components/Badge";
 import Button from "@/components/Button";
-import Entries from "@/components/Entries";
-import EntriesContainer from "@/components/EntriesContainer";
-import EntriesHeader from "@/components/EntriesHeader";
-import Entry from "@/components/Entry";
+import createEntryList from "@/components/EntryList";
+import EntryListContainer from "@/components/EntryListContainer";
+import EntryListHeader from "@/components/EntryListHeader";
 import IconButton from "@/components/IconButton";
 import Label from "@/components/Label";
 import Panel from "@/components/Panel";
@@ -16,9 +15,9 @@ import Tabs from "@/components/Tabs";
 import { useEntries } from "@/api/entry";
 import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
-import ViewEditor from "@/components/ViewEditor";
+import createViewEditor from "@/components/ViewEditor";
 import Status from "@/components/Status";
-import { createMemo, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, on, Show } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import { useAppState } from "@/api/appState";
 import { createTagsContext } from "@/api/tag";
@@ -35,9 +34,10 @@ import {
   FunnelPlus,
   PanelBottomOpen,
   PanelBottomClose,
-  Plus,
   CircleQuestionMark,
 } from "lucide-solid";
+import { createHotkey } from "@tanstack/solid-hotkeys";
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
@@ -52,12 +52,15 @@ export default function Journal() {
   );
   const [currentViewId, setCurrentViewId] =
     createJournalSetting("current_view_id");
+  const [lastCreatedViewId, setLastCreatedViewId] = createSignal();
 
   const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
 
   const {
     views,
     getEditableView,
+    getPreviousView,
+    getNextView,
     setViewName,
     setViewDefinition: setViewDefinitionImpl,
     createView: createViewImpl,
@@ -69,7 +72,7 @@ export default function Journal() {
     refetchEntries,
     setEntryContent: setEntryContentImpl,
     parseEntryContent,
-    createEntry,
+    createEntry: createEntryImpl,
     removeEntry,
   } = useEntries(currentViewId);
 
@@ -82,17 +85,71 @@ export default function Journal() {
     refetchEntries();
     refetchTags();
   };
-  const createView = async () => setCurrentViewId(await createViewImpl());
-  const removeView = (...args) => {
-    setCurrentViewId(defaultView.id);
-    return removeViewImpl(...args);
+  const createView = async () => {
+    const id = await createViewImpl();
+    setLastCreatedViewId(id);
+    setCurrentViewId(id);
   };
+  const removeView = async (id) => {
+    const view = getEditableView(id);
+    if (
+      await confirm(
+        `Are you sure you want to delete the view ${view.name || "(untitled)"}?`,
+      )
+    ) {
+      setCurrentViewId(getPreviousView(id).id);
+      return removeViewImpl(id);
+    }
+  };
+
+  const [lastFocusedEntryId, setLastFocusedEntryId] = createSignal();
+  const { EntryList, focusEntry } = createEntryList();
 
   const setEntryContent = async (...args) => {
     const result = await setEntryContentImpl(...args);
     refetchTags();
     return result;
   };
+  const createEntry = async () => {
+    const id = await createEntryImpl();
+    console.log(id);
+    focusEntry({ id });
+  };
+
+  const {
+    ViewEditor,
+    focus: focusViewEditor,
+    blur: blurViewEditor,
+    hasFocus: viewEditorHasFocus,
+  } = createViewEditor();
+
+  createHotkey("Mod+Enter", () => createEntry());
+  createHotkey("Mod+B", () => setLeftPanelCollapsed(!leftPanelCollapsed()));
+  createHotkey("Mod+E", () => {
+    if (viewEditorHasFocus() || !currentEditableView()) {
+      setBottomPanelCollapsed(true);
+      const entryId = lastFocusedEntryId() ?? entries()?.[0]?.id;
+      if (entryId !== undefined) focusEntry({ id: entryId });
+    } else {
+      setBottomPanelCollapsed(false);
+      focusViewEditor();
+    }
+  });
+  createHotkey("Mod+PageUp", () => {
+    blurViewEditor(); // blur the editor to allow it to update
+    const prev = getPreviousView(currentViewId());
+    prev && setCurrentViewId(prev.id);
+  });
+  createHotkey("Mod+PageDown", () => {
+    blurViewEditor(); // blur the editor to allow it to update
+    const next = getNextView(currentViewId());
+    next && setCurrentViewId(next.id);
+  });
+  createHotkey("Mod+N", () => createView());
+  createHotkey(
+    "Mod+W",
+    () => currentEditableView() && removeView(currentViewId()),
+  );
 
   return (
     <TagsContextProvider>
@@ -182,16 +239,24 @@ export default function Journal() {
                     </>
                   )}
                 >
-                  {({ editingTitle }) => (
-                    // TODO: Show total entry count
-                    <Show
-                      when={view().id !== defaultView.id && !editingTitle()}
-                    >
-                      <Badge size="small" fixedWidth>
-                        {view().entryCount}
-                      </Badge>
-                    </Show>
-                  )}
+                  {({ editTitle, editingTitle }) => {
+                    createEffect(
+                      on(lastCreatedViewId, (id) => {
+                        if (view().id === id) editTitle();
+                      }),
+                    );
+
+                    return (
+                      // TODO: Show total entry count
+                      <Show
+                        when={view().id !== defaultView.id && !editingTitle()}
+                      >
+                        <Badge size="small" fixedWidth>
+                          {view().entryCount}
+                        </Badge>
+                      </Show>
+                    );
+                  }}
                 </Tab>
               )}
             </Key>
@@ -208,7 +273,7 @@ export default function Journal() {
           </PanelBottomContainer>
           <PanelControlsSpacer />
         </Panel>
-        <EntriesContainer
+        <EntryListContainer
           after={
             <Show when={currentEditableView()}>
               <Panel
@@ -247,33 +312,20 @@ export default function Journal() {
         >
           {/* TODO: Show total entry count */}
           <Show when={leftPanelCollapsed() && currentEditableView()}>
-            <EntriesHeader>
+            <EntryListHeader>
               {currentEditableView().name || "(untitled)"}
               <Badge size="large">{currentEditableView().entryCount}</Badge>
-            </EntriesHeader>
+            </EntryListHeader>
           </Show>
-          <Entries>
-            <Key each={entries()} by="id">
-              {(entry) => (
-                <Entry
-                  timestamp={entry().createdAt}
-                  content={entry().content}
-                  onContentChange={(content) =>
-                    setEntryContent(entry().id, content)
-                  }
-                  onRemove={() => removeEntry(entry().id)}
-                  spans={entry().spans}
-                  parseSpans={parseEntryContent}
-                />
-              )}
-            </Key>
-            <IconButton
-              icon={Plus}
-              class={styles.entryContentMargin}
-              onClick={createEntry}
-            />
-          </Entries>
-        </EntriesContainer>
+          <EntryList
+            entries={entries()}
+            parseEntryContent={parseEntryContent}
+            onCreate={createEntry}
+            onRemove={removeEntry}
+            onFocus={setLastFocusedEntryId}
+            onContentChange={setEntryContent}
+          />
+        </EntryListContainer>
         <Status />
       </Workspace>
     </TagsContextProvider>
