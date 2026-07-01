@@ -37,6 +37,7 @@ import {
   CircleQuestionMark,
 } from "lucide-solid";
 import { createHotkey } from "@tanstack/solid-hotkeys";
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
@@ -89,9 +90,16 @@ export default function Journal() {
     setLastCreatedViewId(id);
     setCurrentViewId(id);
   };
-  const removeView = (...args) => {
-    setCurrentViewId(defaultView.id);
-    return removeViewImpl(...args);
+  const removeView = async (id) => {
+    const view = getEditableView(id);
+    if (
+      await confirm(
+        `Are you sure you want to delete the view ${view.name || "(untitled)"}?`,
+      )
+    ) {
+      setCurrentViewId(getPreviousView(id).id);
+      return removeViewImpl(id);
+    }
   };
 
   const [lastFocusedEntryId, setLastFocusedEntryId] = createSignal();
@@ -138,6 +146,7 @@ export default function Journal() {
     next && setCurrentViewId(next.id);
   });
   createHotkey("Mod+N", () => createView());
+  createHotkey("Mod+W", () => removeView(currentViewId()));
 
   return (
     <TagsContextProvider>
