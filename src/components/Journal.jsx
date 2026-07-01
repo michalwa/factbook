@@ -57,6 +57,8 @@ export default function Journal() {
   const {
     views,
     getEditableView,
+    getPreviousView,
+    getNextView,
     setViewName,
     setViewDefinition: setViewDefinitionImpl,
     createView: createViewImpl,
@@ -110,7 +112,7 @@ export default function Journal() {
   createHotkey("Mod+Enter", () => createEntry());
   createHotkey("Mod+B", () => setLeftPanelCollapsed(!leftPanelCollapsed()));
   createHotkey("Mod+E", () => {
-    if (viewEditorHasFocus()) {
+    if (viewEditorHasFocus() || !currentEditableView()) {
       setBottomPanelCollapsed(true);
       const entryId = lastFocusedEntryId() ?? entries()?.[0]?.id;
       if (entryId !== undefined) focusEntry({ id: entryId });
@@ -118,6 +120,14 @@ export default function Journal() {
       setBottomPanelCollapsed(false);
       focusViewEditor();
     }
+  });
+  createHotkey("Mod+PageUp", () => {
+    const prev = getPreviousView(currentViewId());
+    prev && setCurrentViewId(prev.id);
+  });
+  createHotkey("Mod+PageDown", () => {
+    const next = getNextView(currentViewId());
+    next && setCurrentViewId(next.id);
   });
 
   return (

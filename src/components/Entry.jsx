@@ -176,6 +176,8 @@ function createKeymap(props, { isCursorAtTop, isCursorAtBottom, getCursorX }) {
           }
         },
       },
+      // Ignore global hotkeys
+      { key: "Mod-Enter", run: () => true },
     ]),
   );
 }

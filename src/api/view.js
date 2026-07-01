@@ -17,6 +17,22 @@ export function useViews() {
   const getEditableView = (id) =>
     editableViews()?.find((view) => view.id === id);
 
+  const getPreviousView = (id) => {
+    const viewsValue = views();
+    if (!viewsValue) return undefined;
+
+    const index = viewsValue.findIndex((view) => view.id === id);
+    return index === 0 ? undefined : viewsValue[index - 1];
+  };
+
+  const getNextView = (id) => {
+    const viewsValue = views();
+    if (!viewsValue) return undefined;
+
+    const index = viewsValue.findIndex((view) => view.id === id);
+    return index === viewsValue.length - 1 ? undefined : viewsValue[index + 1];
+  };
+
   const setViewName = async (id, name) => {
     setDirty(true);
     await invoke("set_view_name", { id, name });
@@ -49,6 +65,8 @@ export function useViews() {
     views,
     refetchViews,
     getEditableView,
+    getPreviousView,
+    getNextView,
     setViewName,
     setViewDefinition,
     createView,
