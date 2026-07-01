@@ -12,6 +12,7 @@ pest_derive = { version = "2.8.6", features = ["grammar-extras"] }
 serde = { version = "1", features = ["derive"] }
 stable-vec = "0.4.2"
 sparse-tags = { git = "https://github.com/michalwa/sparse-tags", tag = "v0.2.0", features = ["serde"] }
+thiserror = "2.0.18"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

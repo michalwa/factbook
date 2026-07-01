@@ -37,24 +37,31 @@ impl From<&Term<'_>> for TagKey {
     }
 }
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum ViewError {
+    #[error("view does not exist")]
+    NonexistentView,
+    #[error("error parsing view: {0}")]
+    Parse(String),
+    #[error("prolog error: {0}")]
+    Prolog(String),
+}
+
 impl State<'_> {
-    pub fn for_each_view_entry<F>(&self, view_id: ViewId, mut f: F)
+    pub fn for_each_view_entry<F>(&self, view_id: ViewId, mut f: F) -> Result<(), ViewError>
     where
         F: FnMut(EntryId, &Entry),
     {
         let Some(view) = self.views.get(&view_id) else {
-            return;
+            return Err(ViewError::NonexistentView);
         };
 
         let mut pl = self.session.0.engine();
 
-        let view_term = match pl.new_term().put_parsed(&view.definition) {
-            Ok(view_term) => view_term,
-            Err(ex) => {
-                log::warn!("failed to parse view: {ex:?}");
-                return;
-            },
-        };
+        let view_term = pl.new_term().put_parsed(&view.definition).map_err(|ex| {
+            log::warn!("failed to parse view: {ex:?}");
+            ViewError::Parse(ex.into_term().to_string())
+        })?;
 
         let mut order_keys = BTreeMap::new();
 
@@ -67,7 +74,10 @@ impl State<'_> {
         let mut visited = BTreeSet::new();
         let mut collected = Vec::new();
 
-        while let Some([_, _, entry_id]) = query.next_solution().unwrap_or(None) {
+        while let Some([_, _, entry_id]) = query.next_solution().map_err(|ex| {
+            log::warn!("view returned an error: {ex:?}");
+            ViewError::Prolog(ex.into_term().to_string())
+        })? {
             if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
                 visited.insert(entry_id);
             } else {
@@ -109,6 +119,8 @@ impl State<'_> {
         for (entry_id, entry) in collected {
             f(entry_id, entry);
         }
+
+        Ok(())
     }
 }
 

@@ -1,5 +1,7 @@
 .label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   color: var(--theme-label-foreground);
   text-transform: uppercase;
   font-weight: 600;

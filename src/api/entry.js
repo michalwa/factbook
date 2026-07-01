@@ -1,15 +1,23 @@
-import { createResource } from "solid-js";
+import { createEffect, createResource, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppState } from "@/api/appState";
 
 export function useEntries(viewId) {
   const { setDirty } = useAppState();
 
-  const [entries, { refetch: refetchEntries, mutate: mutateEntries }] =
+  const [rawEntries, { refetch: refetchEntries, mutate: mutateEntries }] =
     createResource(
       () => ({ viewId: viewId() }), // construct an object to treat `null` as a valid value
       ({ viewId }) => invoke("get_entries", { view: viewId }),
     );
+  const [entries, setEntries] = createSignal();
+  const [viewError, setViewError] = createSignal();
+
+  createEffect(() => {
+    const entriesValue = rawEntries();
+    setViewError(entriesValue?.error);
+    if (!entriesValue?.error) setEntries(entriesValue);
+  });
 
   const setEntryContent = async (id, content) => {
     setDirty(true);
@@ -39,5 +47,6 @@ export function useEntries(viewId) {
     parseEntryContent,
     createEntry,
     removeEntry,
+    viewError,
   };
 }

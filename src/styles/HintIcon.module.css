@@ -1,0 +1,9 @@
+.icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: -0.1rem;
+}
+
+.style-danger {
+  color: var(--theme-danger-foreground);
+}
