@@ -4,6 +4,7 @@ use crate::window::{self, WindowScopedManager, WindowState, WindowStatesExt};
 use factbook_core::lang::{self, Span};
 use factbook_core::model::{self, EntryId, ViewId};
 use serde::Serialize;
+use serde_json::json;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -159,9 +160,13 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
     let mut seq = serializer.serialize_seq(None).unwrap();
 
     if let Some(view) = view {
-        state.journal.for_each_view_entry(view, |id, entry| {
+        if let Err(err) = state.journal.for_each_view_entry(view, |id, entry| {
             seq.serialize_element(&Entry { id, entry }).unwrap()
-        });
+        }) {
+            return ipc::Response::new(
+                serde_json::to_string(&json!({ "error": err.to_string() })).unwrap(),
+            );
+        }
     } else {
         state
             .journal

@@ -35,9 +35,11 @@ import {
   PanelBottomOpen,
   PanelBottomClose,
   CircleQuestionMark,
+  CircleAlert,
 } from "lucide-solid";
 import { createHotkey } from "@tanstack/solid-hotkeys";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import HintIcon from "@/components/HintIcon";
 
 export default function Journal() {
   const { journalPath, createJournal, openJournal, openDefaultJournal } =
@@ -74,6 +76,7 @@ export default function Journal() {
     parseEntryContent,
     createEntry: createEntryImpl,
     removeEntry,
+    viewError,
   } = useEntries(currentViewId);
 
   const currentEditableView = createMemo(() =>
@@ -298,7 +301,12 @@ export default function Journal() {
                   </PanelControls>
                 }
               >
-                <Label style="panel">Edit view</Label>
+                <Label style="panel">
+                  Edit view
+                  <Show when={viewError()}>
+                    <HintIcon icon={CircleAlert} style="danger" />
+                  </Show>
+                </Label>
                 <ViewEditor
                   definition={currentEditableView().definition}
                   onDefinitionChange={(definition) =>

@@ -151,7 +151,7 @@ impl<'s> State<'s> {
 
     fn update_view(&mut self, id: ViewId) {
         let mut entry_count = 0;
-        self.for_each_view_entry(id, |_, _| entry_count += 1);
+        let _ = self.for_each_view_entry(id, |_, _| entry_count += 1);
         self.views.get_mut(&id).unwrap().entry_count = entry_count;
     }
 
@@ -238,9 +238,7 @@ mod test {
         let (mut state, _) = generate_fixtures();
         let view = create_view(&mut state, "");
 
-        let mut matches = Vec::new();
-        state.for_each_view_entry(view, |id, _| matches.push(id));
-        assert_eq!(matches, []);
+        state.for_each_view_entry(view, |_, _| {}).unwrap_err();
     }
 
     #[test]
@@ -249,7 +247,9 @@ mod test {
         let view = create_view(&mut state, "_");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |id, _| matches.push(id));
+        state
+            .for_each_view_entry(view, |id, _| matches.push(id))
+            .unwrap();
         assert_eq!(matches, entry_ids);
     }
 
@@ -259,7 +259,9 @@ mod test {
         let view = create_view(&mut state, "@foo");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@foo", "@foo @bar"]);
     }
 
@@ -269,7 +271,9 @@ mod test {
         let view = create_view(&mut state, "@foo(_, _)");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@foo(1, 2)", "@foo(1, 1)"]);
     }
 
@@ -279,7 +283,9 @@ mod test {
         let view = create_view(&mut state, "@foo, @bar");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@foo @bar"]);
     }
 
@@ -289,7 +295,9 @@ mod test {
         let view = create_view(&mut state, "@foo; @bar");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         matches.sort();
         assert_eq!(matches, ["@bar some other text", "@foo", "@foo @bar"]);
     }
@@ -300,7 +308,9 @@ mod test {
         let view = create_view(&mut state, "@foo(X, X)");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@foo(1, 1)"]);
     }
 
@@ -311,7 +321,9 @@ mod test {
         let view = create_view(&mut state, "@bar(X), _: @foo(X, _)");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@bar(1)"]);
     }
 
@@ -322,7 +334,9 @@ mod test {
         let view = create_view(&mut state, "@bar(X), _: @baz(1, X)");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@bar(2)"]);
     }
 
@@ -332,7 +346,9 @@ mod test {
         let view = create_view(&mut state, r#"@42; @"string""#);
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@42", r#"@"string""#]);
     }
 
@@ -342,7 +358,9 @@ mod test {
         let view = create_view(&mut state, "@bar(X), order(X)");
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |_, e| matches.push(e.content.clone()));
+        state
+            .for_each_view_entry(view, |_, e| matches.push(e.content.clone()))
+            .unwrap();
         assert_eq!(matches, ["@bar(1)", "@bar(2)", "@bar(3)"]);
     }
 
@@ -370,8 +388,18 @@ mod test {
         );
 
         let mut matches = Vec::new();
-        state.for_each_view_entry(view, |id, _| matches.push(id));
+        state
+            .for_each_view_entry(view, |id, _| matches.push(id))
+            .unwrap();
         assert_eq!(matches, [entry_ids[0]]);
+    }
+
+    #[test]
+    fn view_invalid() {
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, "bullshit");
+
+        state.for_each_view_entry(view, |_, _| {}).unwrap_err();
     }
 
     #[test]
