@@ -90,7 +90,7 @@ export default function createCodeEditor(config = {}) {
     createExtension(EditorView.lineWrapping);
     createExtension(() => props.extension);
     // Register keymap after `props.extension` to allow overrides
-    createExtension(keymap.of([defaultKeymap, indentWithTab]));
+    createExtension(keymap.of([...defaultKeymap, indentWithTab]));
 
     return <div ref={ref} class={`${styles.editor} ${props.class}`} />;
   }
