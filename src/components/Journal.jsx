@@ -17,7 +17,7 @@ import { useViews, defaultView } from "@/api/view";
 import Workspace from "@/components/Workspace";
 import createViewEditor from "@/components/ViewEditor";
 import Status from "@/components/Status";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, on, Show } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import { useAppState } from "@/api/appState";
 import { createTagsContext } from "@/api/tag";
@@ -51,6 +51,7 @@ export default function Journal() {
   );
   const [currentViewId, setCurrentViewId] =
     createJournalSetting("current_view_id");
+  const [lastCreatedViewId, setLastCreatedViewId] = createSignal();
 
   const { Provider: TagsContextProvider, refetchTags } = createTagsContext();
 
@@ -83,7 +84,11 @@ export default function Journal() {
     refetchEntries();
     refetchTags();
   };
-  const createView = async () => setCurrentViewId(await createViewImpl());
+  const createView = async () => {
+    const id = await createViewImpl();
+    setLastCreatedViewId(id);
+    setCurrentViewId(id);
+  };
   const removeView = (...args) => {
     setCurrentViewId(defaultView.id);
     return removeViewImpl(...args);
@@ -129,6 +134,7 @@ export default function Journal() {
     const next = getNextView(currentViewId());
     next && setCurrentViewId(next.id);
   });
+  createHotkey("Mod+N", () => createView());
 
   return (
     <TagsContextProvider>
@@ -218,16 +224,24 @@ export default function Journal() {
                     </>
                   )}
                 >
-                  {({ editingTitle }) => (
-                    // TODO: Show total entry count
-                    <Show
-                      when={view().id !== defaultView.id && !editingTitle()}
-                    >
-                      <Badge size="small" fixedWidth>
-                        {view().entryCount}
-                      </Badge>
-                    </Show>
-                  )}
+                  {({ editTitle, editingTitle }) => {
+                    createEffect(
+                      on(lastCreatedViewId, (id) => {
+                        if (view().id === id) editTitle();
+                      }),
+                    );
+
+                    return (
+                      // TODO: Show total entry count
+                      <Show
+                        when={view().id !== defaultView.id && !editingTitle()}
+                      >
+                        <Badge size="small" fixedWidth>
+                          {view().entryCount}
+                        </Badge>
+                      </Show>
+                    );
+                  }}
                 </Tab>
               )}
             </Key>
