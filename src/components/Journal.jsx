@@ -146,7 +146,10 @@ export default function Journal() {
     next && setCurrentViewId(next.id);
   });
   createHotkey("Mod+N", () => createView());
-  createHotkey("Mod+W", () => removeView(currentViewId()));
+  createHotkey(
+    "Mod+W",
+    () => currentEditableView() && removeView(currentViewId()),
+  );
 
   return (
     <TagsContextProvider>
