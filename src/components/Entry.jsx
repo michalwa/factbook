@@ -32,7 +32,7 @@ const entryFocusRequested = "entryFocusRequested";
  *   The column in pixels where the cursor should be placed within the focused
  *   entry
  */
-export function focusEntry(parentRef, detail) {
+export function emitEntryFocusRequested(parentRef, detail) {
   parentRef.dispatchEvent(new CustomEvent(entryFocusRequested, { detail }));
 }
 

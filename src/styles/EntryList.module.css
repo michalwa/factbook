@@ -1,0 +1,9 @@
+.list {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 0.6rem;
+}
+
+.entryContentMargin {
+  margin-left: 10rem; /* aligned with entry content */
+}

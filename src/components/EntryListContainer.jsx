@@ -1,6 +1,6 @@
-import styles from "@/styles/EntriesContainer";
+import styles from "@/styles/EntryListContainer";
 
-export default function EntriesContainer(props) {
+export default function EntryListContainer(props) {
   return (
     <div class={styles.outer}>
       <div class={styles.inner}>{props.children}</div>

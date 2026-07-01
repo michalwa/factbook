@@ -1,9 +1,8 @@
 import Badge from "@/components/Badge";
 import Button from "@/components/Button";
-import Entries from "@/components/Entries";
-import EntriesContainer from "@/components/EntriesContainer";
-import EntriesHeader from "@/components/EntriesHeader";
-import Entry, { focusEntry } from "@/components/Entry";
+import createEntryList from "@/components/EntryList";
+import EntryListContainer from "@/components/EntryListContainer";
+import EntryListHeader from "@/components/EntryListHeader";
 import IconButton from "@/components/IconButton";
 import Label from "@/components/Label";
 import Panel from "@/components/Panel";
@@ -35,11 +34,8 @@ import {
   FunnelPlus,
   PanelBottomOpen,
   PanelBottomClose,
-  Plus,
   CircleQuestionMark,
 } from "lucide-solid";
-import { neighbors } from "@/utils";
-import { destructure } from "@solid-primitives/destructure";
 import { createHotkey } from "@tanstack/solid-hotkeys";
 
 export default function Journal() {
@@ -91,6 +87,9 @@ export default function Journal() {
     return removeViewImpl(...args);
   };
 
+  const [lastFocusedEntryId, setLastFocusedEntryId] = createSignal();
+  const { EntryList, focusEntry } = createEntryList();
+
   const setEntryContent = async (...args) => {
     const result = await setEntryContentImpl(...args);
     refetchTags();
@@ -99,10 +98,8 @@ export default function Journal() {
   const createEntry = async () => {
     const id = await createEntryImpl();
     console.log(id);
-    focusEntry(entriesRef, { id });
+    focusEntry({ id });
   };
-
-  const [lastFocusedEntryId, setLastFocusedEntryId] = createSignal();
 
   const {
     ViewEditor,
@@ -116,14 +113,12 @@ export default function Journal() {
     if (viewEditorHasFocus()) {
       setBottomPanelCollapsed(true);
       const entryId = lastFocusedEntryId() ?? entries()?.[0]?.id;
-      if (entryId !== undefined) focusEntry(entriesRef, { id: entryId });
+      if (entryId !== undefined) focusEntry({ id: entryId });
     } else {
       setBottomPanelCollapsed(false);
       focusViewEditor();
     }
   });
-
-  let entriesRef;
 
   return (
     <TagsContextProvider>
@@ -239,7 +234,7 @@ export default function Journal() {
           </PanelBottomContainer>
           <PanelControlsSpacer />
         </Panel>
-        <EntriesContainer
+        <EntryListContainer
           after={
             <Show when={currentEditableView()}>
               <Panel
@@ -278,58 +273,20 @@ export default function Journal() {
         >
           {/* TODO: Show total entry count */}
           <Show when={leftPanelCollapsed() && currentEditableView()}>
-            <EntriesHeader>
+            <EntryListHeader>
               {currentEditableView().name || "(untitled)"}
               <Badge size="large">{currentEditableView().entryCount}</Badge>
-            </EntriesHeader>
+            </EntryListHeader>
           </Show>
-          <Entries ref={entriesRef}>
-            {/* TODO: Move inside Entries */}
-            <Key
-              each={neighbors(entries())}
-              by={([prev, entry, next]) => entry.id}
-            >
-              {(neighbors) => {
-                const [prev, entry, next] = destructure(neighbors);
-                return (
-                  <Entry
-                    parentRef={entriesRef}
-                    id={entry().id}
-                    timestamp={entry().createdAt}
-                    content={entry().content}
-                    spans={entry().spans}
-                    parseSpans={parseEntryContent}
-                    onContentChange={(content) =>
-                      setEntryContent(entry().id, content)
-                    }
-                    onRemove={() => {
-                      removeEntry(entry().id);
-                      prev() &&
-                        focusEntry(entriesRef, {
-                          id: prev().id,
-                          direction: "up",
-                        });
-                    }}
-                    onNavigateUp={(data) =>
-                      prev() &&
-                      focusEntry(entriesRef, { id: prev().id, ...data })
-                    }
-                    onNavigateDown={(data) =>
-                      next() &&
-                      focusEntry(entriesRef, { id: next().id, ...data })
-                    }
-                    onFocus={() => setLastFocusedEntryId(entry().id)}
-                  />
-                );
-              }}
-            </Key>
-            <IconButton
-              icon={Plus}
-              class={styles.entryContentMargin}
-              onClick={createEntry}
-            />
-          </Entries>
-        </EntriesContainer>
+          <EntryList
+            entries={entries()}
+            parseEntryContent={parseEntryContent}
+            onCreate={createEntry}
+            onRemove={removeEntry}
+            onFocus={setLastFocusedEntryId}
+            onContentChange={setEntryContent}
+          />
+        </EntryListContainer>
         <Status />
       </Workspace>
     </TagsContextProvider>
