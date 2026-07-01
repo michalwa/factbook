@@ -58,13 +58,10 @@ impl State<'_> {
 
         let mut pl = self.session.0.engine();
 
-        let view_term = match pl.new_term().put_parsed(&view.definition) {
-            Ok(view_term) => view_term,
-            Err(ex) => {
-                log::warn!("failed to parse view: {ex:?}");
-                return Err(ViewError::Parse(ex.into_term().to_string()));
-            },
-        };
+        let view_term = pl.new_term().put_parsed(&view.definition).map_err(|ex| {
+            log::warn!("failed to parse view: {ex:?}");
+            ViewError::Parse(ex.into_term().to_string())
+        })?;
 
         let mut order_keys = BTreeMap::new();
 
@@ -77,10 +74,10 @@ impl State<'_> {
         let mut visited = BTreeSet::new();
         let mut collected = Vec::new();
 
-        while let Some([_, _, entry_id]) = query
-            .next_solution()
-            .map_err(|ex| ViewError::Prolog(ex.into_term().to_string()))?
-        {
+        while let Some([_, _, entry_id]) = query.next_solution().map_err(|ex| {
+            log::warn!("view returned an error: {ex:?}");
+            ViewError::Prolog(ex.into_term().to_string())
+        })? {
             if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
                 visited.insert(entry_id);
             } else {
