@@ -246,7 +246,7 @@ impl<'a> Term<'a> {
     }
 
     /// Returns the value of the string object stored in the term reference, or
-    /// `None` if it's not an atom.
+    /// `None` if it's not a string.
     pub fn string_chars(&self) -> Option<&str> {
         let mut len: usize = 0;
         let mut chars: *mut u8 = std::ptr::null_mut();
@@ -633,7 +633,8 @@ impl FromTerm for RawFunctor {
 
 #[cfg(test)]
 mod test {
-    use crate::{Context, RawFunctor, term};
+    use crate::term::{TermKind, term};
+    use crate::{Context, RawFunctor};
     use test_log::test;
 
     #[test]
@@ -697,5 +698,18 @@ mod test {
         assert_eq!(terms, [t3, t2, t1, t4]);
         assert_eq!(t1, t4);
         assert_ne!(t1, t2);
+    }
+
+    #[test]
+    fn kind() {
+        let engine = crate::test::SESSION.engine();
+        let [t1, t2, t3] = engine.new_terms().into();
+
+        t2.put("hello");
+        t3.put(42);
+
+        assert_eq!(t1.kind(), TermKind::Variable);
+        assert_eq!(t2.kind(), TermKind::String);
+        assert_eq!(t3.kind(), TermKind::Integer);
     }
 }

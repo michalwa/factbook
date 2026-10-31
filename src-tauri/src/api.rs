@@ -2,7 +2,7 @@ use crate::OpenMode;
 use crate::util::SerializeIterOnce;
 use crate::window::{self, WindowScopedManager, WindowState, WindowStatesExt};
 use factbook_core::lang::{self, Span};
-use factbook_core::model::{self, EntryId, ViewId};
+use factbook_core::model::{self, EntryId, ViewId, ViewItem};
 use serde::Serialize;
 use serde_json::json;
 use std::fs::OpenOptions;
@@ -160,8 +160,9 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
     let mut seq = serializer.serialize_seq(None).unwrap();
 
     if let Some(view) = view {
-        if let Err(err) = state.journal.for_each_view_entry(view, |id, entry| {
-            seq.serialize_element(&Entry { id, entry }).unwrap()
+        if let Err(err) = state.journal.for_each_view_entry(view, |item| match item {
+            ViewItem::Entry(id, entry) => seq.serialize_element(&Entry { id, entry }).unwrap(),
+            _ => todo!(),
         }) {
             return ipc::Response::new(
                 serde_json::to_string(&json!({ "error": err.to_string() })).unwrap(),

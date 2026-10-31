@@ -17,7 +17,6 @@ impl fmt::Display for ViewId {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, CopyBlobData)]
-#[serde(transparent)]
 pub struct EntryId(pub(crate) sparse_tags::EntryId);
 
 impl fmt::Debug for EntryId {
@@ -30,12 +29,22 @@ impl factbook_swipl::term::ToTerm for EntryId {
     fn put_in(self, term: factbook_swipl::term::Term) {
         term.put(CopyBlob(self));
     }
+
+    fn unify_with(self, term: factbook_swipl::term::Term) -> bool {
+        term.unify(CopyBlob(self))
+    }
 }
 
 impl factbook_swipl::term::FromTerm for EntryId {
     fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
         Some(term.get::<CopyBlob<Self>>()?.0)
     }
+}
+
+/// Item returned from evaluating a view - may be a physical or synthetic entry
+pub enum ViewItem<'a> {
+    Entry(EntryId, &'a Entry),
+    Synthetic(&'a str),
 }
 
 #[derive(Default, Serialize)]
