@@ -422,6 +422,23 @@ mod test {
     }
 
     #[test]
+    fn view_synthetic_order() {
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, r#"put("hello"), order(1); put(42), order(0)"#);
+
+        let mut matches = Vec::new();
+        state
+            .for_each_view_entry(view, |item| {
+                matches.push(match item {
+                    ViewItem::Entry(_, e) => e.content.clone(),
+                    ViewItem::Synthetic(content) => content.into(),
+                })
+            })
+            .unwrap();
+        assert_eq!(matches, ["42", "hello"]);
+    }
+
+    #[test]
     fn view_order() {
         let (mut state, _) = generate_fixtures();
         let view = create_view(&mut state, "@bar(X), order(X)");
