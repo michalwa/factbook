@@ -85,7 +85,10 @@ unsafe impl Context for ForeignContext {}
 ///
 /// # Safety
 /// * `args` must be an array of valid `term_t` handles.
-pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw) -> pl::foreign_t {
+pub unsafe fn semidet_impl<P: Semidet>(
+    args: <P::Args<'_> as PredicateArgs>::Raw,
+    ctrl: pl::control_t,
+) -> pl::foreign_t {
     // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
     // PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
@@ -93,9 +96,19 @@ pub unsafe fn semidet_impl<P: Semidet>(args: <P::Args<'_> as PredicateArgs>::Raw
         _marker: Default::default(),
     };
 
-    match P::call(&mut ctx, unsafe { P::Args::from_raw(args) }) {
-        true => pl::TRUE as _,
-        false => pl::FALSE as _,
+    // FIXME: Semideterministic predicates have to be implemented as
+    // nondeterministic to work around a bug in SWI-Prolog where the first
+    // argument becomes an invalid term reference on backtracking
+    //
+    // https://github.com/SWI-Prolog/swipl-devel/issues/1560
+    match unsafe { pl::PL_foreign_control(ctrl) } as u32 {
+        pl::PL_FIRST_CALL => match P::call(&mut ctx, unsafe { P::Args::from_raw(args) }) {
+            true => pl::TRUE as _,
+            false => pl::FALSE as _,
+        },
+        pl::PL_REDO => panic!("unexpected backtrack on semidet predicate"),
+        pl::PL_PRUNED => pl::TRUE as _,
+        c => panic!("unexpected value returned from PL_foreign_control: {c}"),
     }
 }
 

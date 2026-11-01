@@ -60,10 +60,11 @@ pub fn predicate_macro_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     let (extern_name, extern_fn) = generate_extern_fn(&attr, &item);
 
     let flags = match attr.det {
-        // TODO: Write minimal reproduction and open upstream issue
-        // Mark semideterministic predicates as PL_FA_NONDETERMINISTIC as a
-        // workaround for a bug in SWI-Prolog where the first argument to the
-        // predicate becomes invalid in backtracking.
+        // FIXME: Semideterministic predicates have to be implemented as
+        // nondeterministic to work around a bug in SWI-Prolog where the first
+        // argument becomes an invalid term reference on backtracking
+        //
+        // https://github.com/SWI-Prolog/swipl-devel/issues/1560
         Det::Semidet => quote! { ::factbook_swipl::foreign::ffi::PL_FA_NONDETERMINISTIC },
         Det::Nondet => quote! { ::factbook_swipl::foreign::ffi::PL_FA_NONDETERMINISTIC },
     };
@@ -97,11 +98,17 @@ fn generate_extern_fn(
     let args = attr.args.iter();
 
     let extern_fn = match attr.det {
+        // FIXME:  Semideterministic predicates have to be implemented as
+        // nondeterministic to work around a bug in SWI-Prolog where the first
+        // argument becomes an invalid term reference on backtracking
+        //
+        // https://github.com/SWI-Prolog/swipl-devel/issues/1560
         Det::Semidet => quote! {
             extern "C" fn #name(
                 #(#params: ::factbook_swipl::foreign::ffi::term_t),*,
+                ctrl: ::factbook_swipl::foreign::ffi::control_t,
             ) -> ::factbook_swipl::foreign::ffi::foreign_t {
-                unsafe { ::factbook_swipl::foreign::semidet_impl::<#typename>([#(#args),*]) }
+                unsafe { ::factbook_swipl::foreign::semidet_impl::<#typename>([#(#args),*], ctrl) }
             }
         },
         Det::Nondet => quote! {
