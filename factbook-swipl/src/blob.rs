@@ -352,8 +352,8 @@ unsafe fn upgrade_raw_weak<T>(ptr: *const T) -> Option<Arc<T>> {
     let weak = unsafe { Weak::from_raw(ptr) };
     let arc = weak.upgrade();
     // Don't drop the `Weak`, regardless of whether it still points to a valid
-    // allocation or not to keep the `Weak` raw pointer valid and allow subsequent
-    // checks
+    // allocation or not to keep the `Weak` raw pointer valid and allow
+    // subsequent checks
     std::mem::forget(weak);
     arc
 }

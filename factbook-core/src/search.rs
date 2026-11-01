@@ -1,6 +1,6 @@
-use crate::model::{Entry, EntryId, ViewId};
+use crate::model::{EntryId, SyntheticId, ViewId, ViewItem};
 use crate::{EntryStorage, State};
-use factbook_swipl::blob::{CopyBlob, ScopedBlob, ScopedBlobData};
+use factbook_swipl::blob::{ScopedBlob, ScopedBlobData};
 use factbook_swipl::query::open_query;
 use factbook_swipl::term::{Term, TermKind};
 use factbook_swipl::{Context, RawFunctor, Record};
@@ -23,9 +23,9 @@ impl From<&Term<'_>> for TagKey {
         // The invariant of this mapping required for the search to be able to
         // find all valid matches is the following:
         //
-        // For any two terms `t1` and `t2`, if `TagKey::from(t1) != TagKey::from(t2)`
-        // then `!t1.unify(t2)`. In other words, `t1.unify(t2)` requires that
-        // `TagKey::from(t1) == TagKey::from(t2)`.
+        // For any two terms `t1` and `t2`, if `TagKey::from(t1) !=
+        // TagKey::from(t2)` then `!t1.unify(t2)`. In other words,
+        // `t1.unify(t2)` requires that `TagKey::from(t1) == TagKey::from(t2)`.
         match value.kind() {
             TermKind::Compound | TermKind::ListPair => {
                 TagKey::Functor(value.get::<RawFunctor>().unwrap())
@@ -35,6 +35,12 @@ impl From<&Term<'_>> for TagKey {
             _ => TagKey::Other,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ViewItemId {
+    Entry(EntryId),
+    Synthetic(SyntheticId),
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -50,7 +56,7 @@ pub enum ViewError {
 impl State<'_> {
     pub fn for_each_view_entry<F>(&self, view_id: ViewId, mut f: F) -> Result<(), ViewError>
     where
-        F: FnMut(EntryId, &Entry),
+        F: for<'a> FnMut(ViewItem<'a>),
     {
         let Some(view) = self.views.get(&view_id) else {
             return Err(ViewError::NonexistentView);
@@ -64,32 +70,31 @@ impl State<'_> {
         })?;
 
         let mut order_keys = BTreeMap::new();
+        let mut synthetic_entries = Vec::new();
 
         let ctx_blob = ScopedBlob::new(ViewContext {
             entries: &self.entries,
             order_keys: Mutex::new(&mut order_keys),
+            synthetic_entries: Mutex::new(&mut synthetic_entries),
         });
 
         let query = open_query! { pl => view_entry({&ctx_blob}, {view_term}, _) }.unwrap();
-        let mut visited = BTreeSet::new();
-        let mut collected = Vec::new();
+        let mut ids = BTreeSet::new();
 
         while let Some([_, _, entry_id]) = query.next_solution().map_err(|ex| {
             log::warn!("view returned an error: {ex:?}");
             ViewError::Prolog(ex.into_term().to_string())
         })? {
-            if let Some(CopyBlob(entry_id)) = entry_id.get::<CopyBlob<EntryId>>() {
-                visited.insert(entry_id);
-            } else {
-                // If the entry ID is uninstantiated, the user probably used a wildcard
-                // view like `_`, and we should iterate all entries
+            if let Some(entry_id) = entry_id.get::<EntryId>() {
+                ids.insert(ViewItemId::Entry(entry_id));
+            } else if let Some(synthetic_id) = entry_id.get::<SyntheticId>() {
+                ids.insert(ViewItemId::Synthetic(synthetic_id));
+            } else if entry_id.kind() == TermKind::Variable {
+                // If the entry ID is uninstantiated, the user probably used a
+                // wildcard view like `_`, and we should iterate all entries
                 log::debug!("query returned uninstantiated entry ID, returning all entries");
 
-                collected.extend(
-                    self.entries
-                        .entries()
-                        .map(|(id, entry)| (EntryId(id), entry)),
-                );
+                ids.extend(self.entries.entry_ids().map(EntryId).map(ViewItemId::Entry));
 
                 // Ignore other solutions
                 break;
@@ -99,25 +104,18 @@ impl State<'_> {
         query.close();
         drop(ctx_blob);
 
-        if !visited.is_empty() {
-            collected.extend(
-                visited
-                    .into_iter()
-                    .map(|id| (id, self.entries.entry_data(id.0))),
-            );
-        }
+        let mut ids: Vec<_> = ids.into_iter().collect();
 
-        {
+        if !order_keys.is_empty() {
             let pl = pl.frame();
-
-            // Sort by ID first, then rely on stable sort to preserve ID-based order
-            // for equal keys
-            collected.sort_by_key(|(id, _)| *id);
-            collected.sort_by_key(|(id, _)| order_keys.get(id).map(|key| pl.new_term().put(key)));
+            ids.sort_by_key(|id| order_keys.get(id).map(|key| pl.new_term().put(key)));
         }
 
-        for (entry_id, entry) in collected {
-            f(entry_id, entry);
+        for id in ids {
+            match id {
+                ViewItemId::Entry(id) => f(ViewItem::Entry(id, self.entries.entry_data(id.0))),
+                ViewItemId::Synthetic(id) => f(ViewItem::Synthetic(id, &synthetic_entries[id.0])),
+            }
         }
 
         Ok(())
@@ -129,12 +127,13 @@ impl State<'_> {
 #[derive(ScopedBlobData)]
 struct ViewContext<'a> {
     entries: &'a EntryStorage,
-    order_keys: Mutex<&'a mut BTreeMap<EntryId, Record>>,
+    order_keys: Mutex<&'a mut BTreeMap<ViewItemId, Record>>,
+    synthetic_entries: Mutex<&'a mut Vec<String>>,
 }
 
 pub(crate) mod predicates {
     use crate::model::EntryId;
-    use crate::search::{TagKey, ViewContext};
+    use crate::search::{SyntheticId, TagKey, ViewContext, ViewItemId};
     use chrono::{Datelike, Timelike};
     use factbook_swipl::foreign::{Nondet, Semidet, predicate};
     use factbook_swipl::term::{Term, TermKind};
@@ -146,6 +145,7 @@ pub(crate) mod predicates {
             .register_predicate::<EntryTag>()
             .register_predicate::<SetEntryOrderKey>()
             .register_predicate::<EntryCreated>()
+            .register_predicate::<PutSyntheticEntry>()
     }
 
     #[predicate(entry_tag(ctx, entry_id, tag) nondet)]
@@ -241,9 +241,15 @@ pub(crate) mod predicates {
                 );
                 return false;
             };
-            let Some(entry_id) = entry_id.get::<EntryId>() else {
+
+            let Some(id) = entry_id
+                .get::<EntryId>()
+                .map(ViewItemId::Entry)
+                .or_else(|| entry_id.get::<SyntheticId>().map(ViewItemId::Synthetic))
+            else {
                 log::error!(
-                    "set_entry_order_key(_, E, _): E must be of type EntryId, got {entry_id:?}"
+                    "set_entry_order_key(_, E, _): E must be of type EntryId or SyntheticId, got \
+                     {entry_id:?}"
                 );
                 return false;
             };
@@ -252,7 +258,7 @@ pub(crate) mod predicates {
                 .order_keys
                 .lock()
                 .unwrap()
-                .insert(entry_id, key.record())
+                .insert(id, key.record())
                 .is_some()
             {
                 log::warn!("redefinition of order key for {entry_id:?}");
@@ -326,6 +332,44 @@ pub(crate) mod predicates {
             }
 
             false
+        }
+    }
+
+    #[predicate(put_synthetic_entry(ctx, entry_id, content) semidet)]
+    pub(crate) struct PutSyntheticEntry;
+
+    impl Semidet for PutSyntheticEntry {
+        fn call(_: &mut impl Context, [ctx_arg, entry_id, content]: Self::Args<'_>) -> bool {
+            let Some(ctx_atom) = ctx_arg.get::<Atom>() else {
+                log::error!(
+                    "put_synthetic_entry(C, _, _): C must be of type ViewContext, got {ctx_arg:?}"
+                );
+                return false;
+            };
+            let Some(ctx) = ctx_atom.scoped_blob::<ViewContext>() else {
+                log::error!(
+                    "put_synthetic_entry(C, _, _): C must be of type ViewContext, got {ctx_arg:?}"
+                );
+                return false;
+            };
+
+            if entry_id.kind() != TermKind::Variable {
+                log::error!(
+                    "put_synthetic_entry(_, E, _): E must be uninstantiated, got {entry_id:?}"
+                );
+                return false;
+            }
+
+            let mut entries = ctx.synthetic_entries.lock().unwrap();
+            let id = entries.len();
+            entries.push(
+                content
+                    .string_chars()
+                    .map(String::from)
+                    .unwrap_or_else(|| content.to_string()),
+            );
+
+            entry_id.unify(SyntheticId(id))
         }
     }
 

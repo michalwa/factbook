@@ -14,7 +14,8 @@ pub fn build(input_filename: &str, output_filename: &str) {
         .args([
             "--stand_alone=false",
             "--autoload=false",
-            // Provide `true` as an initalization goal to suppress the default banner
+            // Provide `true` as an initalization goal to suppress the default
+            // banner
             "--goal=true",
             "-c",
             input_filename,

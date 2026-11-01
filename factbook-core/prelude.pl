@@ -19,6 +19,7 @@ view_entry(C, V, E) :-
   ; V = (E1: V1)   -> view_entry(C, V1, E1)
   ; V = order(X)   -> set_entry_order_key(C, E, X)
   ; V = created(T) -> entry_created(C, E, T)
+  ; V = put(S)     -> put_synthetic_entry(C, E, S)
   ; syntax_error(V)
   ).
 

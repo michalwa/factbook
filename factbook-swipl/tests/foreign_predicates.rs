@@ -80,6 +80,7 @@ fn foreign_nondet() {
         "-"(3, 1), "-"(3, 2), "-"(3, 3)
     ] });
 
-    // 1 (first invocation) + 3 (second invocation for each solution of the first)
+    // 1 (first invocation) + 3 (second invocation for each solution of the
+    // first)
     assert_eq!(MY_NONDET_PRED_DROP_COUNT.swap(0, Ordering::SeqCst), 4);
 }

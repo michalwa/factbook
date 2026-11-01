@@ -37,8 +37,8 @@ impl<T: Send + Sync + 'static> WindowStateManager<T> {
     fn get(self: &Arc<Self>, key: &str) -> Option<WindowState<'static, T>> {
         let manager = Arc::clone(self);
 
-        // SAFETY: Guard is valid as long as the `RwLock` is valid, which is kept
-        // valid by the `Arc`
+        // SAFETY: Guard is valid as long as the `RwLock` is valid, which is
+        // kept valid by the `Arc`
         let guard = unsafe {
             std::mem::transmute::<
                 RwLockReadGuard<'_, WindowStates<T>>,
