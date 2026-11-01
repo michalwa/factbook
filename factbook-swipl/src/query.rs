@@ -27,8 +27,8 @@ impl<'a, const ARITY: usize> Query<'a, ARITY> {
         F: FnOnce(&C, &[Term; ARITY]),
     {
         // TODO: Statically prevent opening more than one query?
-        // We can't take `&mut C` because we want to allow using other `Term`s in the
-        // query, which borrow the context immutably
+        // We can't take `&mut C` because we want to allow using other `Term`s
+        // in the query, which borrow the context immutably
 
         let module = get_module(ctx, module.into());
         let predicate = unsafe { pl::PL_pred(ctx.functor::<ARITY>(pred).0.ptr.get(), module) };

@@ -135,7 +135,8 @@ impl Drop for Session<'_> {
 /// A handle/guard which, when held, statically guarantees that the current
 /// thread has an attached engine.
 pub struct Engine<'a> {
-    // Not `Send` because it's only valid in the context of the current thread engine
+    // Not `Send` because it's only valid in the context of the current thread
+    // engine
     _marker: PhantomData<(*const (), &'a ())>,
 }
 
@@ -159,7 +160,8 @@ impl Drop for Engine<'_> {
 /// A foreign frame - a contained environment for operating on the Prolog
 /// stack. When dropped, destroys all bindings made since it was opened.
 pub struct Frame<'p> {
-    // Not `Send` because it's only valid in the context of the current thread engine
+    // Not `Send` because it's only valid in the context of the current thread
+    // engine
     _marker: PhantomData<(*const (), &'p ())>,
     ptr: pl::PL_fid_t,
 }
@@ -330,7 +332,8 @@ unsafe impl Context for Engine<'_> {}
 unsafe impl Context for Frame<'_> {}
 
 pub struct Atom {
-    // Not `Send` because it's only valid in the context of the current thread engine
+    // Not `Send` because it's only valid in the context of the current thread
+    // engine
     _marker: PhantomData<*const ()>,
     ptr: pl::atom_t,
 }
@@ -378,7 +381,8 @@ impl<const ARITY: usize> Deref for Functor<ARITY> {
 /// Used to identify a functor, but cannot be used to instantiate it
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RawFunctor {
-    // Not `Send` because it's only valid in the context of the current thread engine
+    // Not `Send` because it's only valid in the context of the current thread
+    // engine
     _marker: PhantomData<*const ()>,
     ptr: NonZero<pl::functor_t>,
 }
@@ -620,9 +624,10 @@ mod test {
 
     const STATE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/state"));
 
-    // Normally you would store the session somewhere in the state of your program.
-    // The reason why the library doesn't provide a `LazyLock` out of the box
-    // is to allow initializing the session with a non-static state memory area.
+    // Normally you would store the session somewhere in the state of your
+    // program. The reason why the library doesn't provide a `LazyLock` out of
+    // the box is to allow initializing the session with a non-static state
+    // memory area.
     pub(crate) static SESSION: LazyLock<Session<'static>> =
         LazyLock::new(|| Session::init(STATE).unwrap());
 

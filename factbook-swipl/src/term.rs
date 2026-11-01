@@ -13,7 +13,8 @@ use swipl_fli as pl;
 /// the context is dropped it may clean up term references created within it.
 #[derive(Clone, Copy)]
 pub struct Term<'a> {
-    // Not `Send` because it's only valid within the context of the current thread engine
+    // Not `Send` because it's only valid within the context of the current
+    // thread engine
     _marker: PhantomData<*const ()>,
     _lifetime: PhantomData<&'a ()>,
     pub(crate) ptr: NonZero<pl::term_t>,
@@ -461,7 +462,8 @@ pub trait ToTerm: Sized {
     /// Unifies the term with the value. The default implementation constructs
     /// a temporary term, calls [`Self::put_in`] and unifies the terms.
     fn unify_with(self, term: Term) -> bool {
-        // It's OK construct a new term here, because we own a live `Term` anyway
+        // It's OK construct a new term here, because we own a live `Term`
+        // anyway
         let temp = Term::from_ptr(unsafe { pl::PL_new_term_ref() }).unwrap();
         self.put_in(temp);
         term.unify(temp)

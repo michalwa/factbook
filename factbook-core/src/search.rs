@@ -23,9 +23,9 @@ impl From<&Term<'_>> for TagKey {
         // The invariant of this mapping required for the search to be able to
         // find all valid matches is the following:
         //
-        // For any two terms `t1` and `t2`, if `TagKey::from(t1) != TagKey::from(t2)`
-        // then `!t1.unify(t2)`. In other words, `t1.unify(t2)` requires that
-        // `TagKey::from(t1) == TagKey::from(t2)`.
+        // For any two terms `t1` and `t2`, if `TagKey::from(t1) !=
+        // TagKey::from(t2)` then `!t1.unify(t2)`. In other words,
+        // `t1.unify(t2)` requires that `TagKey::from(t1) == TagKey::from(t2)`.
         match value.kind() {
             TermKind::Compound | TermKind::ListPair => {
                 TagKey::Functor(value.get::<RawFunctor>().unwrap())
@@ -109,8 +109,8 @@ impl State<'_> {
             } else if let Some(synthetic_id) = entry_id.get::<SyntheticId>() {
                 ids.insert(ViewItemId::Synthetic(synthetic_id));
             } else if entry_id.kind() == TermKind::Variable {
-                // If the entry ID is uninstantiated, the user probably used a wildcard
-                // view like `_`, and we should iterate all entries
+                // If the entry ID is uninstantiated, the user probably used a
+                // wildcard view like `_`, and we should iterate all entries
                 log::debug!("query returned uninstantiated entry ID, returning all entries");
 
                 ids.extend(self.entries.entry_ids().map(EntryId).map(ViewItemId::Entry));

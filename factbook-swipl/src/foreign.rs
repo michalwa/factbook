@@ -89,8 +89,8 @@ pub unsafe fn semidet_impl<P: Semidet>(
     args: <P::Args<'_> as PredicateArgs>::Raw,
     ctrl: pl::control_t,
 ) -> pl::foreign_t {
-    // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
-    // PL_close_foreign_frame() pair.
+    // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame()
+    // and PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
     let mut ctx = ForeignContext {
         _marker: Default::default(),
@@ -128,16 +128,16 @@ pub unsafe fn nondet_impl<P: Nondet>(
     #[repr(align(4))]
     struct State<P>(P);
 
-    // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame() and
-    // PL_close_foreign_frame() pair.
+    // Each call to a foreign predicate is wrapped in a PL_open_foreign_frame()
+    // and PL_close_foreign_frame() pair.
     // * https://www.swi-prolog.org/pldoc/man?section=foreign-discard-term-t
     let mut ctx = ForeignContext {
         _marker: Default::default(),
     };
 
-    // NOTE: If a non-deterministic foreign function returns using PL_succeed() or
-    // PL_fail(), Prolog assumes the foreign function has cleaned its environment.
-    // No call with control argument PL_PRUNED will follow.
+    // NOTE: If a non-deterministic foreign function returns using PL_succeed()
+    // or PL_fail(), Prolog assumes the foreign function has cleaned its
+    // environment. No call with control argument PL_PRUNED will follow.
     // * https://www.swi-prolog.org/pldoc/man?section=foreignnondet
     match unsafe { pl::PL_foreign_control(ctrl) } as u32 {
         pl::PL_FIRST_CALL => {
@@ -158,7 +158,8 @@ pub unsafe fn nondet_impl<P: Nondet>(
             if state.0.next(&mut ctx, unsafe { P::Args::from_raw(args) }) {
                 unsafe { pl::_PL_retry_address(state_ptr) }
             } else {
-                // Double drop is prevented because PL_PRUNED will never be called again
+                // Double drop is prevented because PL_PRUNED will never be
+                // called again
                 drop(unsafe { (state_ptr as *mut State<P>).read() });
                 pl::FALSE as _
             }
