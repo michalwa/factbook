@@ -2,7 +2,7 @@ use crate::OpenMode;
 use crate::util::SerializeIterOnce;
 use crate::window::{self, WindowScopedManager, WindowState, WindowStatesExt};
 use factbook_core::lang::{self, Span};
-use factbook_core::model::{self, EntryId, ViewId, ViewItem};
+use factbook_core::model::{self, EntryId, SyntheticId, ViewId, ViewItem};
 use serde::Serialize;
 use serde_json::json;
 use std::fs::OpenOptions;
@@ -25,6 +25,14 @@ struct Entry<'a> {
     id: EntryId,
     #[serde(flatten)]
     entry: &'a model::Entry,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyntheticEntry<'a> {
+    synthetic: bool,
+    id: SyntheticId,
+    content: &'a str,
 }
 
 type AppState<'a> = WindowState<'a, RwLock<crate::AppState>>;
@@ -162,7 +170,13 @@ pub fn get_entries(state: AppState, view: Option<ViewId>) -> ipc::Response {
     if let Some(view) = view {
         if let Err(err) = state.journal.for_each_view_entry(view, |item| match item {
             ViewItem::Entry(id, entry) => seq.serialize_element(&Entry { id, entry }).unwrap(),
-            _ => todo!(),
+            ViewItem::Synthetic(id, content) => seq
+                .serialize_element(&SyntheticEntry {
+                    synthetic: true,
+                    id,
+                    content,
+                })
+                .unwrap(),
         }) {
             return ipc::Response::new(
                 serde_json::to_string(&json!({ "error": err.to_string() })).unwrap(),

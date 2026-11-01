@@ -178,12 +178,14 @@ impl<'s> State<'s> {
 #[cfg(test)]
 mod test {
     use crate::model::{CommonTag, Entry, EntryId, ViewId, ViewItem};
+    use crate::search::ViewError;
     use crate::{Session, State};
     use chrono::{Local, TimeZone, Timelike};
     use factbook_swipl::{Context, term};
     use pretty_assertions::assert_eq;
     use sparse_tags::Store;
-    use std::collections::HashSet;
+    use std::assert_matches;
+use std::collections::HashSet;
     use std::sync::LazyLock;
     use test_log::test;
 
@@ -397,7 +399,7 @@ mod test {
             .for_each_view_entry(view, |item| {
                 matches.push(match item {
                     ViewItem::Entry(_, e) => e.content.clone(),
-                    ViewItem::Synthetic(content) => content.into(),
+                    ViewItem::Synthetic(_, content) => content.into(),
                 })
             })
             .unwrap();
@@ -414,7 +416,7 @@ mod test {
             .for_each_view_entry(view, |item| {
                 matches.push(match item {
                     ViewItem::Entry(_, e) => e.content.clone(),
-                    ViewItem::Synthetic(content) => content.into(),
+                    ViewItem::Synthetic(_, content) => content.into(),
                 })
             })
             .unwrap();
@@ -431,11 +433,22 @@ mod test {
             .for_each_view_entry(view, |item| {
                 matches.push(match item {
                     ViewItem::Entry(_, e) => e.content.clone(),
-                    ViewItem::Synthetic(content) => content.into(),
+                    ViewItem::Synthetic(_, content) => content.into(),
                 })
             })
             .unwrap();
         assert_eq!(matches, ["42", "hello"]);
+    }
+
+    #[test]
+    fn view_synthetic_followed_by_error() {
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, r#"put("hello"); nonexistent"#);
+
+        assert_matches!(
+            state.for_each_view_entry(view, |_| {}),
+            Err(ViewError::Prolog(_))
+        );
     }
 
     #[test]

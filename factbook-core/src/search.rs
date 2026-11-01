@@ -1,6 +1,6 @@
-use crate::model::{EntryId, ViewId, ViewItem};
+use crate::model::{EntryId, SyntheticId, ViewId, ViewItem};
 use crate::{EntryStorage, State};
-use factbook_swipl::blob::{CopyBlob, CopyBlobData, ScopedBlob, ScopedBlobData};
+use factbook_swipl::blob::{ScopedBlob, ScopedBlobData};
 use factbook_swipl::query::open_query;
 use factbook_swipl::term::{Term, TermKind};
 use factbook_swipl::{Context, RawFunctor, Record};
@@ -34,25 +34,6 @@ impl From<&Term<'_>> for TagKey {
             TermKind::String => TagKey::String(value.string_chars().unwrap().into()),
             _ => TagKey::Other,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, CopyBlobData)]
-pub struct SyntheticId(pub(crate) usize);
-
-impl factbook_swipl::term::ToTerm for SyntheticId {
-    fn put_in(self, term: factbook_swipl::term::Term) {
-        term.put(CopyBlob(self));
-    }
-
-    fn unify_with(self, term: factbook_swipl::term::Term) -> bool {
-        term.unify(CopyBlob(self))
-    }
-}
-
-impl factbook_swipl::term::FromTerm for SyntheticId {
-    fn from_term(term: factbook_swipl::term::Term) -> Option<Self> {
-        Some(term.get::<CopyBlob<Self>>()?.0)
     }
 }
 
@@ -133,7 +114,7 @@ impl State<'_> {
         for id in ids {
             match id {
                 ViewItemId::Entry(id) => f(ViewItem::Entry(id, self.entries.entry_data(id.0))),
-                ViewItemId::Synthetic(id) => f(ViewItem::Synthetic(&synthetic_entries[id.0])),
+                ViewItemId::Synthetic(id) => f(ViewItem::Synthetic(id, &synthetic_entries[id.0])),
             }
         }
 
