@@ -1,6 +1,6 @@
 mkdir -Force libs
 
-Invoke-WebRequest https://www.swi-prolog.org/download/stable/bin/swipl-10.0.2-1.x64.exe `
+Invoke-WebRequest https://github.com/SWI-Prolog/swipl-devel/releases/download/V10.1.21/swipl-10.1.21-1.x64.exe `
   -OutFile libs\swipl-installer.exe
 
 7z x -y libs\swipl-installer.exe '-olibs\swipl'

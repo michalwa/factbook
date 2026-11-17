@@ -185,7 +185,7 @@ mod test {
     use pretty_assertions::assert_eq;
     use sparse_tags::Store;
     use std::assert_matches;
-use std::collections::HashSet;
+    use std::collections::HashSet;
     use std::sync::LazyLock;
     use test_log::test;
 
