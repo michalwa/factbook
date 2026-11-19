@@ -59,16 +59,16 @@ Details of dealing with this are described below.
 - Rust v1.88+ (nightly is only required for `cargo fmt`)
 - Node.js with pnpm (install with `npm i -g pnpm`)
 - [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites)
-- SWI-Prolog 10.0.2 or newer with a compatible C API. Common compilation errors result from mismatched SWI-Prolog versions. Platform-specific instructions are described below.
+- SWI-Prolog 10.1.21 or newer with a compatible C API. Common compilation errors result from mismatched SWI-Prolog versions. Platform-specific instructions are described below.
 
 Automated scripts for installing system dependencies are provided: `setup.sh` and `setup.ps1`, but are intended for CI use and as such they do not currently include packages commonly present in CI images and don't support all platforms and package managers.
 
 #### SWI-Prolog on Mac/Linux/MinGW
 
-Install `swi-prolog` using a package manager, specifying the exact version `10.0.2` if necessary, then verify the installation:
+Install `swi-prolog` using a package manager, specifying the exact version `10.1.21` if necessary, then verify the installation:
 
 ```shell
-pkg-config --modversion swipl  # must be 10.0.2 or higher
+pkg-config --modversion swipl  # must be 10.1.21 or higher
 ```
 
 More often than not, the shared library `libswipl.so.10` is placed in a location missing from `LD_LIBRARY_PATH`. The project uses a [suite of crates](https://github.com/terminusdb-labs/swipl-rs/tree/master/swipl-fli) to help with the general awkwardness of linking against `libswipl`. `swipl-info` finds `libswipl` at build time and solves compile-time linking, but does not provide a way to embed the library path into executables. This means you may need to proxy some `cargo` commands via `cargo-swipl`:
@@ -82,10 +82,8 @@ Alternatively, manually find and add the appropriate path to `LD_LIBRARY_PATH`.
 
 #### SWI-Prolog on Windows (MSVC)
 
-Either:
-
-- [Download](https://www.swi-prolog.org/Download.html) and install manually. Make sure to check one of the _Add to PATH_ boxes during installation.
-- Run `setup.ps1` and set the `SWIPL` environment variable to an absolute path pointing at `libs/swipl/bin/swipl.exe`.
+- [Download](https://github.com/SWI-Prolog/swipl-devel/releases) and install manually. Make sure to check one of the _Add to PATH_ boxes during installation.
+- Alternatively: run `setup.ps1` and set the `SWIPL` environment variable to an absolute path pointing at `libs/swipl/bin/swipl.exe`.
 
 ### Building and running
 

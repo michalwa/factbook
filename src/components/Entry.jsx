@@ -38,6 +38,7 @@ export function emitEntryFocusRequested(parentRef, detail) {
 
 export default function Entry(props) {
   const formattedTimestamp = () =>
+    props.timestamp &&
     formatDate(new Date(props.timestamp), "yyyy-MM-dd hh:mm");
 
   const { Editor, dispose: disposeEditor } = createRoot((dispose) => {

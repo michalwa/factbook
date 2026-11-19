@@ -12,7 +12,7 @@ if command -v apt; then
     libssl-dev \
     libayatana-appindicator3-dev \
     librsvg2-dev \
-    swi-prolog=10.0.2-*
+    swi-prolog=10.1.21-*
 elif command -v brew; then
   brew install swi-prolog
 else
