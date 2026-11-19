@@ -346,7 +346,7 @@ mod test {
     fn view_existence() {
         let (mut state, _) = generate_fixtures();
         // @bar(X), such that there exists a an entry with @foo(X, _)
-        let view = create_view(&mut state, "@bar(X), _: @foo(X, _)");
+        let view = create_view(&mut state, "@bar(X), any(@foo(X, _))");
 
         let mut matches = Vec::new();
         state
@@ -362,7 +362,7 @@ mod test {
     fn view_existence_mapping() {
         let (mut state, _) = generate_fixtures();
         // @bar(X), such that there exists a an entry with @baz(1, X)
-        let view = create_view(&mut state, "@bar(X), _: @baz(1, X)");
+        let view = create_view(&mut state, "@bar(X), any(@baz(1, X))");
 
         let mut matches = Vec::new();
         state
@@ -449,6 +449,40 @@ mod test {
             state.for_each_view_entry(view, |_| {}),
             Err(ViewError::Prolog(_))
         );
+    }
+
+    #[test]
+    fn view_synthetic_count() {
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, r#"count(N, @bar(_)), put(N)"#);
+
+        let mut matches = Vec::new();
+        state
+            .for_each_view_entry(view, |item| {
+                matches.push(match item {
+                    ViewItem::Entry(_, e) => e.content.clone(),
+                    ViewItem::Synthetic(_, content) => content.into(),
+                })
+            })
+            .unwrap();
+        assert_eq!(matches, ["3"]);
+    }
+
+    #[test]
+    fn view_synthetic_aggregate() {
+        let (mut state, _) = generate_fixtures();
+        let view = create_view(&mut state, r#"all(X, @bar(X), Xs), put(Xs)"#);
+
+        let mut matches = Vec::new();
+        state
+            .for_each_view_entry(view, |item| {
+                matches.push(match item {
+                    ViewItem::Entry(_, e) => e.content.clone(),
+                    ViewItem::Synthetic(_, content) => content.into(),
+                })
+            })
+            .unwrap();
+        assert_eq!(matches, ["[3,1,2]"]);
     }
 
     #[test]

@@ -11,15 +11,17 @@
 % Free variable serves as a catch-all wildcard view (e.g. `_`) and prevents
 % further clauses from matching uninstantiated views.
 view_entry(C, V, E) :-
-  ( var(V)         -> true
-  ; V = { G }      -> G
-  ; V = @T         -> entry_tag(C, E, T)
-  ; V = (X, Y)     -> (view_entry(C, X, E), view_entry(C, Y, E))
-  ; V = (X; Y)     -> (view_entry(C, X, E); view_entry(C, Y, E))
-  ; V = (E1: V1)   -> view_entry(C, V1, E1)
-  ; V = order(X)   -> set_entry_order_key(C, E, X)
-  ; V = created(T) -> entry_created(C, E, T)
-  ; V = put(S)     -> put_synthetic_entry(C, E, S)
+  ( var(V)             -> true
+  ; V = { G }          -> G
+  ; V = @T             -> entry_tag(C, E, T)
+  ; V = (X, Y)         -> (view_entry(C, X, E), view_entry(C, Y, E))
+  ; V = (X; Y)         -> (view_entry(C, X, E); view_entry(C, Y, E))
+  ; V = any(V1)        -> \+ \+ view_entry(C, V1, _)
+  ; V = all(T, V1, Rs) -> findall(T, view_entry(C, V1, _), Rs)
+  ; V = count(N, V1)   -> findall(E, view_entry(C, V1, E), Es), length(Es, N)
+  ; V = order(X)       -> set_entry_order_key(C, E, X)
+  ; V = created(T)     -> entry_created(C, E, T)
+  ; V = put(S)         -> put_synthetic_entry(C, E, S)
   ; syntax_error(V)
   ).
 
